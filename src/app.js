@@ -1,5 +1,5 @@
 import { PUZZLES, nextScramble, puzzleById, randomMoveScramble, warmUp } from './scramble.js';
-import { bluetoothAvailable, connectGanTimer, isSupported, reconnectGanTimer, TimerState } from './gan-timer.js';
+import { bluetoothAvailable, connectGanTimer, isSupported, TimerState } from './gan-timer.js';
 import {
   averageOf, best, bestAverageOf, bestMeanOf, effective, formatSolve, formatTime,
   meanOf, sessionMean, setDecimals, worst
@@ -1210,17 +1210,6 @@ function adoptDevice(connection) {
   offerTimerTimes();
 }
 
-/**
- * On opening the page, quietly pick up a timer this browser already knows, so
- * a solve done while the page was closed can be offered straight away.
- */
-async function tryQuietReconnect() {
-  const connection = await reconnectGanTimer({ onEvent: onDeviceEvent, onDisconnect: onDeviceDisconnect });
-  if (!connection) return;
-  adoptDevice(connection);
-  toast(`Verbonden met ${connection.name}.`);
-}
-
 el.connect.addEventListener('click', async () => {
   el.connect.blur();
 
@@ -1663,5 +1652,4 @@ syncSettingsUi();
 setPhase('idle');
 renderScramble();
 applySettings();
-newScramble(); // replaces the stand-in with an official one as soon as it is ready
-tryQuietReconnect(); // sets the ring colour, decimals, hint and renders the session
+newScramble(); // replaces the stand-in with an official one as soon as it is ready // sets the ring colour, decimals, hint and renders the session

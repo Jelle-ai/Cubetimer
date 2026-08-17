@@ -116,23 +116,6 @@ async function connectWithRetry(device, attempts = 3) {
   throw last;
 }
 
-/**
- * Reconnect to a timer this browser already has permission for, without asking
- * anything. Only some browsers expose that list; elsewhere this is a no-op.
- * @returns {Promise<object|null>} the connection, or null when it is not possible
- */
-export async function reconnectGanTimer({ onEvent, onDisconnect }) {
-  if (!isSupported() || !navigator.bluetooth.getDevices) return null;
-  try {
-    const known = await navigator.bluetooth.getDevices();
-    const device = known.find((candidate) => /^gan/i.test(candidate.name || ''));
-    if (!device) return null;
-    return await attach(device, { onEvent, onDisconnect });
-  } catch {
-    return null; // timer switched off, out of range, or permission withdrawn
-  }
-}
-
 async function attach(device, { onEvent, onDisconnect }) {
   const server = await connectWithRetry(device);
 

@@ -112,10 +112,8 @@ instellingen), dus wissen kan alleen via de eigen app van GAN. In de praktijk ma
 niets uit, want de app onthoudt wat hij al gezien heeft. Handmatig opnieuw kijken kan onder
 **Je timer** in de instellingen.
 
-Ondersteunt je browser het opvragen van eerder gekoppelde apparaten (Chrome met de
-nieuwe bluetooth-rechten), dan gebeurt dat al bij het openen van de pagina, zonder dat je
-op verbinden hoeft te klikken. Zo niet, dan komt de vraag zodra je op **Verbind timer**
-drukt.
+De vraag komt zodra je op **Verbind timer** drukt; de app maakt uit zichzelf geen
+verbinding bij het openen van de pagina.
 
 Loskoppelen doe je met dezelfde knop. Zolang de timer verbonden is, is de spatiebalk
 uitgeschakeld zodat je niet per ongeluk dubbel meet.
