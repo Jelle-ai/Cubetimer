@@ -50,6 +50,7 @@ let connectedAt = 0;
 let pendingTap = null;          // single tap waiting to see whether a second one follows
 let secondTouchStarted = false; // hands went back on while a tap was pending
 let toastTimer = null;
+let storageWarned = false;
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
 const MANUAL_HINT = isTouch
@@ -142,10 +143,17 @@ function toast(message) {
 
 /* ---------- session ---------- */
 
+/** Save, and say so once if this browser refuses to store anything. */
+function persist() {
+  if (save(solves) || storageWarned) return;
+  storageWarned = true;
+  toast('Deze browser bewaart niets (privémodus?). Je tijden blijven staan tot je de pagina herlaadt.');
+}
+
 function addSolve(ms) {
   solves.push({ ms, penalty: pendingPenalty, scramble, at: Date.now() });
   pendingPenalty = 'none';
-  save(solves);
+  persist();
   scramble = randomScramble();
   renderScramble();
   render();
@@ -154,13 +162,13 @@ function addSolve(ms) {
 function togglePenalty(index, penalty) {
   const solve = solves[index];
   solve.penalty = solve.penalty === penalty ? 'none' : penalty;
-  save(solves);
+  persist();
   render();
 }
 
 function removeSolve(index) {
   solves.splice(index, 1);
-  save(solves);
+  persist();
   render();
 }
 
@@ -171,7 +179,7 @@ function removeLastSolve() {
     return;
   }
   const removed = solves.pop();
-  save(solves);
+  persist();
   render();
   showTime(0);
   toast(`${formatSolve(removed)} gewist.`);
@@ -474,7 +482,7 @@ el.clear.addEventListener('click', () => {
   if (!solves.length) return;
   if (!confirm('Alle tijden van deze sessie wissen?')) return;
   solves = [];
-  save(solves);
+  persist();
   render();
 });
 

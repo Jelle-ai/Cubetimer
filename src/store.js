@@ -9,14 +9,20 @@ export function load() {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter((s) => typeof s?.ms === 'number') : [];
   } catch {
-    return [];
+    return []; // storage blocked or corrupted; start with an empty session
   }
 }
 
+/**
+ * Writes the session to disk.
+ * @returns {boolean} false when storage is unavailable (private mode, full disk,
+ * blocked cookies) so the caller can tell the user instead of losing times quietly.
+ */
 export function save(solves) {
   try {
     localStorage.setItem(KEY, JSON.stringify(solves));
+    return true;
   } catch {
-    // Storage can be full or blocked (private mode); the session still works.
+    return false;
   }
 }
