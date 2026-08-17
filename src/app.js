@@ -107,6 +107,8 @@ let storageWarned = false;
 let deleteArmed = false;   // a double tap asked to wipe the last time
 let deleteTimer = null;
 let armedByCurrentTouch = false; // the touch that raised the question cannot answer it
+let penaltyStep = 0; // how far the double taps have walked the last solve along
+let confirmTimer = null; // a confirming tap, held back to see if a second one follows
 let runningFrame = null;   // only used when the time stays visible during a solve
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
@@ -114,8 +116,8 @@ const isTouch = window.matchMedia('(pointer: coarse)').matches;
 function currentHint() {
   if (device) {
     return settings.inspection
-      ? 'Kort aanraken: 1× inspectie · 2× tijd wissen · vasthouden om te starten'
-      : 'Kort aanraken: 2× tijd wissen · vasthouden om te starten';
+      ? 'Kort aanraken: 1× inspectie · 2× +2, nog eens DNF, nog eens wissen · vasthouden om te starten'
+      : 'Kort aanraken: 2× +2, nog eens DNF, nog eens wissen · vasthouden om te starten';
   }
   const key = isTouch ? 'Tik' : 'Tik <kbd>spatie</kbd>';
   return settings.inspection
@@ -360,6 +362,7 @@ function renderSessions() {
 function useSession(index) {
   saveFile.active = index;
   solves = currentSession().solves;
+  penaltyStep = 0;
   disarmDelete();
   persist();
   render();
@@ -546,6 +549,7 @@ function persist() {
 
 function addSolve(ms) {
   const previousBest = best(solves);
+  penaltyStep = 0;
   solves.push({ ms, penalty: pendingPenalty, scramble, at: Date.now() });
   pendingPenalty = 'none';
   persist();
@@ -598,6 +602,37 @@ function removeSolve(index) {
 }
 
 /**
+ * Every double tap takes the last solve one step further: +2, then DNF, then
+ * the question to wipe it, then back to plain. The step resets as soon as a new
+ * solve comes in, so a double tap always speaks about the time you just did.
+ */
+function advancePenalty() {
+  if (!solves.length) {
+    toast('Nog geen tijd om aan te passen.');
+    return;
+  }
+
+  penaltyStep = (penaltyStep + 1) % 4;
+  const solve = solves[solves.length - 1];
+
+  if (penaltyStep === 3) { // ask before wiping
+    armDelete();
+    return;
+  }
+
+  disarmDelete();
+  solve.penalty = penaltyStep === 1 ? '+2' : penaltyStep === 2 ? 'DNF' : 'none';
+  persist();
+  render();
+
+  el.time.textContent = formatSolve(solve);
+  cue(penaltyStep === 0 ? 'target' : 'miss');
+  toast(penaltyStep === 1 ? `+2 · nu ${formatSolve(solve)}`
+    : penaltyStep === 2 ? 'DNF'
+    : `Weer gewoon ${formatSolve(solve)}`);
+}
+
+/**
  * A double tap does not delete straight away: it shows which time is about to
  * go and waits for one more tap. Repeat as often as you like.
  */
@@ -630,6 +665,7 @@ function disarmDelete() {
 function removeLastSolve() {
   deleteArmed = false;
   armedByCurrentTouch = false;
+  penaltyStep = 0;
   clearTimeout(deleteTimer);
   delete el.body.dataset.confirm;
   setHint(currentHint());
@@ -891,6 +927,8 @@ el.stage.addEventListener('contextmenu', (event) => {
 function clearPendingTap() {
   clearTimeout(pendingTap);
   pendingTap = null;
+  clearTimeout(confirmTimer);
+  confirmTimer = null;
 }
 
 /**
@@ -905,8 +943,8 @@ function onHandsOn() {
   if (pendingTap) { // second touch: the first action was not what was meant
     clearPendingTap();
     cancelInspection();
-    armDelete();
-    armedByCurrentTouch = true; // lifting off again may not confirm it
+    advancePenalty();
+    armedByCurrentTouch = true; // lifting off again may not answer the question
     setPhase('holding');
     return;
   }
@@ -931,8 +969,14 @@ function onHandsOff() {
   }
 
   if (deleteArmed) {
-    removeLastSolve(); // the confirming tap
+    // Hold the answer for a moment: a second tap right after means "carry on
+    // along the chain" rather than "yes, wipe it".
     setPhase('idle');
+    clearTimeout(confirmTimer);
+    confirmTimer = setTimeout(() => {
+      confirmTimer = null;
+      if (deleteArmed) removeLastSolve();
+    }, TAP_WINDOW_MS);
     return;
   }
 
