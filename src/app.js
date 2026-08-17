@@ -1,4 +1,4 @@
-import { PUZZLES, puzzleById, randomScramble } from './scramble.js';
+import { PUZZLES, nextScramble, puzzleById, randomMoveScramble, warmUp } from './scramble.js';
 import { connectGanTimer, isSupported, TimerState } from './gan-timer.js';
 import {
   averageOf, best, bestAverageOf, bestMeanOf, effective, formatSolve, formatTime,
@@ -76,7 +76,8 @@ const el = {
 let settings = loadSettings();
 let saveFile = load();
 let solves = saveFile.sessions[saveFile.active].solves;
-let scramble = randomScramble(saveFile.sessions[saveFile.active].puzzle);
+let scramble = randomMoveScramble(saveFile.sessions[saveFile.active].puzzle);
+let scrambleToken = 0; // guards against a slow scramble landing after a newer one
 let phase = 'idle'; // idle | inspecting | holding | ready | running
 let holdTimer = null;
 let startedAt = 0;
@@ -97,6 +98,7 @@ let toastTimer = null;
 let storageWarned = false;
 let deleteArmed = false;   // a double tap asked to wipe the last time
 let deleteTimer = null;
+let armedByCurrentTouch = false; // the touch that raised the question cannot answer it
 let runningFrame = null;   // only used when the time stays visible during a solve
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
@@ -292,6 +294,7 @@ function renderPuzzles() {
 /** Switching puzzle moves to that puzzle's session, creating one if needed. */
 function usePuzzle(id) {
   if (currentSession().puzzle === id) return;
+  warmUp(id);
 
   let index = saveFile.sessions.findIndex((session) => session.puzzle === id);
   if (index < 0) {
@@ -302,8 +305,24 @@ function usePuzzle(id) {
   newScramble();
 }
 
-function newScramble() {
-  scramble = randomScramble(currentSession().puzzle);
+/**
+ * Ask for the next official scramble. One is always queued up, so this normally
+ * resolves at once; while it does not, the previous scramble stays on screen.
+ */
+async function newScramble() {
+  const puzzle = currentSession().puzzle;
+  const token = ++scrambleToken;
+  el.scramble.dataset.loading = 'true';
+
+  const { text, official } = await nextScramble(puzzle);
+  if (token !== scrambleToken) return; // a newer request already won
+
+  scramble = text;
+  delete el.scramble.dataset.loading;
+  el.scramble.dataset.official = String(official);
+  el.scramble.title = official
+    ? 'Officiële random-state scramble · klik om te kopiëren'
+    : 'Reservescramble: de officiële scrambler kon niet laden · klik om te kopiëren';
   renderScramble();
 }
 
@@ -588,6 +607,7 @@ function armDelete() {
 function disarmDelete() {
   if (!deleteArmed) return;
   deleteArmed = false;
+  armedByCurrentTouch = false;
   clearTimeout(deleteTimer);
   delete el.body.dataset.confirm;
   setHint(currentHint());
@@ -597,6 +617,7 @@ function disarmDelete() {
 /** Confirmed: drop the most recent time. */
 function removeLastSolve() {
   deleteArmed = false;
+  armedByCurrentTouch = false;
   clearTimeout(deleteTimer);
   delete el.body.dataset.confirm;
   setHint(currentHint());
@@ -727,7 +748,7 @@ function beginHold() {
 
   // Pressing down starts inspection right away; no waiting for the release.
   inspectionJustStarted = false;
-  if (settings.inspection && inspectionStartedAt === null) {
+  if (settings.inspection && inspectionStartedAt === null && !deleteArmed) {
     startInspection();
     inspectionJustStarted = true;
   }
@@ -750,6 +771,9 @@ function endHold() {
   clearTimeout(holdTimer);
   if (phase === 'ready') {
     startRunning();
+  } else if (deleteArmed && phase === 'holding') {
+    removeLastSolve(); // the confirming tap
+    setPhase('idle');
   } else if (phase === 'holding') {
     // A tap that started inspection keeps it; tapping again calls it off.
     if (inspectionJustStarted) setPhase('inspecting');
@@ -795,11 +819,6 @@ document.addEventListener('keydown', (event) => {
 
   if (phase === 'running') {
     stopRunning();
-    ignoreNextKeyUp = true;
-    return;
-  }
-  if (deleteArmed) {
-    removeLastSolve();
     ignoreNextKeyUp = true;
     return;
   }
@@ -875,23 +894,38 @@ function onHandsOn() {
     clearPendingTap();
     cancelInspection();
     armDelete();
+    armedByCurrentTouch = true; // lifting off again may not confirm it
     setPhase('holding');
     return;
   }
   pendingTap = setTimeout(() => { pendingTap = null; }, TAP_WINDOW_MS);
 
-  if (deleteArmed) removeLastSolve();
-  else if (inspectionStartedAt === null) startInspection();
+  // A pending delete waits for the hands to come off again: holding on into a
+  // solve must never wipe a time.
+  if (!deleteArmed && inspectionStartedAt === null) startInspection();
 
   setPhase('holding');
   if (inspectionStartedAt === null && !deleteArmed) showTime(0);
 }
 
-/** HANDS_OFF: hands lifted before the timer armed. */
+/** HANDS_OFF: hands lifted before the timer armed — this touch was a tap. */
 function onHandsOff() {
   if (phase === 'running') return;
+
+  if (armedByCurrentTouch) {
+    armedByCurrentTouch = false; // this touch only raised the question
+    setPhase('idle');
+    return;
+  }
+
+  if (deleteArmed) {
+    removeLastSolve(); // the confirming tap
+    setPhase('idle');
+    return;
+  }
+
   setPhase(inspectionStartedAt === null ? 'idle' : 'inspecting');
-  if (inspectionStartedAt === null && !deleteArmed) showTime(0);
+  if (inspectionStartedAt === null) showTime(0);
 }
 
 function onDeviceEvent({ state, time }) {
@@ -1288,4 +1322,5 @@ syncSettingsUi();
 
 setPhase('idle');
 renderScramble();
-applySettings(); // sets the ring colour, decimals, hint and renders the session
+applySettings();
+newScramble(); // replaces the stand-in with an official one as soon as it is ready // sets the ring colour, decimals, hint and renders the session

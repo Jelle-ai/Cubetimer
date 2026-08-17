@@ -1,14 +1,24 @@
-// Scramble generation per puzzle.
+// Scramble generation.
+//
+// Official scrambles are random-state: a random solved-cube position is picked
+// and a solver works out the moves to reach it. That is what cubing.js does
+// (the library behind the WCA scramblers), vendored under vendor/cubing.
+// Its solvers need to warm up, so every puzzle also has a random-move
+// generator to fall back on for the very first scramble or when the library
+// cannot load at all.
+
+import { randomScrambleForEvent } from '../vendor/cubing/scramble/index.js';
 
 /**
- * Every puzzle: which move groups exist, how many moves, and which suffixes.
- * A move may not repeat its own axis twice in a row, and A B A is skipped when
- * A and B are on opposite faces — both are reducible sequences.
+ * Per puzzle: the WCA event id for the real scrambler, plus the shape of the
+ * stand-in generator. A move may not repeat its own face twice in a row, and
+ * A B A is skipped when A and B are opposite — both are reducible.
  */
 export const PUZZLES = [
   {
     id: '333',
     name: '3x3',
+    event: '333',
     length: 20,
     faces: ['U', 'R', 'F', 'D', 'L', 'B'],
     suffixes: ['', "'", '2'],
@@ -17,6 +27,7 @@ export const PUZZLES = [
   {
     id: '222',
     name: '2x2',
+    event: '222',
     length: 11,
     faces: ['U', 'R', 'F'],
     suffixes: ['', "'", '2'],
@@ -25,6 +36,7 @@ export const PUZZLES = [
   {
     id: '444',
     name: '4x4',
+    event: '444',
     length: 44,
     faces: ['U', 'R', 'F', 'D', 'L', 'B', 'Uw', 'Rw', 'Fw'],
     suffixes: ['', "'", '2'],
@@ -33,6 +45,7 @@ export const PUZZLES = [
   {
     id: 'pyra',
     name: 'Pyraminx',
+    event: 'pyram',
     length: 10,
     faces: ['U', 'L', 'R', 'B'],
     suffixes: ['', "'"],
@@ -42,6 +55,7 @@ export const PUZZLES = [
   {
     id: 'skewb',
     name: 'Skewb',
+    event: 'skewb',
     length: 11,
     faces: ['U', 'L', 'R', 'B'],
     suffixes: ['', "'"],
@@ -55,8 +69,8 @@ export function puzzleById(id) {
 
 const pick = (list) => list[(Math.random() * list.length) | 0];
 
-/** Random-move scramble for the given puzzle. */
-export function randomScramble(puzzleId = '333') {
+/** Stand-in scramble, used until the real scrambler has warmed up. */
+export function randomMoveScramble(puzzleId = '333') {
   const puzzle = puzzleById(puzzleId);
   const moves = [];
   let previous = null;
@@ -71,7 +85,6 @@ export function randomScramble(puzzleId = '333') {
     previous = face;
   }
 
-  // Pyraminx finishes with its tips, each turned at most once.
   if (puzzle.tips) {
     for (const tip of puzzle.tips) {
       const turn = Math.random();
@@ -81,4 +94,40 @@ export function randomScramble(puzzleId = '333') {
   }
 
   return moves.join(' ');
+}
+
+/**
+ * One official scramble.
+ * @returns {Promise<{text: string, official: boolean}>}
+ */
+export async function officialScramble(puzzleId = '333') {
+  try {
+    const alg = await randomScrambleForEvent(puzzleById(puzzleId).event);
+    const text = alg.toString().trim();
+    if (text) return { text, official: true };
+  } catch {
+    // solver unavailable (old browser, blocked worker, offline first run)
+  }
+  return { text: randomMoveScramble(puzzleId), official: false };
+}
+
+// Scrambles are generated one ahead so the next one is ready the moment a
+// solve ends, instead of making the user wait for the solver.
+const queue = new Map();
+
+function fill(puzzleId) {
+  if (!queue.has(puzzleId)) queue.set(puzzleId, officialScramble(puzzleId));
+  return queue.get(puzzleId);
+}
+
+/** The next scramble for this puzzle, refilling the queue behind it. */
+export async function nextScramble(puzzleId = '333') {
+  const pending = fill(puzzleId);
+  queue.delete(puzzleId);
+  fill(puzzleId); // start the following one right away
+  return pending;
+}
+
+export function warmUp(puzzleId = '333') {
+  fill(puzzleId);
 }

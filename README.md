@@ -142,11 +142,17 @@ ring op het scherm, niet de lampjes in je mat.
 
 ## Over de scrambles
 
-De scrambles zijn *random-move*: willekeurige zetten waarbij dezelfde vlak-draai nooit
-twee keer achter elkaar komt en `A B A` met tegenoverliggende vlakken wordt vermeden.
-Dat is prima voor trainen, maar het is niet hetzelfde als de *random-state* scrambles die
-op officiële WCA-wedstrijden worden gebruikt. Die vragen een two-phase solver met
-pruning-tabellen — een project op zich, en het staat nog open.
+De scrambles zijn **random-state**: er wordt een willekeurige toestand van de puzzel
+gekozen en een solver rekent uit welke zetten daarheen leiden. Dat is de manier waarop
+officiële WCA-scrambles worden gemaakt, en het is wat je wilt — bij random-move scrambles
+zijn sommige toestanden waarschijnlijker dan andere.
+
+Het rekenwerk komt van [cubing.js](https://github.com/cubing/cubing.js), de bibliotheek
+achter de officiële WCA-scramblers, meegeleverd in `vendor/cubing` onder de MPL-2.0. De
+eerste scramble van een puzzel kost even (3x3 ongeveer een halve seconde, 4x4 een paar
+seconden); daarna staat de volgende altijd klaar en verschijnt hij meteen. Lukt het laden
+niet — een oude browser, of offline vóór de eerste keer — dan valt de app terug op een
+random-move scramble, herkenbaar aan de stippellijn eronder.
 
 ## Structuur
 
@@ -154,7 +160,8 @@ pruning-tabellen — een project op zich, en het staat nog open.
 index.html        opbouw van de pagina
 styles.css        styling
 src/app.js        state machine, invoer en UI
-src/scramble.js   scramble-generator
+src/scramble.js   scramble-generator (random-state via cubing.js, met reserve)
+vendor/           cubing.js (MPL-2.0) en random-uint-below (Unlicense)
 src/gan-timer.js  Web Bluetooth client voor de GAN Smart Timer
 src/stats.js      tijdnotatie, ao5/ao12, mean
 src/store.js      opslag van de sessie

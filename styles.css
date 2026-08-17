@@ -241,6 +241,10 @@ kbd {
 }
 
 .scramble:hover { background: var(--hover); }
+.scramble[data-loading] { opacity: .5; }
+
+/* A scramble the official scrambler could not deliver. */
+.scramble[data-official="false"] { text-decoration: underline dotted var(--muted); text-underline-offset: 5px; }
 
 .scramble-inner {
   margin: 0 auto;
