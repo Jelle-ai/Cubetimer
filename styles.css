@@ -198,11 +198,51 @@ kbd {
   gap: .75rem;
 }
 
+/* ---------- puzzle chips ---------- */
+
+.puzzles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .3rem;
+}
+
+.puzzle {
+  padding: .3rem .75rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--muted);
+  font-size: .74rem;
+  font-weight: 600;
+  transition: color .15s, background .15s, border-color .15s;
+}
+
+.puzzle:hover { color: var(--ink); }
+
+.puzzle[data-active="true"] {
+  color: #fff;
+  background: var(--led);
+  border-color: transparent;
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--led) 70%, transparent);
+}
+
 /* ---------- scramble ---------- */
 
 .scramble-block { text-align: center; }
 
 .scramble {
+  display: block;
+  margin: 0 auto;
+  padding: .2rem .4rem;
+  border-radius: 10px;
+  text-align: center;
+  transition: background .15s;
+}
+
+.scramble:hover { background: var(--hover); }
+
+.scramble-inner {
   margin: 0 auto;
   max-width: 26ch;
   font-size: clamp(1.02rem, 2.3vw, 1.28rem);
@@ -213,11 +253,39 @@ kbd {
   color: var(--ink);
 }
 
+/* ---------- inspection ring ---------- */
+
+.halo-progress {
+  position: absolute;
+  inset: -7px;
+  width: calc(100% + 14px);
+  height: calc(100% + 14px);
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.halo-progress-arc {
+  fill: none;
+  stroke: var(--led);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity .2s;
+  vector-effect: non-scaling-stroke;
+}
+
+body[data-phase="inspecting"] .halo-progress-arc,
+body[data-phase="holding"] .halo-progress-arc,
+body[data-phase="ready"] .halo-progress-arc { opacity: .9; }
+
+body[data-inspection="over"] .halo-progress-arc { stroke: var(--hold); }
+
 /* ---------- timer ---------- */
 
 /* The white ring with its glow is the halo of the timer's pads. */
 .halo {
   --glow: var(--led);
+  position: relative;
   display: grid;
   place-items: center;
   width: clamp(210px, 34vh, 300px);
@@ -563,6 +631,50 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
   .setting { flex-direction: column; align-items: stretch; gap: .55rem; }
   .setting-label small { display: block; }
   .segmented, .swatches { align-self: flex-start; }
+}
+
+/* ---------- insight line ---------- */
+
+.insight {
+  flex: none;
+  margin: 0;
+  padding: 0 .2rem;
+  color: var(--muted);
+  font-size: .72rem;
+  text-align: center;
+}
+
+/* ---------- colour pickers ---------- */
+
+.color-slots { display: flex; flex-direction: column; gap: .35rem; }
+
+.color-slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: .8rem;
+  color: var(--ink-soft);
+}
+
+.color-slot input[type="color"] {
+  width: 46px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+}
+
+.solve-note {
+  max-width: 8ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .66rem;
+  color: var(--muted);
+  font-style: italic;
 }
 
 /* ---------- session picker ---------- */

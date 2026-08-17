@@ -2,7 +2,15 @@
 
 const KEY = 'cubetimer.settings.v1';
 
-/** Ring colours picked from the LED glow of the GAN Halo pads. */
+/** Everything the user can recolour, with the shade it starts at. */
+export const COLOR_SLOTS = [
+  { key: 'led', label: 'Ring en accenten', fallback: '#4fc3f7' },
+  { key: 'ready', label: 'Klaar om te starten', fallback: '#21c274' },
+  { key: 'hold', label: 'Vasthouden en te traag', fallback: '#f4515b' },
+  { key: 'record', label: 'Records', fallback: '#c8890a' }
+];
+
+/** Quick picks for the ring, taken from the LED glow of the GAN Halo pads. */
 export const LED_COLORS = [
   { id: 'ice', label: 'IJsblauw', color: '#4fc3f7' },
   { id: 'aqua', label: 'Aqua', color: '#22d3ee' },
@@ -14,6 +22,7 @@ export const LED_COLORS = [
 
 const DEFAULTS = {
   led: 'ice',
+  colors: { led: '#4fc3f7', ready: '#21c274', hold: '#f4515b', record: '#c8890a' },
   theme: 'light',
   inspection: true,
   hideTime: true,
@@ -24,10 +33,15 @@ const DEFAULTS = {
   celebrate: true,
   highlight: true,
   targetOn: false,
-  targetMs: 20000
+  targetMs: 20000,
+  countUp: true,
+  wakeLock: true,
+  puzzle: '333'
 };
 
-const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'highlight'];
+const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'highlight', 'countUp', 'wakeLock'];
+
+const isColor = (value) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 
 export function loadSettings() {
   try {
@@ -44,6 +58,12 @@ export function loadSettings() {
     settings.targetOn = settings.targetOn === true;
     const target = Number(settings.targetMs);
     settings.targetMs = Number.isFinite(target) ? Math.min(Math.max(target, 1000), 600000) : DEFAULTS.targetMs;
+
+    const colors = { ...DEFAULTS.colors, ...(settings.colors || {}) };
+    for (const { key, fallback } of COLOR_SLOTS) {
+      if (!isColor(colors[key])) colors[key] = fallback;
+    }
+    settings.colors = colors;
     return settings;
   } catch {
     return { ...DEFAULTS };

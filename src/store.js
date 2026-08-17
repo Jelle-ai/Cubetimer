@@ -7,7 +7,7 @@ const LEGACY_KEY = 'cubetimer.session.v1';
 const isSolve = (solve) => typeof solve?.ms === 'number';
 
 function emptyState(solves = []) {
-  return { active: 0, sessions: [{ name: 'Sessie 1', solves }] };
+  return { active: 0, sessions: [{ name: '3x3', puzzle: '333', solves }] };
 }
 
 function clean(state) {
@@ -15,6 +15,7 @@ function clean(state) {
     .filter((session) => session && Array.isArray(session.solves))
     .map((session, index) => ({
       name: String(session.name || `Sessie ${index + 1}`).slice(0, 40),
+      puzzle: typeof session.puzzle === 'string' ? session.puzzle : '333',
       solves: session.solves.filter(isSolve)
     }));
 

@@ -1,11 +1,11 @@
-import { randomScramble } from './scramble.js';
+import { PUZZLES, puzzleById, randomScramble } from './scramble.js';
 import { connectGanTimer, isSupported, TimerState } from './gan-timer.js';
 import {
   averageOf, best, bestAverageOf, bestMeanOf, effective, formatSolve, formatTime,
   meanOf, sessionMean, setDecimals, worst
 } from './stats.js';
 import { load, save } from './store.js';
-import { LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
+import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 
 const TAP_WINDOW_MS = 600;    // window in which a second short touch counts as a double tap
@@ -29,6 +29,12 @@ const el = {
   clear: document.getElementById('clear'),
   toast: document.getElementById('toast'),
   settings: document.getElementById('settings'),
+  puzzles: document.getElementById('puzzles'),
+  progress: document.getElementById('progress'),
+  insight: document.getElementById('insight'),
+  colorSlots: document.getElementById('color-slots'),
+  detailNote: document.getElementById('detail-note'),
+  importTimes: document.getElementById('import-times'),
   statsButton: document.getElementById('stats'),
   statsSheet: document.getElementById('stats-sheet'),
   statsTitle: document.getElementById('stats-title'),
@@ -70,7 +76,7 @@ const el = {
 let settings = loadSettings();
 let saveFile = load();
 let solves = saveFile.sessions[saveFile.active].solves;
-let scramble = randomScramble();
+let scramble = randomScramble(saveFile.sessions[saveFile.active].puzzle);
 let phase = 'idle'; // idle | inspecting | holding | ready | running
 let holdTimer = null;
 let startedAt = 0;
@@ -78,6 +84,7 @@ let startedAt = 0;
 let inspectionStartedAt = null;
 let inspectionFrame = null;
 let inspectionCalls = 0; // 8 and 12 second calls already given
+let inspectionJustStarted = false;
 let pendingPenalty = 'none'; // penalty earned during inspection, applied to the next solve
 
 let ignoreNextKeyUp = false;
@@ -200,6 +207,13 @@ function renderSolves() {
       row.append(tag);
     }
 
+    if (solve.note) {
+      const note = document.createElement('span');
+      note.className = 'solve-note';
+      note.textContent = solve.note;
+      row.append(note);
+    }
+
     const chevron = document.createElement('span');
     chevron.className = 'solve-chevron';
     chevron.textContent = '\u203a';
@@ -209,6 +223,88 @@ function renderSolves() {
     item.append(row);
     el.solves.prepend(item);
   });
+}
+
+/* ---------- insight line ---------- */
+
+/** How many of the most recent solves stayed under the target, unbroken. */
+function currentStreak() {
+  let streak = 0;
+  for (let index = solves.length - 1; index >= 0; index--) {
+    const value = effective(solves[index]);
+    if (!Number.isFinite(value) || value > settings.targetMs) break;
+    streak++;
+  }
+  return streak;
+}
+
+/**
+ * Given the last four solves, the slowest fifth that still keeps the ao5 under
+ * `goal`. Only the middle two of the four matter: the trimmed mean drops the
+ * fastest and the slowest of the five whatever the new time turns out to be.
+ */
+function ao5Ceiling(goal) {
+  if (solves.length < 4) return null;
+  const window = solves.slice(-4).map(effective).sort((a, b) => a - b);
+  const [, second, third, fourth] = window;
+  if (![second, third, fourth].every(Number.isFinite)) return null;
+
+  if ((second + third + fourth) / 3 <= goal) return Infinity; // any time works
+  const ceiling = 3 * goal - second - third;
+  return ceiling > 0 ? ceiling : null;
+}
+
+function renderInsight() {
+  const parts = [];
+
+  if (settings.targetOn) {
+    const streak = currentStreak();
+    if (streak >= 2) parts.push(`${streak} op rij onder ${formatTime(settings.targetMs)}`);
+  }
+
+  const goal = settings.targetOn ? settings.targetMs : bestAverageOf(solves, 5);
+  if (goal) {
+    const ceiling = ao5Ceiling(goal);
+    if (ceiling === Infinity) parts.push(`ao5 onder ${formatTime(goal)} is zeker`);
+    else if (ceiling) parts.push(`ao5 onder ${formatTime(goal)}: deze mag max ${formatTime(ceiling)}`);
+  }
+
+  el.insight.textContent = parts.join('  ·  ');
+  el.insight.hidden = parts.length === 0;
+}
+
+/* ---------- puzzles ---------- */
+
+function renderPuzzles() {
+  el.puzzles.innerHTML = '';
+  const current = currentSession().puzzle;
+  for (const puzzle of PUZZLES) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'puzzle';
+    button.textContent = puzzle.name;
+    button.dataset.active = String(puzzle.id === current);
+    button.addEventListener('click', () => usePuzzle(puzzle.id));
+    el.puzzles.append(button);
+  }
+}
+
+/** Switching puzzle moves to that puzzle's session, creating one if needed. */
+function usePuzzle(id) {
+  if (currentSession().puzzle === id) return;
+
+  let index = saveFile.sessions.findIndex((session) => session.puzzle === id);
+  if (index < 0) {
+    saveFile.sessions.push({ name: puzzleById(id).name, puzzle: id, solves: [] });
+    index = saveFile.sessions.length - 1;
+  }
+  useSession(index);
+  newScramble();
+}
+
+function newScramble() {
+  scramble = randomScramble(currentSession().puzzle);
+  renderScramble();
 }
 
 /* ---------- sessions ---------- */
@@ -222,7 +318,9 @@ function renderSessions() {
   saveFile.sessions.forEach((session, index) => {
     const option = document.createElement('option');
     option.value = String(index);
-    option.textContent = `${session.name} (${session.solves.length})`;
+    const puzzle = puzzleById(session.puzzle).name;
+    const label = session.name === puzzle ? session.name : `${session.name} · ${puzzle}`;
+    option.textContent = `${label} (${session.solves.length})`;
     option.selected = index === saveFile.active;
     el.sessionSelect.append(option);
   });
@@ -238,6 +336,7 @@ function useSession(index) {
 
 el.sessionSelect.addEventListener('change', () => {
   useSession(Number(el.sessionSelect.value));
+  newScramble();
 });
 
 el.sessionManage.addEventListener('click', () => {
@@ -257,7 +356,11 @@ el.sessionName.addEventListener('input', () => {
 });
 
 el.sessionNew.addEventListener('click', () => {
-  saveFile.sessions.push({ name: `Sessie ${saveFile.sessions.length + 1}`, solves: [] });
+  saveFile.sessions.push({
+    name: `Sessie ${saveFile.sessions.length + 1}`,
+    puzzle: currentSession().puzzle,
+    solves: []
+  });
   useSession(saveFile.sessions.length - 1);
   el.sessionSheet.close();
   toast('Nieuwe sessie gestart.');
@@ -344,6 +447,7 @@ function fillDetail() {
   el.detailTime.textContent = formatSolve(solve);
   el.detailMeta.textContent = describeMoment(solve.at);
   el.detailScramble.textContent = solve.scramble || 'Niet bewaard bij deze tijd.';
+  el.detailNote.value = solve.note || '';
   el.detailPlus2.dataset.active = String(solve.penalty === '+2');
   el.detailDnf.dataset.active = String(solve.penalty === 'DNF');
 }
@@ -354,6 +458,16 @@ function openDetail(index) {
   el.detail.showModal();
   el.detail.focus(); // otherwise the close button opens with a focus ring on it
 }
+
+el.detailNote.addEventListener('input', () => {
+  const solve = solves[detailIndex];
+  if (!solve) return;
+  const note = el.detailNote.value.trim().slice(0, 80);
+  if (note) solve.note = note;
+  else delete solve.note;
+  persist();
+  renderSolves();
+});
 
 el.detailPlus2.addEventListener('click', () => {
   togglePenalty(detailIndex, '+2');
@@ -375,6 +489,8 @@ function render() {
   renderStats();
   renderSolves();
   renderSessions();
+  renderPuzzles();
+  renderInsight();
 }
 
 function setHint(text) {
@@ -402,8 +518,7 @@ function addSolve(ms) {
   solves.push({ ms, penalty: pendingPenalty, scramble, at: Date.now() });
   pendingPenalty = 'none';
   persist();
-  scramble = randomScramble();
-  renderScramble();
+  newScramble();
   render();
 
   judgeSolve(previousBest);
@@ -496,9 +611,17 @@ function removeLastSolve() {
 
 /* ---------- inspection ---------- */
 
+const ARC = 2 * Math.PI * 47; // the progress circle has r=47
+
+function setArc(fraction) {
+  el.progress.style.strokeDasharray = String(ARC);
+  el.progress.style.strokeDashoffset = String(ARC * (1 - Math.max(0, Math.min(1, fraction))));
+}
+
 function inspectionTick() {
   const elapsed = performance.now() - inspectionStartedAt;
   const remaining = INSPECTION_MS - elapsed;
+  setArc(remaining / INSPECTION_MS);
 
   if (elapsed >= 8000 && inspectionCalls < 1) { inspectionCalls = 1; cue('warn8'); }
   if (elapsed >= 12000 && inspectionCalls < 2) { inspectionCalls = 2; cue('warn12'); }
@@ -524,6 +647,7 @@ function startInspection() {
 function stopInspection() {
   cancelAnimationFrame(inspectionFrame);
   inspectionFrame = null;
+  setArc(0);
   delete el.body.dataset.inspection;
   const startedInspection = inspectionStartedAt;
   inspectionStartedAt = null;
@@ -571,18 +695,43 @@ function startRunning() {
   }
 }
 
+function countUpTo(target) {
+  const startedCounting = performance.now();
+  const duration = 420;
+
+  const step = () => {
+    const progress = Math.min(1, (performance.now() - startedCounting) / duration);
+    const eased = 1 - (1 - progress) ** 3;
+    showTime(target * eased);
+    if (progress < 1) runningFrame = requestAnimationFrame(step);
+    else showTime(target);
+  };
+  step();
+}
+
 function stopRunning(ms) {
   cue('stop');
   cancelAnimationFrame(runningFrame);
   runningFrame = null;
   const elapsed = ms ?? performance.now() - startedAt;
   setPhase('idle');
-  showTime(elapsed);
+
+  if (settings.countUp && elapsed > 500) countUpTo(elapsed);
+  else showTime(elapsed);
+
   addSolve(Math.round(elapsed));
 }
 
 function beginHold() {
   if (phase !== 'idle' && phase !== 'inspecting') return;
+
+  // Pressing down starts inspection right away; no waiting for the release.
+  inspectionJustStarted = false;
+  if (settings.inspection && inspectionStartedAt === null) {
+    startInspection();
+    inspectionJustStarted = true;
+  }
+
   setPhase('holding');
   if (inspectionStartedAt === null) showTime(0);
   clearTimeout(holdTimer);
@@ -602,8 +751,9 @@ function endHold() {
   if (phase === 'ready') {
     startRunning();
   } else if (phase === 'holding') {
-    if (inspectionStartedAt !== null) cancelInspection();
-    else startInspection();
+    // A tap that started inspection keeps it; tapping again calls it off.
+    if (inspectionJustStarted) setPhase('inspecting');
+    else cancelInspection();
   }
 }
 
@@ -614,6 +764,24 @@ function manualTimingAllowed(target) {
   if (document.querySelector('dialog[open]')) return false;
   return !target?.closest?.('button, a, input');
 }
+
+/** Single-key shortcuts, ignored while typing or with a sheet open. */
+document.addEventListener('keydown', (event) => {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.target?.closest?.('input, textarea, select')) return;
+  if (document.querySelector('dialog[open]')) return;
+  if (phase !== 'idle') return;
+
+  const key = event.key.toLowerCase();
+  if (key === 'n') { newScramble(); toast('Nieuwe scramble.'); }
+  else if (key === 'c') el.scramble.click();
+  else if (key === 'd') { if (solves.length) armDelete(); }
+  else if (key === 'i') el.settingsOpen.click();
+  else if (key === 'f') {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else document.documentElement.requestFullscreen?.().catch(() => {});
+  }
+});
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
@@ -627,6 +795,11 @@ document.addEventListener('keydown', (event) => {
 
   if (phase === 'running') {
     stopRunning();
+    ignoreNextKeyUp = true;
+    return;
+  }
+  if (deleteArmed) {
+    removeLastSolve();
     ignoreNextKeyUp = true;
     return;
   }
@@ -689,38 +862,36 @@ function clearPendingTap() {
   pendingTap = null;
 }
 
-/** HANDS_ON: hands placed on the mat. */
-function onHandsOn() {
-  if (phase === 'idle' || phase === 'inspecting') {
-    setPhase('holding');
-    if (inspectionStartedAt === null && !deleteArmed) showTime(0);
-  }
-}
-
 /**
- * HANDS_OFF: hands lifted before the timer armed, so this touch was a tap.
- * A tap acts at once — it starts inspection, or confirms a pending delete. A
- * second tap inside the window turns that into "wipe the last time" instead.
+ * HANDS_ON: hands land on the mat. Everything happens here so there is no wait
+ * at all — inspection starts on contact. A second touch inside the window turns
+ * that first action into "wipe the last time" instead.
  */
-function onHandsOff() {
-  if (phase !== 'running') {
-    setPhase(inspectionStartedAt === null ? 'idle' : 'inspecting');
-    if (inspectionStartedAt === null && !deleteArmed) showTime(0);
-  }
+function onHandsOn() {
+  if (phase === 'running') return;
   if (performance.now() - connectedAt < CONNECT_GRACE_MS) return;
 
-  if (pendingTap) { // second tap: the first one was not what was meant
-    clearTimeout(pendingTap);
-    pendingTap = null;
+  if (pendingTap) { // second touch: the first action was not what was meant
+    clearPendingTap();
     cancelInspection();
     armDelete();
+    setPhase('holding');
     return;
   }
+  pendingTap = setTimeout(() => { pendingTap = null; }, TAP_WINDOW_MS);
 
   if (deleteArmed) removeLastSolve();
-  else startInspection();
+  else if (inspectionStartedAt === null) startInspection();
 
-  pendingTap = setTimeout(() => { pendingTap = null; }, TAP_WINDOW_MS);
+  setPhase('holding');
+  if (inspectionStartedAt === null && !deleteArmed) showTime(0);
+}
+
+/** HANDS_OFF: hands lifted before the timer armed. */
+function onHandsOff() {
+  if (phase === 'running') return;
+  setPhase(inspectionStartedAt === null ? 'idle' : 'inspecting');
+  if (inspectionStartedAt === null && !deleteArmed) showTime(0);
 }
 
 function onDeviceEvent({ state, time }) {
@@ -766,6 +937,7 @@ function onDeviceDisconnect() {
   setHint(currentHint());
   el.deviceNote.textContent = 'Nog geen timer verbonden.';
   el.deviceDetails.hidden = true;
+  el.importTimes.hidden = true;
   toast('Timer losgekoppeld.');
 }
 
@@ -804,6 +976,29 @@ el.connect.addEventListener('click', async () => {
   }
 });
 
+/* ---------- screen wake lock ---------- */
+
+let wakeSentinel = null;
+
+async function keepAwake() {
+  if (!settings.wakeLock || !navigator.wakeLock || wakeSentinel) return;
+  try {
+    wakeSentinel = await navigator.wakeLock.request('screen');
+    wakeSentinel.addEventListener('release', () => { wakeSentinel = null; });
+  } catch {
+    wakeSentinel = null; // denied or unsupported; nothing else to do
+  }
+}
+
+function letSleep() {
+  wakeSentinel?.release?.().catch(() => {});
+  wakeSentinel = null;
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') keepAwake();
+});
+
 /* ---------- settings ---------- */
 
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -821,7 +1016,11 @@ darkQuery.addEventListener('change', () => {
 
 function applySettings() {
   applyTheme();
-  document.documentElement.style.setProperty('--led', colorOf(settings.led));
+  for (const { key } of COLOR_SLOTS) {
+    document.documentElement.style.setProperty(`--${key}`, settings.colors[key]);
+  }
+  if (settings.wakeLock) keepAwake();
+  else letSleep();
   setDecimals(settings.decimals);
   if (!settings.inspection) cancelInspection();
   setHint(currentHint());
@@ -845,6 +1044,36 @@ function markGroup(group, value) {
   });
 }
 
+function buildColorSlots() {
+  el.colorSlots.innerHTML = '';
+  for (const { key, label } of COLOR_SLOTS) {
+    const row = document.createElement('label');
+    row.className = 'color-slot';
+
+    const name = document.createElement('span');
+    name.textContent = label;
+
+    const input = document.createElement('input');
+    input.type = 'color';
+    input.value = settings.colors[key];
+    input.addEventListener('input', () => {
+      settings.colors[key] = input.value;
+      storeSettings();
+      applySettings();
+      markGroup(el.ledColors, settings.led);
+    });
+
+    row.append(name, input);
+    el.colorSlots.append(row);
+  }
+}
+
+function syncColorSlots() {
+  el.colorSlots.querySelectorAll('input').forEach((input, index) => {
+    input.value = settings.colors[COLOR_SLOTS[index].key];
+  });
+}
+
 function buildLedSwatches() {
   el.ledColors.innerHTML = '';
   LED_COLORS.forEach(({ id, label, color }) => {
@@ -857,8 +1086,10 @@ function buildLedSwatches() {
     button.style.setProperty('--swatch', color);
     button.addEventListener('click', () => {
       settings.led = id;
+      settings.colors.led = color;
       storeSettings();
       applySettings();
+      syncColorSlots();
       markGroup(el.ledColors, id);
     });
     el.ledColors.append(button);
@@ -899,6 +1130,8 @@ const groups = {
 
 const switches = [
   bindSwitch('set-target', 'targetOn'),
+  bindSwitch('set-countUp', 'countUp'),
+  bindSwitch('set-wakeLock', 'wakeLock'),
   bindSwitch('set-inspection', 'inspection'),
   bindSwitch('set-hide', 'hideTime'),
   bindSwitch('set-sound', 'sound'),
@@ -913,6 +1146,7 @@ function syncSettingsUi() {
   markGroup(groups.decimals, settings.decimals);
   markGroup(groups.hold, settings.holdMs);
   markGroup(el.ledColors, settings.led);
+  syncColorSlots();
   for (const { control, key } of switches) control.setAttribute('aria-checked', String(settings[key]));
 }
 
@@ -954,9 +1188,33 @@ el.export.addEventListener('click', async () => {
  * of the timer is configured through GAN's own app over a protocol that is not
  * public, so this is read-only information.
  */
+/** The timer keeps its last four times; offer to take them over. */
+async function offerRecordedTimes() {
+  el.importTimes.hidden = true;
+  if (!device) return;
+  try {
+    const times = (await device.getRecordedTimes()).filter((ms) => ms > 0);
+    if (!times.length) return;
+    el.importTimes.textContent = `${times.length} tijden uit de timer overnemen`;
+    el.importTimes.hidden = false;
+    el.importTimes.onclick = () => {
+      for (const ms of times) {
+        solves.push({ ms, penalty: 'none', scramble: '', at: Date.now(), note: 'uit timergeheugen' });
+      }
+      persist();
+      render();
+      el.importTimes.hidden = true;
+      toast(`${times.length} tijden toegevoegd.`);
+    };
+  } catch {
+    // the timer refused the read; nothing to offer
+  }
+}
+
 async function showDeviceDetails() {
   if (!device) return;
   el.deviceNote.textContent = `${device.name} — verbonden.`;
+  offerRecordedTimes();
   const description = await device.describe();
   el.deviceDetails.innerHTML = '';
 
@@ -995,8 +1253,18 @@ el.settingsOpen.addEventListener('click', () => {
 
 el.newScramble.addEventListener('click', () => {
   el.newScramble.blur();
-  scramble = randomScramble();
-  renderScramble();
+  newScramble();
+});
+
+/** Click the scramble to put it on the clipboard. */
+el.scramble.addEventListener('click', async () => {
+  el.scramble.blur();
+  try {
+    await navigator.clipboard.writeText(scramble);
+    toast('Scramble gekopieerd.');
+  } catch {
+    toast('Kopiëren lukte niet in deze browser.');
+  }
 });
 
 el.clear.addEventListener('click', () => {
@@ -1015,6 +1283,7 @@ if (!isSupported()) {
 }
 
 buildLedSwatches();
+buildColorSlots();
 syncSettingsUi();
 
 setPhase('idle');

@@ -1,11 +1,16 @@
 # Cubetimer
 
-Minimalistische speedcube timer voor 3x3, met ondersteuning voor de **GAN Smart Timer**
-via Web Bluetooth. Geen build, geen dependencies — het is gewoon HTML, CSS en JavaScript.
+Speedcube timer met ondersteuning voor de **GAN Smart Timer** via Web Bluetooth.
+Geen build, geen dependencies — het is gewoon HTML, CSS en JavaScript, en hij werkt
+offline als je hem installeert.
 
 ## Features
 
-- 3x3 scrambles (20 zetten)
+- Scrambles voor 3x3, 2x2, 4x4, Pyraminx en Skewb; elke puzzel heeft zijn eigen sessie
+- Inspectie start op het moment dat je de mat aanraakt, met een ring die in 15 seconden
+  leegloopt rond de tijd
+- Klik op de scramble om hem te kopiëren; notities per solve in het detailvenster
+- Installeerbaar als app en bruikbaar zonder internet
 - Timen met de spatiebalk (of tikken op mobiel): vasthouden tot groen, loslaten om te starten
 - GAN Smart Timer koppelen — de tijd komt dan rechtstreeks van het apparaat, op de milliseconde nauwkeurig
 - WCA-inspectie van 15 seconden, met automatisch +2 na 15s en DNF na 17s
@@ -82,7 +87,11 @@ Zonder timer erbij (spatiebalk, of tikken op het scherm op mobiel):
 | Inspectie afbreken | nog een keer tikken, of `Esc` |
 | Timer starten | spatie vasthouden tot groen, dan loslaten |
 | Timer stoppen | spatie (of tik op het scherm) |
-| Nieuwe scramble | `nieuwe scramble` |
+| Nieuwe scramble | `nieuwe scramble` of `N` |
+| Scramble kopiëren | klik op de scramble of `C` |
+| Laatste tijd wissen | `D`, daarna bevestigen |
+| Instellingen | `I` |
+| Volledig scherm | `F` |
 | Details van een tijd | klik op de tijd in de sessielijst |
 | +2 / DNF / verwijderen | knoppen in dat detailvenster |
 
@@ -95,13 +104,15 @@ Via het tandwiel rechtsboven:
 
 | Instelling | Keuze |
 | --- | --- |
-| Ringkleur | Zes kleuren, afgeleid van de LED-kleuren van de Halo |
+| Kleuren | Zes snelkeuzes voor de ring, plus een kiezer voor elke kleur apart: ring, klaar, vasthouden en records |
 | Thema | Licht, donker of volg je toestel |
 | Inspectie | Aan (15 seconden, met +2 en DNF) of uit |
 | Tijd tijdens solve | Verbergen achter drie bolletjes, of gewoon laten lopen |
 | Decimalen | `0.00` of `0.000`, net als het display van je timer |
 | Vasthoudtijd | Kort (250 ms), normaal (400 ms) of lang (550 ms) |
-| Doeltijd | Zet een tijd; solves die eronder blijven krijgen een groen stipje |
+| Doeltijd | Zet een tijd; solves die eronder blijven krijgen een stipje, met een reeksteller |
+| Tijd laten oplopen | Het eindgetal telt op na het stoppen |
+| Scherm wakker houden | Voorkomt dat je telefoon in slaap valt tussen solves |
 | Geluid | Piep op 8 en 12 seconden inspectie, klik bij start en stop |
 | Trillen | Korte trilling bij groen, start en stop (mobiel) |
 | Vieren | Confetti onder je doeltijd, een korte rode puls erboven, en een feest over het hele scherm bij een record |
@@ -131,10 +142,11 @@ ring op het scherm, niet de lampjes in je mat.
 
 ## Over de scrambles
 
-De scrambles zijn *random-move*: 20 willekeurige zetten waarbij dezelfde vlak-draai nooit
+De scrambles zijn *random-move*: willekeurige zetten waarbij dezelfde vlak-draai nooit
 twee keer achter elkaar komt en `A B A` met tegenoverliggende vlakken wordt vermeden.
 Dat is prima voor trainen, maar het is niet hetzelfde als de *random-state* scrambles die
-op officiële WCA-wedstrijden worden gebruikt (die vragen een two-phase solver).
+op officiële WCA-wedstrijden worden gebruikt. Die vragen een two-phase solver met
+pruning-tabellen — een project op zich, en het staat nog open.
 
 ## Structuur
 
@@ -147,6 +159,7 @@ src/gan-timer.js  Web Bluetooth client voor de GAN Smart Timer
 src/stats.js      tijdnotatie, ao5/ao12, mean
 src/store.js      opslag van de sessie
 src/settings.js   voorkeuren en de kleuren
+manifest.webmanifest, sw.js, icons/  installeerbaar en offline
 src/feedback.js   tonen, trillen, confetti en de puls bij een gemiste doeltijd
 ```
 
