@@ -238,7 +238,7 @@ function renderSolves() {
 
     row.append(number, label);
 
-    if (solve.penalty !== 'none') {
+    if (solve.penalty && solve.penalty !== 'none') {
       const tag = document.createElement('span');
       tag.className = 'solve-tag';
       tag.textContent = solve.penalty;
