@@ -32,20 +32,26 @@ Open daarna http://localhost:8000.
 3. Handen op de mat: rood → groen → loslaten start de timer. Bij het stoppen leest de app
    de exacte tijd uit het apparaat en zet die in de sessie, met een nieuwe scramble.
 
-### De resetknop van de timer
+### Bediening op de timer zelf
 
-De timer stuurt een event zodra je de resetknop indrukt. De app leest dat zo:
+Even kort de mat aanraken met twee handen en weer loslaten — dus vóórdat de timer
+groen wordt — is het "knopje" van de app:
 
-| Druk | Wat er gebeurt |
+| Gebaar | Wat er gebeurt |
 | --- | --- |
-| 1× na een solve | De timer wordt gereset en de app zet het display ook op `0.00`. **Geen** inspectie. |
-| 1× op een lege timer | Inspectie start (15 seconden aftellen). |
-| 2× snel achter elkaar | De laatst gelopen tijd wordt gewist. |
-| 1× tijdens inspectie | Inspectie wordt afgebroken. |
+| 1× kort aanraken | Inspectie start (15 seconden aftellen) |
+| 2× kort aanraken achter elkaar | De laatst gelopen tijd wordt gewist |
+| 1× kort aanraken tijdens inspectie | Inspectie wordt afgebroken |
+| Aanraken en vasthouden tot groen | Gewone start van een solve — telt niet als aanraking |
+| Resetknop op de timer | Het display van de app gaat mee naar `0.00`, verder niets |
 
-De app wacht een halve seconde voordat een enkele druk wordt uitgevoerd, want in die
-tijd kan er nog een tweede druk komen. Het display springt wel meteen op `0.00`, dus je
-merkt daar niets van.
+Een enkele aanraking wordt pas na 600 ms uitgevoerd, want binnen dat venster kan er nog
+een tweede volgen. Zodra je handen weer op de mat gaan telt dat als het begin van een
+tweede aanraking; wordt het toch een solve (de timer springt op groen), dan vervalt die
+eerste aanraking vanzelf.
+
+Omdat de resetknop niets anders doet dan het display gelijkzetten, kan de reset na een
+solve nooit per ongeluk inspectie starten.
 
 Loskoppelen doe je met dezelfde knop. Zolang de timer verbonden is, is de spatiebalk
 uitgeschakeld zodat je niet per ongeluk dubbel meet.

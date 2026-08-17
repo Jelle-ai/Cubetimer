@@ -4,7 +4,7 @@ import { averageOf, best, formatSolve, formatTime, sessionMean } from './stats.j
 import { load, save } from './store.js';
 
 const HOLD_MS = 400;          // hold this long before the timer arms
-const DOUBLE_PRESS_MS = 500;  // window in which a second button press counts as a double press
+const TAP_WINDOW_MS = 600;    // window in which a second short touch counts as a double tap
 const INSPECTION_MS = 15000;  // WCA inspection
 const PLUS_TWO_MS = 17000;    // starting after this means DNF
 const CONNECT_GRACE_MS = 1500; // ignore device state echoed right after connecting
@@ -47,15 +47,15 @@ let ignoreNextPointerUp = false;
 
 let device = null;
 let connectedAt = 0;
-let awaitingReset = false; // a solve is on the device display and still needs its reset press
-let pendingPress = null;   // set while waiting to see whether a second press follows
+let pendingTap = null;          // single tap waiting to see whether a second one follows
+let secondTouchStarted = false; // hands went back on while a tap was pending
 let toastTimer = null;
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
 const MANUAL_HINT = isTouch
   ? 'Tik voor inspectie · vasthouden en loslaten om te starten'
   : 'Tik <kbd>spatie</kbd> voor inspectie · vasthouden en loslaten om te starten';
-const DEVICE_HINT = 'Knop 1× inspectie · 2× tijd wissen · handen op de timer om te starten';
+const DEVICE_HINT = 'Kort aanraken: 1× inspectie · 2× tijd wissen · vasthouden om te starten';
 
 /* ---------- rendering ---------- */
 
@@ -337,74 +337,90 @@ el.stage.addEventListener('contextmenu', (event) => {
 /* ---------- GAN Smart Timer ---------- */
 
 /**
- * The timer reports IDLE every time its reset button is pressed. One press
- * clears the display, two presses in quick succession drop the last time, and
- * a single press on an already cleared timer starts inspection. The press that
- * clears a finished solve never starts inspection.
+ * A short touch on the mat — both hands on and off again before the timer arms
+ * — is the gesture that drives the app: once starts inspection, twice in a row
+ * drops the last time. Touching and holding until the timer goes green is a
+ * normal solve start and never counts as a tap.
  */
-function onResetPressed() {
-  if (phase === 'running') return;
+function clearPendingTap() {
+  clearTimeout(pendingTap);
+  pendingTap = null;
+  secondTouchStarted = false;
+}
 
-  const wasAwaitingReset = awaitingReset;
-  awaitingReset = false;
+/** HANDS_ON: hands placed on the mat. */
+function onHandsOn() {
+  // A touch that begins while a tap is pending is the start of a double tap,
+  // unless it turns into a solve — GET_SET and RUNNING clear it again.
+  if (pendingTap) {
+    clearTimeout(pendingTap);
+    pendingTap = null;
+    secondTouchStarted = true;
+  }
+  if (phase === 'idle' || phase === 'inspecting') {
+    setPhase('holding');
+    if (inspectionStartedAt === null) showTime(0);
+  }
+}
 
-  if (pendingPress) { // second press within the window
-    clearTimeout(pendingPress);
-    pendingPress = null;
+/** HANDS_OFF: hands lifted before the timer armed, so this touch was a tap. */
+function onHandsOff() {
+  if (phase !== 'running') {
+    setPhase(inspectionStartedAt === null ? 'idle' : 'inspecting');
+    if (inspectionStartedAt === null) showTime(0);
+  }
+  if (performance.now() - connectedAt < CONNECT_GRACE_MS) return;
+
+  if (secondTouchStarted) { // second tap completed: wipe the last time
+    secondTouchStarted = false;
     cancelInspection();
     removeLastSolve();
     return;
   }
 
-  if (inspectionStartedAt === null) showTime(0); // the app follows the device display
-
-  pendingPress = setTimeout(() => {
-    pendingPress = null;
-    if (wasAwaitingReset) return;    // this press only cleared the finished solve
+  pendingTap = setTimeout(() => {
+    pendingTap = null;
     if (inspectionStartedAt !== null) cancelInspection();
     else startInspection();
-  }, DOUBLE_PRESS_MS);
+  }, TAP_WINDOW_MS);
 }
 
 function onDeviceEvent({ state, time }) {
   switch (state) {
     case TimerState.HANDS_ON:
-      if (phase === 'idle' || phase === 'inspecting') beginHoldFromDevice();
+      onHandsOn();
       break;
     case TimerState.GET_SET:
+      clearPendingTap(); // this touch is a solve, not a tap
       setPhase('ready');
       break;
     case TimerState.HANDS_OFF:
-      if (phase !== 'running') setPhase(inspectionStartedAt === null ? 'idle' : 'inspecting');
+      onHandsOff();
       break;
     case TimerState.RUNNING:
+      clearPendingTap();
       startRunning();
       break;
     case TimerState.STOPPED:
       // The device reports the authoritative time, down to the millisecond.
-      awaitingReset = true;
       stopRunning(time);
       break;
     case TimerState.IDLE:
-      // The timer echoes its state on connect; only treat later ones as presses.
-      if (performance.now() - connectedAt > CONNECT_GRACE_MS) onResetPressed();
+      // Reset button on the timer: the app follows, but never interrupts a
+      // running inspection.
+      if (phase !== 'running' && inspectionStartedAt === null) {
+        setPhase('idle');
+        showTime(0);
+      }
       break;
     default:
       break;
   }
 }
 
-/** Hands on the mat: same visual state as holding the spacebar. */
-function beginHoldFromDevice() {
-  setPhase('holding');
-  if (inspectionStartedAt === null) showTime(0);
-}
-
 function onDeviceDisconnect() {
   device = null;
-  clearTimeout(pendingPress);
-  pendingPress = null;
-  awaitingReset = false;
+  clearPendingTap();
   el.connect.textContent = 'Verbind GAN timer';
   el.deviceStatus.hidden = true;
   setHint(MANUAL_HINT);
@@ -428,7 +444,7 @@ el.connect.addEventListener('click', async () => {
   try {
     device = await connectGanTimer({ onEvent: onDeviceEvent, onDisconnect: onDeviceDisconnect });
     connectedAt = performance.now();
-    awaitingReset = false;
+    clearPendingTap();
     el.connect.textContent = 'Loskoppelen';
     el.deviceStatus.textContent = device.name;
     el.deviceStatus.hidden = false;
