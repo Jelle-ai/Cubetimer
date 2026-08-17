@@ -10,8 +10,11 @@ via Web Bluetooth. Geen build, geen dependencies — het is gewoon HTML, CSS en 
 - GAN Smart Timer koppelen — de tijd komt dan rechtstreeks van het apparaat, op de milliseconde nauwkeurig
 - WCA-inspectie van 15 seconden, met automatisch +2 na 15s en DNF na 17s
 - Tijdens een solve blijft alles gewoon staan; alleen in de ring verschijnen drie bolletjes
+- Meerdere sessies naast elkaar, elk met eigen tijden; kies ze bovenaan de lijst
 - Sessie met best, ao5, ao12 en mean; klik een tijd aan voor de scramble waarmee hij
   gelopen is, het tijdstip, en de knoppen voor +2, DNF en verwijderen
+- Klik op de statistiekbalk voor alles: mo3, ao50, ao100, beste ao5, beste ao12,
+  aantal +2 en DNF, en hoeveel solves onder je doeltijd bleven
 - Design in de kleuren van de GAN Halo op zijn mat: lichtblauw verloop, witte ring met
   blauwe gloed. De ring kleurt rood bij het vasthouden en groen zodra je mag starten
 - De pagina groeit nooit mee: alles past op één scherm en alleen de sessielijst scrolt
@@ -96,6 +99,7 @@ Via het tandwiel rechtsboven:
 | Tijd tijdens solve | Verbergen achter drie bolletjes, of gewoon laten lopen |
 | Decimalen | `0.00` of `0.000`, net als het display van je timer |
 | Vasthoudtijd | Kort (250 ms), normaal (400 ms) of lang (550 ms) |
+| Doeltijd | Zet een tijd; solves die eronder blijven krijgen een groen stipje |
 | Geluid | Piep op 8 en 12 seconden inspectie, klik bij start en stop |
 | Trillen | Korte trilling bij groen, start en stop (mobiel) |
 | Record vieren | Confetti en een melding bij een nieuw persoonlijk record |
@@ -104,6 +108,15 @@ Via het tandwiel rechtsboven:
 | Tijden exporteren | Hele sessie met scrambles naar je klembord |
 
 Alles wordt lokaal bewaard, net als de tijden.
+
+## Sessies
+
+Boven de lijst staat een keuzelijst met je sessies. Via **beheer** hernoem je de huidige
+sessie, start je een nieuwe, of gooi je er een weg. Elke sessie houdt zijn eigen tijden
+en statistieken bij; de laatst gekozen sessie staat er bij het openen weer.
+
+Tijden uit een oudere versie van de app worden bij het eerste bezoek automatisch als
+"Sessie 1" overgenomen.
 
 ### Waarom de lampjes van de timer hier niet te regelen zijn
 

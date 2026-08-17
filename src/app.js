@@ -1,6 +1,6 @@
 import { randomScramble } from './scramble.js';
 import { connectGanTimer, isSupported, TimerState } from './gan-timer.js';
-import { averageOf, best, effective, formatSolve, formatTime, sessionMean, setDecimals } from './stats.js';
+import { averageOf, best, bestAverageOf, effective, formatSolve, formatTime, meanOf, sessionMean, setDecimals, worst } from './stats.js';
 import { load, save } from './store.js';
 import { LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { celebrate, chord, tone, vibrate } from './feedback.js';
@@ -28,6 +28,19 @@ const el = {
   toast: document.getElementById('toast'),
   settings: document.getElementById('settings'),
   chart: document.getElementById('chart'),
+  statsButton: document.getElementById('stats'),
+  statsSheet: document.getElementById('stats-sheet'),
+  statsTitle: document.getElementById('stats-title'),
+  statsList: document.getElementById('stats-list'),
+  sessionSelect: document.getElementById('session-select'),
+  sessionManage: document.getElementById('session-manage'),
+  sessionSheet: document.getElementById('session-sheet'),
+  sessionName: document.getElementById('session-name'),
+  sessionSummary: document.getElementById('session-summary'),
+  sessionNew: document.getElementById('session-new'),
+  sessionDelete: document.getElementById('session-delete'),
+  targetSwitch: document.getElementById('set-target'),
+  targetValue: document.getElementById('set-target-value'),
   export: document.getElementById('export'),
   detail: document.getElementById('solve-detail'),
   detailTitle: document.getElementById('detail-title'),
@@ -51,7 +64,8 @@ const el = {
 };
 
 let settings = loadSettings();
-let solves = load();
+let saveFile = load();
+let solves = saveFile.sessions[saveFile.active].solves;
 let scramble = randomScramble();
 let phase = 'idle'; // idle | inspecting | holding | ready | running
 let holdTimer = null;
@@ -150,6 +164,9 @@ function renderSolves() {
     const value = effective(solve);
     if (fastest !== null && value === fastest) row.classList.add('is-best');
     else if (slowest !== null && value === slowest) row.classList.add('is-worst');
+    if (settings.targetOn && Number.isFinite(value) && value <= settings.targetMs) {
+      row.classList.add('is-under');
+    }
     row.addEventListener('click', () => openDetail(index));
 
     const number = document.createElement('span');
@@ -179,6 +196,115 @@ function renderSolves() {
     el.solves.prepend(item);
   });
 }
+
+/* ---------- sessions ---------- */
+
+function currentSession() {
+  return saveFile.sessions[saveFile.active];
+}
+
+function renderSessions() {
+  el.sessionSelect.innerHTML = '';
+  saveFile.sessions.forEach((session, index) => {
+    const option = document.createElement('option');
+    option.value = String(index);
+    option.textContent = `${session.name} (${session.solves.length})`;
+    option.selected = index === saveFile.active;
+    el.sessionSelect.append(option);
+  });
+}
+
+function useSession(index) {
+  saveFile.active = index;
+  solves = currentSession().solves;
+  disarmDelete();
+  persist();
+  render();
+}
+
+el.sessionSelect.addEventListener('change', () => {
+  useSession(Number(el.sessionSelect.value));
+});
+
+el.sessionManage.addEventListener('click', () => {
+  el.sessionManage.blur();
+  el.sessionName.value = currentSession().name;
+  el.sessionSummary.textContent = `${solves.length} tijden · ${saveFile.sessions.length} sessies in totaal`;
+  el.sessionDelete.disabled = saveFile.sessions.length < 2;
+  el.sessionSheet.showModal();
+  el.sessionSheet.focus();
+});
+
+el.sessionName.addEventListener('input', () => {
+  const name = el.sessionName.value.trim().slice(0, 40);
+  currentSession().name = name || `Sessie ${saveFile.active + 1}`;
+  persist();
+  renderSessions();
+});
+
+el.sessionNew.addEventListener('click', () => {
+  saveFile.sessions.push({ name: `Sessie ${saveFile.sessions.length + 1}`, solves: [] });
+  useSession(saveFile.sessions.length - 1);
+  el.sessionSheet.close();
+  toast('Nieuwe sessie gestart.');
+});
+
+el.sessionDelete.addEventListener('click', () => {
+  if (saveFile.sessions.length < 2) return;
+  if (!confirm(`"${currentSession().name}" verwijderen met alle tijden erin?`)) return;
+  const name = currentSession().name;
+  saveFile.sessions.splice(saveFile.active, 1);
+  useSession(Math.max(0, saveFile.active - 1));
+  el.sessionSheet.close();
+  toast(`${name} verwijderd.`);
+});
+
+/* ---------- all statistics ---------- */
+
+function statRows() {
+  const dnfs = solves.filter((solve) => solve.penalty === 'DNF').length;
+  const plusTwos = solves.filter((solve) => solve.penalty === '+2').length;
+  const rows = [
+    ['Solves', String(solves.length)],
+    ['Beste', formatTime(best(solves))],
+    ['Slechtste', formatTime(worst(solves))],
+    ['Mean', formatTime(sessionMean(solves))],
+    ['Mo3', formatTime(meanOf(solves, 3))],
+    ['Ao5', formatTime(averageOf(solves, 5))],
+    ['Ao12', formatTime(averageOf(solves, 12))],
+    ['Ao50', formatTime(averageOf(solves, 50))],
+    ['Ao100', formatTime(averageOf(solves, 100))],
+    ['Beste ao5', formatTime(bestAverageOf(solves, 5))],
+    ['Beste ao12', formatTime(bestAverageOf(solves, 12))],
+    ['+2', String(plusTwos)],
+    ['DNF', String(dnfs)]
+  ];
+
+  if (settings.targetOn) {
+    const under = solves.filter((solve) => {
+      const value = effective(solve);
+      return Number.isFinite(value) && value <= settings.targetMs;
+    }).length;
+    const share = solves.length ? Math.round((under / solves.length) * 100) : 0;
+    rows.push([`Onder ${formatTime(settings.targetMs)}`, `${under} van ${solves.length} (${share}%)`]);
+  }
+  return rows;
+}
+
+el.statsButton.addEventListener('click', () => {
+  el.statsButton.blur();
+  el.statsTitle.textContent = currentSession().name;
+  el.statsList.innerHTML = '';
+  for (const [label, value] of statRows()) {
+    const term = document.createElement('dt');
+    term.textContent = label;
+    const definition = document.createElement('dd');
+    definition.textContent = value;
+    el.statsList.append(term, definition);
+  }
+  el.statsSheet.showModal();
+  el.statsSheet.focus();
+});
 
 /* ---------- solve details ---------- */
 
@@ -239,6 +365,7 @@ function render() {
   renderStats();
   renderSolves();
   renderChart();
+  renderSessions();
 }
 
 function setHint(text) {
@@ -256,7 +383,7 @@ function toast(message) {
 
 /** Save, and say so once if this browser refuses to store anything. */
 function persist() {
-  if (save(solves) || storageWarned) return;
+  if (save(saveFile) || storageWarned) return;
   storageWarned = true;
   toast('Deze browser bewaart niets (privémodus?). Je tijden blijven staan tot je de pagina herlaadt.');
 }
@@ -706,6 +833,18 @@ function buildLedSwatches() {
   markGroup(el.ledColors, settings.led);
 }
 
+/** Binds a switch element to a boolean setting. */
+function bindSwitch(id, key) {
+  const control = document.getElementById(id);
+  control.addEventListener('click', () => {
+    settings[key] = !settings[key];
+    control.setAttribute('aria-checked', String(settings[key]));
+    storeSettings();
+    applySettings();
+  });
+  return { control, key };
+}
+
 function bindGroup(id, apply) {
   const group = document.getElementById(id);
   group.addEventListener('click', (event) => {
@@ -721,35 +860,47 @@ function bindGroup(id, apply) {
 
 const groups = {
   theme: bindGroup('set-theme', (v) => { settings.theme = v; }),
-  inspection: bindGroup('set-inspection', (v) => { settings.inspection = v === 'on'; }),
-  hide: bindGroup('set-hide', (v) => { settings.hideTime = v === 'on'; }),
   decimals: bindGroup('set-decimals', (v) => { settings.decimals = Number(v); }),
-  hold: bindGroup('set-hold', (v) => { settings.holdMs = Number(v); }),
-  sound: bindGroup('set-sound', (v) => { settings.sound = v === 'on'; }),
-  haptics: bindGroup('set-haptics', (v) => { settings.haptics = v === 'on'; }),
-  celebrate: bindGroup('set-celebrate', (v) => { settings.celebrate = v === 'on'; }),
-  chart: bindGroup('set-chart', (v) => { settings.chart = v === 'on'; }),
-  highlight: bindGroup('set-highlight', (v) => { settings.highlight = v === 'on'; })
+  hold: bindGroup('set-hold', (v) => { settings.holdMs = Number(v); })
 };
 
+const switches = [
+  bindSwitch('set-target', 'targetOn'),
+  bindSwitch('set-inspection', 'inspection'),
+  bindSwitch('set-hide', 'hideTime'),
+  bindSwitch('set-sound', 'sound'),
+  bindSwitch('set-haptics', 'haptics'),
+  bindSwitch('set-celebrate', 'celebrate'),
+  bindSwitch('set-chart', 'chart'),
+  bindSwitch('set-highlight', 'highlight')
+];
+
 function syncSettingsUi() {
+  el.targetValue.value = (settings.targetMs / 1000).toFixed(2).replace(/\.?0+$/, '');
   markGroup(groups.theme, settings.theme);
-  markGroup(groups.inspection, settings.inspection ? 'on' : 'off');
-  markGroup(groups.hide, settings.hideTime ? 'on' : 'off');
   markGroup(groups.decimals, settings.decimals);
   markGroup(groups.hold, settings.holdMs);
-  markGroup(groups.sound, settings.sound ? 'on' : 'off');
-  markGroup(groups.haptics, settings.haptics ? 'on' : 'off');
-  markGroup(groups.celebrate, settings.celebrate ? 'on' : 'off');
-  markGroup(groups.chart, settings.chart ? 'on' : 'off');
-  markGroup(groups.highlight, settings.highlight ? 'on' : 'off');
   markGroup(el.ledColors, settings.led);
+  for (const { control, key } of switches) control.setAttribute('aria-checked', String(settings[key]));
 }
+
+el.targetValue.addEventListener('change', () => {
+  const seconds = Number(el.targetValue.value);
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    el.targetValue.value = (settings.targetMs / 1000).toFixed(2).replace(/\.?0+$/, '');
+    return;
+  }
+  settings.targetMs = Math.min(Math.max(Math.round(seconds * 1000), 1000), 600000);
+  storeSettings();
+  applySettings();
+});
 
 /** Session as plain text, one solve per line, ready to paste anywhere. */
 function sessionAsText() {
-  return solves.map((solve, index) =>
-    `${index + 1}. ${formatSolve(solve)}   ${solve.scramble || ''}`.trimEnd()).join('\n');
+  const header = `${currentSession().name} — ${solves.length} tijden`;
+  const lines = solves.map((solve, index) =>
+    `${index + 1}. ${formatSolve(solve)}   ${solve.scramble || ''}`.trimEnd());
+  return [header, ...lines].join('\n');
 }
 
 el.export.addEventListener('click', async () => {
@@ -820,7 +971,7 @@ el.clear.addEventListener('click', () => {
   el.clear.blur();
   if (!solves.length) return;
   if (!confirm('Alle tijden van deze sessie wissen?')) return;
-  solves = [];
+  solves.length = 0;
   persist();
   render();
 });

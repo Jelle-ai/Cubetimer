@@ -23,7 +23,9 @@ const DEFAULTS = {
   haptics: true,
   celebrate: true,
   chart: true,
-  highlight: true
+  highlight: true,
+  targetOn: false,
+  targetMs: 20000
 };
 
 const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'chart', 'highlight'];
@@ -40,6 +42,9 @@ export function loadSettings() {
     if (![250, 400, 550].includes(settings.holdMs)) settings.holdMs = DEFAULTS.holdMs;
     if (!['light', 'dark', 'auto'].includes(settings.theme)) settings.theme = DEFAULTS.theme;
     for (const key of SWITCHES) settings[key] = settings[key] !== false;
+    settings.targetOn = settings.targetOn === true;
+    const target = Number(settings.targetMs);
+    settings.targetMs = Number.isFinite(target) ? Math.min(Math.max(target, 1000), 600000) : DEFAULTS.targetMs;
     return settings;
   } catch {
     return { ...DEFAULTS };

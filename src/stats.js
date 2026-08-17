@@ -36,19 +36,48 @@ export function formatSolve(solve) {
   return formatTime(solve.ms);
 }
 
-/**
- * Average of the last n solves: drop the best and the worst, mean the rest.
- * Two or more DNFs inside the window make the average a DNF (Infinity).
- */
-export function averageOf(solves, n) {
-  if (solves.length < n) return null;
-  const times = solves.slice(-n).map(effective);
+/** Trimmed average of exactly one window of solves. */
+function windowAverage(window) {
+  const times = window.map(effective);
   const dnfs = times.filter((t) => !Number.isFinite(t)).length;
   if (dnfs > 1) return Infinity;
 
   const sorted = times.slice().sort((a, b) => a - b);
   const trimmed = sorted.slice(1, -1);
   return trimmed.reduce((sum, t) => sum + t, 0) / trimmed.length;
+}
+
+/**
+ * Average of the last n solves: drop the best and the worst, mean the rest.
+ * Two or more DNFs inside the window make the average a DNF (Infinity).
+ */
+export function averageOf(solves, n) {
+  if (solves.length < n) return null;
+  return windowAverage(solves.slice(-n));
+}
+
+/** The best average of n anywhere in the session. */
+export function bestAverageOf(solves, n) {
+  if (solves.length < n) return null;
+  let record = null;
+  for (let start = 0; start + n <= solves.length; start++) {
+    const value = windowAverage(solves.slice(start, start + n));
+    if (Number.isFinite(value) && (record === null || value < record)) record = value;
+  }
+  return record;
+}
+
+/** Mean of the last three, without trimming — a DNF makes it a DNF. */
+export function meanOf(solves, n) {
+  if (solves.length < n) return null;
+  const times = solves.slice(-n).map(effective);
+  if (times.some((t) => !Number.isFinite(t))) return Infinity;
+  return times.reduce((sum, t) => sum + t, 0) / times.length;
+}
+
+export function worst(solves) {
+  const times = solves.map(effective).filter(Number.isFinite);
+  return times.length ? Math.max(...times) : null;
 }
 
 /** Mean over every solve that is not a DNF. */

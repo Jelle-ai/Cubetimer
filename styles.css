@@ -477,7 +477,7 @@ body[data-phase="running"] .hint { opacity: .35; }
 }
 
 .segmented button {
-  min-height: 34px;
+  min-height: 38px;
   padding: 0 .7rem;
   border-radius: 9px;
   font-size: .78rem;
@@ -486,7 +486,12 @@ body[data-phase="running"] .hint { opacity: .35; }
   transition: background .15s, color .15s;
 }
 
-.segmented button[data-active="true"] { background: var(--card-solid); color: var(--ink); box-shadow: var(--shadow); }
+.segmented button[data-active="true"] {
+  background: var(--led);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--led) 70%, transparent);
+}
 
 .swatches { display: flex; gap: .4rem; }
 
@@ -521,6 +526,110 @@ body[data-phase="running"] .hint { opacity: .35; }
   .setting-label small { display: block; }
   .segmented, .swatches { align-self: flex-start; }
 }
+
+/* ---------- session picker ---------- */
+
+.session-select {
+  flex: 1;
+  min-width: 0;
+  max-width: 60%;
+  padding: .3rem .4rem;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.session-select:hover { border-color: var(--line); }
+
+.session-tools { display: flex; align-items: center; gap: .1rem; }
+
+.field { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .6rem; }
+.field span { font-size: .78rem; color: var(--muted); }
+
+.field input, .number-input {
+  padding: .55rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--sunken);
+  color: var(--ink);
+  font: inherit;
+  font-size: .9rem;
+}
+
+.number-input { width: 5.5rem; text-align: right; }
+.setting-control { display: flex; align-items: center; gap: .5rem; }
+
+.detail-actions button:disabled { opacity: .45; cursor: default; }
+
+/* ---------- statistics sheet ---------- */
+
+.stats-list {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .1rem .8rem;
+  margin: 0;
+}
+
+.stats-list dt { padding: .45rem 0; color: var(--muted); font-size: .82rem; border-top: 1px solid var(--line); }
+.stats-list dd { margin: 0; padding: .45rem 0; text-align: right; font-size: .9rem; font-weight: 500; border-top: 1px solid var(--line); }
+.stats-list dt:first-of-type, .stats-list dd:first-of-type { border-top: 0; }
+
+/* the stats row is a button now */
+.stats { border: 0; padding: 0; background: none; text-align: inherit; }
+.stats:hover .stat { background: var(--hover); }
+
+/* a solve that stayed under the target */
+.solve.is-under .solve-index::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: .3rem;
+  border-radius: 50%;
+  background: var(--ready);
+  vertical-align: middle;
+}
+
+/* ---------- switch ---------- */
+
+.switch {
+  flex: none;
+  position: relative;
+  width: 54px;
+  height: 32px;
+  padding: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 40%, transparent);
+  transition: background .2s;
+}
+
+/* Keeps the tap target at 44px without making the switch itself huge. */
+.switch::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+.switch span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(16, 48, 63, .3);
+  transition: transform .2s cubic-bezier(.3, .8, .4, 1);
+}
+
+.switch[aria-checked="true"] { background: var(--led); }
+.switch[aria-checked="true"] span { transform: translateX(22px); }
+.switch:active span { width: 30px; }
 
 /* ---------- chart ---------- */
 
