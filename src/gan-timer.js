@@ -6,16 +6,14 @@ const SERVICE = '0000fff0-0000-1000-8000-00805f9b34fb';
 const TIME_CHARACTERISTIC = '0000fff2-0000-1000-8000-00805f9b34fb';
 const STATE_CHARACTERISTIC = '0000fff5-0000-1000-8000-00805f9b34fb';
 
-const BATTERY_SERVICE = 0x180f;
-const BATTERY_LEVEL = 0x2a19;
+// Written out in full rather than as the 0x180f style short alias: not every
+// browser that speaks Web Bluetooth accepts the numeric form, and one that
+// cannot read the request refuses it before showing anything at all.
+const BATTERY_SERVICE = '0000180f-0000-1000-8000-00805f9b34fb';
+const BATTERY_LEVEL = '00002a19-0000-1000-8000-00805f9b34fb';
 
-/**
- * A browser only reveals services a page asked for up front. Keep this to the
- * timer service plus the two standard ones: asking for unusual UUIDs makes the
- * permission request larger for no gain, and some of them are blocked outright
- * depending on the browser and the platform.
- */
-const OPTIONAL_SERVICES = [SERVICE, BATTERY_SERVICE, 0x180a];
+/** A browser only reveals services a page asked for up front. */
+const OPTIONAL_SERVICES = [SERVICE, BATTERY_SERVICE];
 
 export const TimerState = {
   DISCONNECT: 0,
@@ -79,18 +77,27 @@ const cancelled = (error) => /cancel|chooser/i.test(error?.message || '');
  * form: every device, and only the timer service.
  */
 async function pickDevice() {
-  try {
-    return await navigator.bluetooth.requestDevice({
+  // From richest to plainest. Browsers differ in what they accept here, and one
+  // that cannot read the request turns it down before showing anything.
+  const attempts = [
+    {
       filters: [{ namePrefix: 'GAN' }, { namePrefix: 'Gan' }, { namePrefix: 'gan' }],
       optionalServices: OPTIONAL_SERVICES
-    });
-  } catch (error) {
-    if (cancelled(error)) throw error; // the user closed the chooser themselves
-    return navigator.bluetooth.requestDevice({
-      acceptAllDevices: true,
-      optionalServices: [SERVICE]
-    });
+    },
+    { filters: [{ services: [SERVICE] }], optionalServices: [SERVICE] },
+    { acceptAllDevices: true, optionalServices: [SERVICE] }
+  ];
+
+  let last = null;
+  for (const options of attempts) {
+    try {
+      return await navigator.bluetooth.requestDevice(options);
+    } catch (error) {
+      if (cancelled(error)) throw error; // the user closed the chooser themselves
+      last = error;
+    }
   }
+  throw last;
 }
 
 /** Whether this device has bluetooth at all, as far as the browser will say. */
