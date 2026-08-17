@@ -1133,13 +1133,25 @@ function onDeviceDisconnect() {
   toast('Timer losgekoppeld.');
 }
 
+/** Squeeze a name and a description out of whatever was thrown. */
+function describeError(error) {
+  if (error && typeof error === 'object') {
+    const name = error.name || error.constructor?.name || '';
+    const message = error.message || (String(error) === '[object Object]' ? '' : String(error));
+    return { name, message };
+  }
+  return { name: '', message: error === undefined ? '' : String(error) };
+}
+
 /**
- * Say what actually went wrong instead of a blanket "mislukt". The browser's
- * own message is kept on the end, because that is what makes a report useful.
+ * Say what actually went wrong instead of a blanket "mislukt". Whatever the
+ * browser handed over is kept on the end, because that is what makes a report
+ * useful — and the full object goes to the console as well.
  */
 function explainBluetoothError(error) {
-  const name = error?.name || 'Fout';
-  const detail = error?.message ? ` (${error.message})` : '';
+  console.error('Verbinden mislukt:', error);
+  const { name, message } = describeError(error);
+  const detail = message ? ` (${message})` : '';
 
   if (name === 'NotAllowedError') {
     return `Geen toestemming voor bluetooth. Sta het toe in je browser en probeer opnieuw${detail}`;
@@ -1153,8 +1165,13 @@ function explainBluetoothError(error) {
   if (name === 'NotSupportedError') {
     return `Deze browser kan niet met de timer praten${detail}`;
   }
-  if (name === 'Error') return error.message; // already a sentence of our own
-  return `${name}: ${error?.message || 'verbinden mislukt'}`;
+  // Our own throws carry a full sentence; a bare "Error" says nothing.
+  if (name === 'Error' && message && message !== 'Error') return message;
+
+  // Nothing usable came back. Name the usual causes rather than a bare "mislukt".
+  const kind = name || (error === undefined ? 'geen foutobject' : typeof error);
+  const raw = message ? `${kind}: ${message}` : kind;
+  return `Verbinden mislukt. Zet de timer even uit en weer aan, en koppel hem los van andere apparaten of apps. [${raw}]`;
 }
 
 /** Whatever the connection came from, wire it up the same way. */
@@ -1201,7 +1218,13 @@ el.connect.addEventListener('click', async () => {
   } catch (error) {
     device = null;
     el.connect.textContent = 'Verbind timer';
-    if (error?.name !== 'NotFoundError') { // user closed the device picker
+    if (error?.name === 'NotFoundError') {
+      // Both "you closed the picker" and "there is no bluetooth here" land on
+      // this name, so only the second one is worth a word.
+      if (/adapter|not available|globally disabled/i.test(error.message || '')) {
+        toast('Bluetooth staat uit op dit apparaat. Zet het aan en probeer opnieuw.');
+      }
+    } else {
       toast(explainBluetoothError(error));
     }
   } finally {
