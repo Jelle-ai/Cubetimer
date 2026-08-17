@@ -41,6 +41,7 @@ const el = {
   importTitle: document.getElementById('import-title'),
   importText: document.getElementById('import-text'),
   importList: document.getElementById('import-list'),
+  importNote: document.getElementById('import-note'),
   importYes: document.getElementById('import-yes'),
   importNo: document.getElementById('import-no'),
   statsButton: document.getElementById('stats'),
@@ -1333,22 +1334,27 @@ function alreadyRecorded(ms) {
  * usually also the most recent previous one — so the batch is deduplicated too.
  */
 async function unknownTimerTimes() {
-  if (!device) return [];
+  if (!device) return { times: [], slots: 0, skipped: 0 };
   try {
+    const stored = await device.getRecordedTimes();
     const skip = new Set(ignoredTimes());
     const seen = new Set();
-    return (await device.getRecordedTimes()).filter((ms) => {
+
+    const times = stored.filter((ms) => {
       if (ms <= 0 || skip.has(ms) || seen.has(ms) || alreadyRecorded(ms)) return false;
       seen.add(ms);
       return true;
     });
+
+    const filled = stored.filter((ms) => ms > 0).length;
+    return { times, slots: stored.length, skipped: filled - times.length };
   } catch {
-    return []; // the timer refused the read
+    return { times: [], slots: 0, skipped: 0 }; // the timer refused the read
   }
 }
 
 async function offerTimerTimes({ announce = false } = {}) {
-  const times = await unknownTimerTimes();
+  const { times, slots, skipped } = await unknownTimerTimes();
   el.importTimes.hidden = !device;
   if (!times.length) {
     if (announce) toast('Geen nieuwe tijden op je timer.');
@@ -1360,6 +1366,10 @@ async function offerTimerTimes({ announce = false } = {}) {
   el.importText.textContent = times.length === 1
     ? `Op je timer staat een tijd die hier nog niet bij staat. Wil je hem erbij zetten in "${currentSession().name}"?`
     : `Op je timer staan ${times.length} tijden die hier nog niet bij staan. Wil je ze erbij zetten in "${currentSession().name}"?`;
+
+  el.importNote.textContent = skipped > 0
+    ? `Je timer geeft ${slots} plekken door; ${skipped === 1 ? 'één daarvan was' : `${skipped} daarvan waren`} dubbel of stond er al bij.`
+    : `Alles wat je timer doorgeeft (${slots} plekken).`;
 
   el.importList.innerHTML = '';
   times.forEach((ms, index) => {

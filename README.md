@@ -80,11 +80,19 @@ solve nooit per ongeluk inspectie starten.
 
 ### Tijden die op je timer staan
 
-De timer bewaart zelf zijn laatste vier tijden. Zodra de app verbinding maakt kijkt hij
-of daar tijden bij zitten die nog niet in je sessie staan (de vier geheugenplaatsen
-kunnen dezelfde tijd meer dan eens bevatten, dus dubbele worden er ook uit gefilterd) — bijvoorbeeld solves die je
+De timer bewaart zelf een handvol tijden: de tijd op het display, gevolgd door de vorige.
+De app leest élke plek uit die het apparaat doorgeeft — niet een vast aantal — en biedt
+alles aan wat nog niet in je sessie staat. Zodra de app verbinding maakt kijkt hij
+of daar tijden bij zitten die nog niet in je sessie staan (de plek van het display bevat
+meestal dezelfde tijd als de meest recente vorige, dus dubbele worden eruit gefilterd) — bijvoorbeeld solves die je
 deed terwijl deze pagina dicht was. Zo ja, dan vraagt hij of je ze erbij wilt zetten.
-Zeg je nee, dan wordt daar niet meer om gevraagd. Handmatig opnieuw kijken kan onder
+Zeg je nee, dan wordt daar niet meer om gevraagd. Wat je overneemt wordt ook onthouden,
+dus je krijgt het nooit twee keer aangeboden.
+
+Het geheugen van de timer zelf leegmaken kan de app niet: op de bluetooth-dienst van de
+timer staat geen enkele schrijfbare ingang (te zien onder **Je timer** in de
+instellingen), dus wissen kan alleen via de eigen app van GAN. In de praktijk maakt dat
+niets uit, want de app onthoudt wat hij al gezien heeft. Handmatig opnieuw kijken kan onder
 **Je timer** in de instellingen.
 
 Ondersteunt je browser het opvragen van eerder gekoppelde apparaten (Chrome met de

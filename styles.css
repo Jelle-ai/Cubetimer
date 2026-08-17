@@ -791,6 +791,8 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
 
 .import-list li span { color: var(--muted); font-size: .72rem; font-weight: 400; }
 
+.import-note { margin: .6rem 0 0; color: var(--muted); font-size: .72rem; line-height: 1.5; }
+
 /* ---------- switch ---------- */
 
 .switch {

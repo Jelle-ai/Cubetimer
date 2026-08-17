@@ -127,11 +127,20 @@ async function attach(device, { onEvent, onDisconnect }) {
         return [];
       }
     },
-    /** Last four times stored in the timer itself. */
+    /**
+     * The times the timer keeps in its own memory: the one on the display
+     * followed by the previous ones, four bytes each. Every slot the
+     * characteristic hands over is read, not just the first four, in case a
+     * timer offers more.
+     */
     async getRecordedTimes() {
       const data = await timeChar.readValue();
-      if (data.byteLength < 16) throw new Error('Onverwachte data van de timer.');
-      return [readTime(data, 0), readTime(data, 4), readTime(data, 8), readTime(data, 12)];
+      const slots = Math.floor(data.byteLength / 4);
+      if (slots < 1) throw new Error('Onverwachte data van de timer.');
+
+      const times = [];
+      for (let slot = 0; slot < slots; slot++) times.push(readTime(data, slot * 4));
+      return times;
     },
     async disconnect() {
       await stateChar.stopNotifications().catch(() => {});
