@@ -6,6 +6,18 @@ const LEGACY_KEY = 'cubetimer.session.v1';
 
 const isSolve = (solve) => typeof solve?.ms === 'number';
 
+// Imported times used to carry a note saying where they came from; it added
+// nothing, so it is dropped on read.
+const IMPORT_NOTES = new Set(['van de timer', 'uit timergeheugen']);
+
+function tidy(solve) {
+  if (IMPORT_NOTES.has(solve.note)) {
+    const { note, ...rest } = solve;
+    return rest;
+  }
+  return solve;
+}
+
 function emptyState(solves = []) {
   return { active: 0, sessions: [{ name: '3x3', puzzle: '333', solves }] };
 }
@@ -16,7 +28,7 @@ function clean(state) {
     .map((session, index) => ({
       name: String(session.name || `Sessie ${index + 1}`).slice(0, 40),
       puzzle: typeof session.puzzle === 'string' ? session.puzzle : '333',
-      solves: session.solves.filter(isSolve)
+      solves: session.solves.filter(isSolve).map(tidy)
     }));
 
   if (!sessions.length) return emptyState();
@@ -30,7 +42,7 @@ export function load() {
     if (raw) return clean(JSON.parse(raw));
 
     const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null');
-    return emptyState(Array.isArray(legacy) ? legacy.filter(isSolve) : []);
+    return emptyState(Array.isArray(legacy) ? legacy.filter(isSolve).map(tidy) : []);
   } catch {
     return emptyState();
   }

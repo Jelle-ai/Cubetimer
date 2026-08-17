@@ -1278,13 +1278,26 @@ function ignoreTimes(times) {
   }
 }
 
-/** Times on the device that this session does not have yet, newest first. */
+/** Is this exact time already somewhere in the session? */
+function alreadyRecorded(ms) {
+  return solves.some((solve) => solve.ms === ms);
+}
+
+/**
+ * Times on the device that this session does not have yet, newest first.
+ * The four slots can hold the same time more than once — the display time is
+ * usually also the most recent previous one — so the batch is deduplicated too.
+ */
 async function unknownTimerTimes() {
   if (!device) return [];
   try {
     const skip = new Set(ignoredTimes());
-    return (await device.getRecordedTimes())
-      .filter((ms) => ms > 0 && !skip.has(ms) && !solves.some((solve) => solve.ms === ms));
+    const seen = new Set();
+    return (await device.getRecordedTimes()).filter((ms) => {
+      if (ms <= 0 || skip.has(ms) || seen.has(ms) || alreadyRecorded(ms)) return false;
+      seen.add(ms);
+      return true;
+    });
   } catch {
     return []; // the timer refused the read
   }
@@ -1320,13 +1333,22 @@ async function offerTimerTimes({ announce = false } = {}) {
 }
 
 el.importYes.addEventListener('click', () => {
+  // Check again at this moment: the session may have grown, or the same time
+  // may sit in the batch twice.
+  const added = [];
   for (const ms of [...offeredTimes].reverse()) { // oldest first, so the newest ends last
-    solves.push({ ms, penalty: 'none', scramble: '', at: Date.now(), note: 'van de timer' });
+    if (alreadyRecorded(ms)) continue;
+    solves.push({ ms, penalty: 'none', scramble: '', at: Date.now() });
+    added.push(ms);
   }
+
   ignoreTimes(offeredTimes);
   persist();
   render();
-  toast(offeredTimes.length === 1 ? 'Tijd toegevoegd.' : `${offeredTimes.length} tijden toegevoegd.`);
+
+  if (!added.length) toast('Die tijden stonden er al.');
+  else toast(added.length === 1 ? 'Tijd toegevoegd.' : `${added.length} tijden toegevoegd.`);
+
   offeredTimes = [];
   el.importSheet.close();
 });

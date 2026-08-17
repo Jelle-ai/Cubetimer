@@ -75,7 +75,8 @@ solve nooit per ongeluk inspectie starten.
 ### Tijden die op je timer staan
 
 De timer bewaart zelf zijn laatste vier tijden. Zodra de app verbinding maakt kijkt hij
-of daar tijden bij zitten die nog niet in je sessie staan — bijvoorbeeld solves die je
+of daar tijden bij zitten die nog niet in je sessie staan (de vier geheugenplaatsen
+kunnen dezelfde tijd meer dan eens bevatten, dus dubbele worden er ook uit gefilterd) — bijvoorbeeld solves die je
 deed terwijl deze pagina dicht was. Zo ja, dan vraagt hij of je ze erbij wilt zetten.
 Zeg je nee, dan wordt daar niet meer om gevraagd. Handmatig opnieuw kijken kan onder
 **Je timer** in de instellingen.
