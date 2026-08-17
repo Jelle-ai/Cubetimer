@@ -1,5 +1,5 @@
 import { PUZZLES, nextScramble, puzzleById, randomMoveScramble, warmUp } from './scramble.js';
-import { connectGanTimer, isSupported, reconnectGanTimer, TimerState } from './gan-timer.js';
+import { bluetoothAvailable, connectGanTimer, isSupported, reconnectGanTimer, TimerState } from './gan-timer.js';
 import {
   averageOf, best, bestAverageOf, bestMeanOf, effective, formatSolve, formatTime,
   meanOf, sessionMean, setDecimals, worst
@@ -1174,6 +1174,29 @@ function explainBluetoothError(error) {
   return `Verbinden mislukt. Zet de timer even uit en weer aan, en koppel hem los van andere apparaten of apps. [${raw}]`;
 }
 
+/**
+ * Work out what to say. The browser is asked afterwards whether it has
+ * bluetooth at all, because asking beforehand would eat into the click that has
+ * to carry the request. The text also stays in the settings panel, since a
+ * toast is gone before anyone can write it down.
+ */
+async function reportConnectionFailure(error) {
+  const available = await bluetoothAvailable();
+  const { name, message } = describeError(error);
+
+  let text;
+  if (available === false) {
+    text = 'Dit apparaat heeft geen bluetooth, of de browser mag er niet bij. '
+      + 'Op een Mac staat dat onder Systeeminstellingen → Privacy → Bluetooth, op Windows bij Instellingen → Privacy.';
+  } else {
+    text = explainBluetoothError(error);
+  }
+
+  toast(text);
+  el.deviceNote.textContent = `Laatste poging mislukt — ${text} [${name || 'geen naam'}${message ? `: ${message}` : ''}]`;
+  el.importTimes.hidden = true;
+}
+
 /** Whatever the connection came from, wire it up the same way. */
 function adoptDevice(connection) {
   device = connection;
@@ -1218,15 +1241,8 @@ el.connect.addEventListener('click', async () => {
   } catch (error) {
     device = null;
     el.connect.textContent = 'Verbind timer';
-    if (error?.name === 'NotFoundError') {
-      // Both "you closed the picker" and "there is no bluetooth here" land on
-      // this name, so only the second one is worth a word.
-      if (/adapter|not available|globally disabled/i.test(error.message || '')) {
-        toast('Bluetooth staat uit op dit apparaat. Zet het aan en probeer opnieuw.');
-      }
-    } else {
-      toast(explainBluetoothError(error));
-    }
+    const closedByUser = error?.name === 'NotFoundError' && /cancel|chooser/i.test(error.message || '');
+    if (!closedByUser) await reportConnectionFailure(error);
   } finally {
     el.connect.disabled = false;
   }

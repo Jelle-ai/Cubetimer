@@ -66,12 +66,40 @@ function readTime(data, offset) {
  */
 export async function connectGanTimer({ onEvent, onDisconnect }) {
   if (!isSupported()) throw new Error('Web Bluetooth is niet beschikbaar in deze browser.');
+  return attach(await pickDevice(), { onEvent, onDisconnect });
+}
 
-  const device = await navigator.bluetooth.requestDevice({
-    filters: [{ namePrefix: 'GAN' }, { namePrefix: 'Gan' }, { namePrefix: 'gan' }],
-    optionalServices: OPTIONAL_SERVICES
-  });
-  return attach(device, { onEvent, onDisconnect });
+const cancelled = (error) => /cancel|chooser/i.test(error?.message || '');
+
+/**
+ * Show the browser's device chooser. Some browsers refuse a request before the
+ * chooser ever appears — over a name filter they dislike, or over a service in
+ * the list they will not hand out. So if the narrow request is turned away
+ * without the user having seen anything, ask again in the plainest possible
+ * form: every device, and only the timer service.
+ */
+async function pickDevice() {
+  try {
+    return await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'GAN' }, { namePrefix: 'Gan' }, { namePrefix: 'gan' }],
+      optionalServices: OPTIONAL_SERVICES
+    });
+  } catch (error) {
+    if (cancelled(error)) throw error; // the user closed the chooser themselves
+    return navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [SERVICE]
+    });
+  }
+}
+
+/** Whether this device has bluetooth at all, as far as the browser will say. */
+export async function bluetoothAvailable() {
+  try {
+    return await navigator.bluetooth?.getAvailability?.() ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** A first GATT connect often fails on a timer that just woke up. */

@@ -85,8 +85,15 @@ batterij en apparaatinfo, en leest je batterijstand uit als de timer die doorgee
 timer allemaal aanbiedt staat onder **Je timer** in de instellingen — een browser laat een
 pagina namelijk alleen diensten zien waar vooraf om gevraagd is.
 
-Lukt verbinden niet, dan zegt de melding wat er misging: geen toestemming, timer uit of al
-verbonden met een andere app, geen https, of een apparaat zonder de tijd-dienst. De eerste
+Verschijnt het keuzevenster van de browser niet, dan wordt de aanvraag meteen nog eens
+gedaan in de simpelste vorm: alle apparaten in de buurt, en alleen de tijd-dienst. Sommige
+browsers weigeren een aanvraag met naamfilters of met extra diensten erin nog voordat je
+iets te zien krijgt.
+
+Lukt verbinden alsnog niet, dan zegt de melding wat er misging: geen bluetooth op het
+apparaat, geen toestemming, timer uit of al verbonden met een andere app, geen https, of
+een apparaat zonder de tijd-dienst. Diezelfde tekst blijft onder **Je timer** in de
+instellingen staan, want een melding is weg voor je hem kunt overschrijven. De eerste
 poging om te koppelen mislukt bij bluetooth vaker zonder aanwijsbare reden, dus die wordt
 automatisch tot drie keer herhaald.
 
