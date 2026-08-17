@@ -34,6 +34,8 @@
       <button id="new-scramble" class="link" type="button">nieuwe scramble</button>
     </div>
 
+    <div id="preview" class="preview" hidden></div>
+
     <div class="halo">
       <svg class="halo-progress" viewBox="0 0 100 100" aria-hidden="true">
         <circle id="progress" class="halo-progress-arc" cx="50" cy="50" r="47"/>
@@ -177,6 +179,14 @@
         <small>15 seconden, met +2 en DNF</small>
       </div>
       <button type="button" class="switch" id="set-inspection" role="switch" aria-checked="true" aria-label="Inspectie"><span></span></button>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Kubusvoorbeeld</span>
+        <small>Klein plaatje van de gescramblede kubus (3x3 en 2x2)</small>
+      </div>
+      <button type="button" class="switch" id="set-preview" role="switch" aria-checked="true" aria-label="Kubusvoorbeeld"><span></span></button>
     </section>
 
     <section class="setting">

@@ -7,6 +7,7 @@ import {
 import { load, save } from './store.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
+import { previewSvg } from './cube.js';
 
 const TAP_WINDOW_MS = 600;    // window in which a second short touch counts as a double tap
 const DELETE_CONFIRM_MS = 8000; // how long a pending delete waits for its confirming tap
@@ -30,6 +31,7 @@ const el = {
   toast: document.getElementById('toast'),
   settings: document.getElementById('settings'),
   puzzles: document.getElementById('puzzles'),
+  preview: document.getElementById('preview'),
   progress: document.getElementById('progress'),
   insight: document.getElementById('insight'),
   colorSlots: document.getElementById('color-slots'),
@@ -151,6 +153,10 @@ function showTime(ms) {
 
 function renderScramble() {
   el.scramble.textContent = scramble;
+
+  const markup = settings.preview ? previewSvg(scramble, currentSession().puzzle) : '';
+  el.preview.innerHTML = markup;
+  el.preview.hidden = !markup;
 }
 
 /** Every column shows the latest value with the session record under it. */
@@ -1057,6 +1063,7 @@ function applySettings() {
   else letSleep();
   setDecimals(settings.decimals);
   if (!settings.inspection) cancelInspection();
+  renderScramble();
   setHint(currentHint());
   if (phase === 'idle' && !deleteArmed) showTime(0);
   render();
@@ -1164,6 +1171,7 @@ const groups = {
 
 const switches = [
   bindSwitch('set-target', 'targetOn'),
+  bindSwitch('set-preview', 'preview'),
   bindSwitch('set-countUp', 'countUp'),
   bindSwitch('set-wakeLock', 'wakeLock'),
   bindSwitch('set-inspection', 'inspection'),

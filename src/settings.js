@@ -32,6 +32,7 @@ const DEFAULTS = {
   haptics: true,
   celebrate: true,
   highlight: true,
+  preview: true,
   targetOn: false,
   targetMs: 20000,
   countUp: true,
@@ -39,7 +40,7 @@ const DEFAULTS = {
   puzzle: '333'
 };
 
-const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'highlight', 'countUp', 'wakeLock'];
+const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'highlight', 'preview', 'countUp', 'wakeLock'];
 
 const isColor = (value) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 
