@@ -1158,43 +1158,45 @@ body[data-miss] .halo {
 @media (max-width: 860px) and (min-height: 620px) {
   .shell {
     grid-template-columns: 1fr;
-    /* The ring takes what it needs, the session gets the rest and scrolls
-       inside itself. With the scramble out of the way that is most of it. */
-    grid-template-rows: minmax(0, auto) minmax(45dvh, 1fr);
+    /* The session gets everything the stage does not, and the stage is capped
+       so it can never take so much that the times are pushed off the screen --
+       a row asked for a minimum is still clipped when the row above overruns,
+       and on a phone the browser's own bars make the screen shorter than the
+       page thinks. Capping the top is the only version that cannot fail. */
+    grid-template-rows: minmax(0, auto) minmax(0, 1fr);
     gap: .7rem;
     padding: .6rem;
   }
 
-  .stage { justify-content: center; gap: .6rem; }
-  .halo { width: clamp(160px, 24vh, 230px); border-width: 6px; }
-  .time { font-size: clamp(2.2rem, 7.4vh, 3.1rem); }
+  .stage {
+    justify-content: center;
+    gap: .7rem;
+    max-height: 46vh;
+    max-height: 46dvh;
+  }
+  .halo { width: clamp(150px, 22vh, 210px); border-width: 6px; }
+  .time { font-size: clamp(2.1rem, 7vh, 2.9rem); }
 }
 
 /* ---------- what a phone leaves out ----------
 
-   The timer screen is the ring, the averages and the times. The puzzle chips,
-   the scramble and the cube are moved into their own sheet by applyLayout(),
-   reachable from the top bar; single and mo3 give up their columns to the two
-   averages, and are a tap away in the statistics sheet. */
+   Three things on the timer screen: the scramble, the ring, the times. The
+   puzzle chips move into a sheet of their own by applyLayout(), reachable from
+   the top bar. The cube is not drawn at all. The averages give up their card
+   and keep a "stats" link above the list, which opens the full set. */
 @media (max-width: 860px) {
-  /* Only the running total needs saying on a phone -- except the one line that
-     asks a question, which has to be answerable. */
+  /* Nothing needs saying under the ring -- except the one line that asks a
+     question, which has to be answerable. */
   body[data-compact="true"] .hint { display: none; }
   body[data-compact="true"][data-confirm] .hint { display: block; }
 
-  body[data-compact="true"] .insight { display: none; }
-
-  body[data-compact="true"] .stats { grid-template-columns: repeat(2, 1fr); }
-  body[data-compact="true"] .stat:nth-child(-n+2) { display: none; }
-  body[data-compact="true"] .stat:nth-child(3) { border-left: 0; }
-  body[data-compact="true"] .stat { padding: .55rem .25rem; }
-  body[data-compact="true"] .stat-label { font-size: .56rem; letter-spacing: .1em; }
-  body[data-compact="true"] .stat-value { font-size: 1rem; }
-  body[data-compact="true"] .stat-best { font-size: .78rem; }
+  body[data-compact="true"] .insight,
+  body[data-compact="true"] .stats { display: none; }
 
   /* Room is no longer scarce, so the times stop being miniatures. */
-  body[data-compact="true"] .solve { min-height: 44px; padding: .35rem .35rem .35rem .6rem; }
-  body[data-compact="true"] .solve-time { font-size: 1.02rem; }
+  body[data-compact="true"] .solve { min-height: 46px; padding: .4rem .35rem .4rem .6rem; }
+  body[data-compact="true"] .solve-time { font-size: 1.05rem; }
+  body[data-compact="true"] .solve-index { font-size: .72rem; }
 
   .brand { font-size: .68rem; letter-spacing: .18em; }
   .bar { padding: .7rem .85rem; gap: .5rem; }
@@ -1209,21 +1211,10 @@ body[data-miss] .halo {
   .brand::before { width: 13px; height: 13px; }
 }
 
-/* Inside its own sheet the scramble has room to be read properly. */
-.scramble-slot { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
-
-.scramble-slot .setup {
-  flex-direction: column;
-  gap: 1rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  box-shadow: none;
-}
-
-.scramble-slot .scramble-inner { font-size: 1.15rem; line-height: 1.7; max-width: none; }
-.scramble-slot .scramble-block .link { font-size: .74rem; }
-.scramble-slot .preview { width: min(210px, 58vw); }
+/* The puzzle picker, once it is a sheet of its own rather than a strip. */
+.scramble-slot { display: flex; flex-direction: column; align-items: stretch; gap: .5rem; }
+.scramble-slot .puzzles { flex-direction: column; }
+.scramble-slot .puzzle { padding: .7rem 1rem; font-size: .9rem; border-radius: 12px; }
 
 /* Sideways, or any window too short for a full-size ring. */
 @media (max-height: 620px) {

@@ -85,6 +85,7 @@ const el = {
   scrambleSlot: document.getElementById('scramble-slot'),
   scrambleOpen: document.getElementById('scramble-open'),
   scrambleClose: document.getElementById('scramble-close'),
+  statsOpen: document.getElementById('stats-open'),
   stats: {
     single: document.getElementById('st-single'),
     singleBest: document.getElementById('st-single-best'),
@@ -158,20 +159,23 @@ function currentHint() {
 }
 
 /**
- * A phone screen shows the ring, the averages and the times, and nothing else.
- * The puzzle chips, the scramble and the cube are not dropped -- they move into
- * a sheet of their own, one tap away in the top bar. The very same elements are
- * moved across, so there is never a second copy to keep in step.
+ * A phone screen shows the scramble, the ring and the times, and nothing else.
+ * The puzzle chips move into a sheet of their own, one tap away in the top bar;
+ * the same element is moved across, so there is never a second copy to keep in
+ * step. The statistics keep an entry of their own above the list, since the
+ * card that used to open them is gone.
  */
 function applyLayout() {
   const phone = narrow.matches;
   el.scrambleOpen.hidden = !phone;
+  el.statsOpen.hidden = !phone;
   el.body.dataset.compact = String(phone);
 
-  if (phone) el.scrambleSlot.append(el.puzzles, el.setup);
-  else el.stage.prepend(el.puzzles, el.setup); // both, in order, ahead of the ring
+  if (phone) el.scrambleSlot.append(el.puzzles);
+  else el.stage.prepend(el.puzzles); // back ahead of the scramble
 
   if (!phone && el.scrambleSheet.open) el.scrambleSheet.close();
+  renderScramble(); // the cube is drawn on a wide screen only
   if (!el.body.dataset.phase || el.body.dataset.phase === 'idle') setHint(currentHint());
 }
 
@@ -218,7 +222,10 @@ function showTime(ms) {
 function renderScramble() {
   el.scramble.textContent = scramble;
 
-  const markup = settings.preview ? previewSvg(scramble, currentSession().puzzle) : '';
+  // No cube on a phone: there the screen is the scramble, the ring and the times.
+  const markup = settings.preview && !narrow.matches
+    ? previewSvg(scramble, currentSession().puzzle)
+    : '';
   el.preview.innerHTML = markup;
   el.preview.hidden = !markup;
 }
@@ -510,8 +517,7 @@ function statRows() {
   return rows;
 }
 
-el.statsButton.addEventListener('click', () => {
-  el.statsButton.blur();
+function openStats() {
   el.statsTitle.textContent = currentSession().name;
   el.statsList.innerHTML = '';
   for (const [label, value] of statRows()) {
@@ -523,6 +529,18 @@ el.statsButton.addEventListener('click', () => {
   }
   el.statsSheet.showModal();
   el.statsSheet.focus();
+}
+
+// Two ways in: the card of averages on a wide screen, and a link above the list
+// on a phone, where that card is not on screen at all.
+el.statsButton.addEventListener('click', () => {
+  el.statsButton.blur();
+  openStats();
+});
+
+el.statsOpen.addEventListener('click', () => {
+  el.statsOpen.blur();
+  openStats();
 });
 
 /* ---------- selecting several solves ---------- */

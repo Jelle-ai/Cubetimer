@@ -18,7 +18,7 @@
   <span class="brand">cubetimer</span>
   <div class="bar-right">
     <span id="device-status" class="status" hidden></span>
-    <button id="scramble-open" class="icon-button" type="button" title="Scramble" aria-label="Scramble" hidden>
+    <button id="scramble-open" class="icon-button" type="button" title="Puzzel" aria-label="Puzzel" hidden>
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 3 3.6 7.2v9.6L12 21l8.4-4.2V7.2Z"/>
         <path d="M3.6 7.2 12 11.4l8.4-4.2M12 11.4V21"/>
@@ -89,6 +89,7 @@
       <div class="session-head">
         <select id="session-select" class="session-select" aria-label="Kies sessie"></select>
         <div class="session-tools">
+          <button id="stats-open" class="link" type="button" hidden>stats</button>
           <button id="select-mode" class="link" type="button">selecteer</button>
           <button id="session-manage" class="link" type="button">beheer</button>
           <button id="clear" class="link danger" type="button">wissen</button>
@@ -112,12 +113,12 @@
   </aside>
 </main>
 
-<!-- On a phone the puzzle chips, the scramble and the cube live in here instead
-     of on the timer screen. The elements themselves are moved, not copied. -->
+<!-- On a phone the puzzle chips live in here instead of on the timer screen.
+     The element itself is moved, not copied. -->
 <dialog id="scramble-sheet" class="sheet" tabindex="-1">
   <div class="sheet-inner">
     <header class="sheet-head">
-      <h2>Scramble</h2>
+      <h2>Puzzel</h2>
       <button type="button" id="scramble-close" class="icon-button" aria-label="Sluiten">✕</button>
     </header>
     <div id="scramble-slot" class="scramble-slot"></div>
