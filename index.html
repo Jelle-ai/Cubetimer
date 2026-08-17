@@ -32,12 +32,16 @@
   <section id="stage" class="stage">
     <div id="puzzles" class="puzzles" role="group" aria-label="Puzzel"></div>
 
-    <div class="scramble-block">
-      <button id="scramble" class="scramble" type="button" title="Klik om te kopiëren">–</button>
-      <button id="new-scramble" class="link" type="button">nieuwe scramble</button>
-    </div>
+    <!-- What you have to solve, kept together: on a phone the cube sits beside
+         the moves instead of below them, which saves a screenful of height. -->
+    <div class="setup">
+      <div class="scramble-block">
+        <button id="scramble" class="scramble" type="button" title="Klik om te kopiëren">–</button>
+        <button id="new-scramble" class="link" type="button">nieuwe scramble</button>
+      </div>
 
-    <div id="preview" class="preview" hidden></div>
+      <div id="preview" class="preview" hidden></div>
+    </div>
 
     <div class="halo">
       <svg class="halo-progress" viewBox="0 0 100 100" aria-hidden="true">
@@ -326,6 +330,15 @@
         <span>Je timer</span>
         <small id="device-note">Nog geen timer verbonden.</small>
       </div>
+
+      <dl class="gestures">
+        <dt>Vasthouden</dt><dd>starten</dd>
+        <dt>1× kort aanraken</dt><dd>inspectie</dd>
+        <dt>2× kort aanraken</dt><dd>+2 op de laatste tijd</dd>
+        <dt>nog eens</dt><dd>DNF</dd>
+        <dt>nog eens</dt><dd>wissen (tik 1× om te bevestigen)</dd>
+        <dt>nog eens</dt><dd>terug naar geen straf</dd>
+      </dl>
       <button type="button" id="import-times" class="text-button" hidden>Kijk of er tijden op de timer staan</button>
       <button type="button" id="connect-any" class="text-button">Toon alle bluetooth-apparaten</button>
       <p id="connect-any-note" class="device-hint">Staat je timer niet in de lijst? Deze knop laat alles zien wat in de buurt is, zonder te filteren op naam.</p>

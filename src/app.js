@@ -129,17 +129,33 @@ const selected = new Set();
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
 
+// A phone has no room for the whole gesture list: three lines of small print
+// under the ring crowd out everything else. There it says the one thing you
+// need, and the full list lives in the settings panel.
+const narrow = window.matchMedia('(max-width: 860px)');
+
 function currentHint() {
   if (device) {
+    if (narrow.matches) {
+      return settings.inspection
+        ? 'Aanraken voor inspectie · vasthouden om te starten'
+        : 'Vasthouden om te starten';
+    }
     return settings.inspection
       ? 'Kort aanraken: 1× inspectie · 2× +2, nog eens DNF, nog eens wissen · vasthouden om te starten'
       : 'Kort aanraken: 2× +2, nog eens DNF, nog eens wissen · vasthouden om te starten';
   }
   const key = isTouch ? 'Tik' : 'Tik <kbd>spatie</kbd>';
-  return settings.inspection
-    ? `${key} voor inspectie · vasthouden en loslaten om te starten`
-    : 'Vasthouden en loslaten om te starten';
+  if (!settings.inspection) return 'Vasthouden en loslaten om te starten';
+  return narrow.matches
+    ? `${key} voor inspectie · vasthouden om te starten`
+    : `${key} voor inspectie · vasthouden en loslaten om te starten`;
 }
+
+// Turning the phone sideways changes which hint fits.
+narrow.addEventListener('change', () => {
+  if (!el.body.dataset.phase || el.body.dataset.phase === 'idle') setHint(currentHint());
+});
 
 /* ---------- feedback ---------- */
 

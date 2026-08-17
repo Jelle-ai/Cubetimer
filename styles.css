@@ -261,6 +261,15 @@ kbd {
 
 /* ---------- scramble ---------- */
 
+/* Stacked on a wide screen, side by side on a phone (see the phone block). */
+.setup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+
 .scramble-block {
   text-align: center;
   padding: .5rem .9rem .35rem;
@@ -731,6 +740,21 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
 .swatch:hover { transform: scale(1.08); }
 .swatch[data-active="true"] { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--swatch); }
 
+/* The full gesture list, which no longer fits under the ring on a phone. */
+.gestures {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .1rem .8rem;
+  margin: 0;
+  padding: .7rem .85rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  font-size: .76rem;
+}
+
+.gestures dt { color: var(--muted); white-space: nowrap; }
+.gestures dd { margin: 0; color: var(--ink-soft); }
+
 .device-details {
   padding: .7rem;
   border-radius: 12px;
@@ -1061,27 +1085,60 @@ body[data-miss] .halo {
   text-align: center;
 }
 
-/* ---------- phone ---------- */
+/* ---------- small screens ----------
 
-@media (max-width: 860px) {
-  .shell {
-    grid-template-columns: 1fr;
-    /* The timer takes what it needs, the session gets at least a third of the
-       screen and scrolls inside itself. */
-    grid-template-rows: minmax(0, auto) minmax(35dvh, 1fr);
-    gap: .5rem;
-    padding: .5rem;
+   Two things go wrong on a phone, and they are not the same thing. Held
+   upright there is too little width, so the session moves underneath. Held
+   sideways there is too little height, so nothing may be tall. A phone in
+   landscape is 844px wide and 390px high: it needs the second treatment and
+   emphatically not the first. */
+
+/* Wherever height is short of it, the cube moves in beside the moves and the
+   two share one pane of glass. Together they cost one block of height instead
+   of two, which is what lets the ring stay big. */
+@media (max-width: 860px), (max-height: 620px) {
+  .setup {
+    flex-direction: row;
+    align-items: center;
+    gap: .6rem;
+    padding: .5rem .7rem;
+    border-radius: 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-soft), var(--edge);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 
-  .stage { gap: .3rem; justify-content: flex-start; }
-  .scramble { font-size: .88rem; line-height: 1.45; padding: .1rem .3rem; }
-  .scramble-block { padding: .3rem .5rem .2rem; border-radius: 14px; }
-  .scramble-block .link { font-size: .68rem; padding: .15rem .4rem; }
-  .preview { width: clamp(112px, 13.5vh, 150px); margin-top: 0; }
+  .scramble-block {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .scramble { font-size: .82rem; line-height: 1.5; padding: .1rem .2rem; }
+  .scramble-inner { max-width: none; }
+  .scramble-block .link { font-size: .66rem; padding: .1rem .3rem; }
+
+  .preview {
+    flex: none;
+    align-self: center;
+    width: clamp(96px, 13vh, 124px);
+    margin: 0;
+  }
+
+  .stage { gap: .7rem; justify-content: flex-start; }
   .puzzles { gap: .25rem; }
   .puzzle { padding: .25rem .6rem; font-size: .7rem; }
-  .halo { width: clamp(108px, 15vh, 150px); border-width: 4px; }
-  .time { font-size: clamp(1.8rem, 5.6vh, 2.4rem); }
   .hint { font-size: .72rem; }
   .stats { border-radius: 14px; }
   .stat { padding: .4rem .15rem; gap: .05rem; }
@@ -1092,4 +1149,42 @@ body[data-miss] .halo {
   .session { padding: .6rem; }
   .solve { padding: .25rem .25rem .25rem .5rem; }
   .solve-time { font-size: .95rem; }
+}
+
+/* Upright: one column, session underneath. Only when there is height enough to
+   stack two things -- a landscape phone is narrow by this rule too, and there
+   the columns must stay side by side. */
+@media (max-width: 860px) and (min-height: 620px) {
+  .shell {
+    grid-template-columns: 1fr;
+    /* The timer takes what it needs, the session gets at least a third of the
+       screen and scrolls inside itself. */
+    grid-template-rows: minmax(0, auto) minmax(35dvh, 1fr);
+    gap: .5rem;
+    padding: .5rem;
+  }
+
+  .halo { width: clamp(150px, 21vh, 205px); border-width: 5px; }
+  .time { font-size: clamp(2.1rem, 6.6vh, 2.9rem); }
+}
+
+/* A small phone upright. Tall enough to stack, not tall enough to be generous
+   about it: the ring gives back what the list needs to show more than two. */
+@media (max-width: 860px) and (min-height: 620px) and (max-height: 750px) {
+  .stage { gap: .45rem; }
+  .halo { width: clamp(118px, 18vh, 140px); }
+  .time { font-size: clamp(1.7rem, 5.2vh, 2.2rem); }
+  .preview { width: clamp(80px, 11vh, 100px); }
+  .scramble { font-size: .78rem; line-height: 1.45; }
+  .setup { padding: .4rem .6rem; }
+}
+
+/* Sideways, or any window too short for a full-size ring. */
+@media (max-height: 620px) {
+  .shell { gap: .8rem; padding: .6rem; }
+  .stage { gap: .45rem; justify-content: center; }
+  .halo { width: clamp(96px, 32vh, 190px); border-width: 5px; }
+  .time { font-size: clamp(1.5rem, 9vh, 2.6rem); }
+  .preview { width: clamp(70px, 20vh, 110px); }
+  .insight { display: none; }
 }
