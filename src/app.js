@@ -80,6 +80,11 @@ const el = {
   deviceDetails: document.getElementById('device-details'),
   connectAny: document.getElementById('connect-any'),
   connectAnyNote: document.getElementById('connect-any-note'),
+  setup: document.getElementById('setup'),
+  scrambleSheet: document.getElementById('scramble-sheet'),
+  scrambleSlot: document.getElementById('scramble-slot'),
+  scrambleOpen: document.getElementById('scramble-open'),
+  scrambleClose: document.getElementById('scramble-close'),
   stats: {
     single: document.getElementById('st-single'),
     singleBest: document.getElementById('st-single-best'),
@@ -152,10 +157,29 @@ function currentHint() {
     : `${key} voor inspectie · vasthouden en loslaten om te starten`;
 }
 
-// Turning the phone sideways changes which hint fits.
-narrow.addEventListener('change', () => {
+/**
+ * A phone screen shows the ring, the averages and the times, and nothing else.
+ * The puzzle chips, the scramble and the cube are not dropped -- they move into
+ * a sheet of their own, one tap away in the top bar. The very same elements are
+ * moved across, so there is never a second copy to keep in step.
+ */
+function applyLayout() {
+  const phone = narrow.matches;
+  el.scrambleOpen.hidden = !phone;
+  el.body.dataset.compact = String(phone);
+
+  if (phone) el.scrambleSlot.append(el.puzzles, el.setup);
+  else el.stage.prepend(el.puzzles, el.setup); // both, in order, ahead of the ring
+
+  if (!phone && el.scrambleSheet.open) el.scrambleSheet.close();
   if (!el.body.dataset.phase || el.body.dataset.phase === 'idle') setHint(currentHint());
-});
+}
+
+// Turning the phone sideways changes which layout fits.
+narrow.addEventListener('change', applyLayout);
+
+el.scrambleOpen.addEventListener('click', () => el.scrambleSheet.showModal());
+el.scrambleClose.addEventListener('click', () => el.scrambleSheet.close());
 
 /* ---------- feedback ---------- */
 
@@ -1685,6 +1709,7 @@ if (!isSupported()) {
 buildLedSwatches();
 buildColorSlots();
 syncSettingsUi();
+applyLayout();
 
 setPhase('idle');
 renderScramble();

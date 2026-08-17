@@ -151,6 +151,7 @@ kbd {
   font-size: .82rem;
   font-weight: 600;
   letter-spacing: .01em;
+  white-space: nowrap;
   color: #fff;
   background: linear-gradient(140deg, color-mix(in srgb, var(--led) 88%, #fff), color-mix(in srgb, var(--led) 55%, #1f7fb5));
   box-shadow:
@@ -1157,27 +1158,72 @@ body[data-miss] .halo {
 @media (max-width: 860px) and (min-height: 620px) {
   .shell {
     grid-template-columns: 1fr;
-    /* The timer takes what it needs, the session gets at least a third of the
-       screen and scrolls inside itself. */
-    grid-template-rows: minmax(0, auto) minmax(35dvh, 1fr);
-    gap: .5rem;
-    padding: .5rem;
+    /* The ring takes what it needs, the session gets the rest and scrolls
+       inside itself. With the scramble out of the way that is most of it. */
+    grid-template-rows: minmax(0, auto) minmax(45dvh, 1fr);
+    gap: .7rem;
+    padding: .6rem;
   }
 
-  .halo { width: clamp(150px, 21vh, 205px); border-width: 5px; }
-  .time { font-size: clamp(2.1rem, 6.6vh, 2.9rem); }
+  .stage { justify-content: center; gap: .6rem; }
+  .halo { width: clamp(160px, 24vh, 230px); border-width: 6px; }
+  .time { font-size: clamp(2.2rem, 7.4vh, 3.1rem); }
 }
 
-/* A small phone upright. Tall enough to stack, not tall enough to be generous
-   about it: the ring gives back what the list needs to show more than two. */
-@media (max-width: 860px) and (min-height: 620px) and (max-height: 750px) {
-  .stage { gap: .45rem; }
-  .halo { width: clamp(118px, 18vh, 140px); }
-  .time { font-size: clamp(1.7rem, 5.2vh, 2.2rem); }
-  .preview { width: clamp(80px, 11vh, 100px); }
-  .scramble { font-size: .78rem; line-height: 1.45; }
-  .setup { padding: .4rem .6rem; }
+/* ---------- what a phone leaves out ----------
+
+   The timer screen is the ring, the averages and the times. The puzzle chips,
+   the scramble and the cube are moved into their own sheet by applyLayout(),
+   reachable from the top bar; single and mo3 give up their columns to the two
+   averages, and are a tap away in the statistics sheet. */
+@media (max-width: 860px) {
+  /* Only the running total needs saying on a phone -- except the one line that
+     asks a question, which has to be answerable. */
+  body[data-compact="true"] .hint { display: none; }
+  body[data-compact="true"][data-confirm] .hint { display: block; }
+
+  body[data-compact="true"] .insight { display: none; }
+
+  body[data-compact="true"] .stats { grid-template-columns: repeat(2, 1fr); }
+  body[data-compact="true"] .stat:nth-child(-n+2) { display: none; }
+  body[data-compact="true"] .stat:nth-child(3) { border-left: 0; }
+  body[data-compact="true"] .stat { padding: .55rem .25rem; }
+  body[data-compact="true"] .stat-label { font-size: .56rem; letter-spacing: .1em; }
+  body[data-compact="true"] .stat-value { font-size: 1rem; }
+  body[data-compact="true"] .stat-best { font-size: .78rem; }
+
+  /* Room is no longer scarce, so the times stop being miniatures. */
+  body[data-compact="true"] .solve { min-height: 44px; padding: .35rem .35rem .35rem .6rem; }
+  body[data-compact="true"] .solve-time { font-size: 1.02rem; }
+
+  .brand { font-size: .68rem; letter-spacing: .18em; }
+  .bar { padding: .7rem .85rem; gap: .5rem; }
+  .bar-right { gap: .4rem; }
+  .pill { padding: .5rem .9rem; font-size: .78rem; }
+  .icon-button { width: 36px; height: 36px; }
 }
+
+/* The narrowest phones: the name goes, the ring it is drawn from stays. */
+@media (max-width: 360px) {
+  .brand { font-size: 0; gap: 0; }
+  .brand::before { width: 13px; height: 13px; }
+}
+
+/* Inside its own sheet the scramble has room to be read properly. */
+.scramble-slot { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+
+.scramble-slot .setup {
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.scramble-slot .scramble-inner { font-size: 1.15rem; line-height: 1.7; max-width: none; }
+.scramble-slot .scramble-block .link { font-size: .74rem; }
+.scramble-slot .preview { width: min(210px, 58vw); }
 
 /* Sideways, or any window too short for a full-size ring. */
 @media (max-height: 620px) {

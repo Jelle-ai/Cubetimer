@@ -18,6 +18,12 @@
   <span class="brand">cubetimer</span>
   <div class="bar-right">
     <span id="device-status" class="status" hidden></span>
+    <button id="scramble-open" class="icon-button" type="button" title="Scramble" aria-label="Scramble" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3 3.6 7.2v9.6L12 21l8.4-4.2V7.2Z"/>
+        <path d="M3.6 7.2 12 11.4l8.4-4.2M12 11.4V21"/>
+      </svg>
+    </button>
     <button id="settings-open" class="icon-button" type="button" title="Instellingen" aria-label="Instellingen">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3.1"/>
@@ -34,7 +40,7 @@
 
     <!-- What you have to solve, kept together: on a phone the cube sits beside
          the moves instead of below them, which saves a screenful of height. -->
-    <div class="setup">
+    <div id="setup" class="setup">
       <div class="scramble-block">
         <button id="scramble" class="scramble" type="button" title="Klik om te kopiëren">–</button>
         <button id="new-scramble" class="link" type="button">nieuwe scramble</button>
@@ -105,6 +111,18 @@
     </section>
   </aside>
 </main>
+
+<!-- On a phone the puzzle chips, the scramble and the cube live in here instead
+     of on the timer screen. The elements themselves are moved, not copied. -->
+<dialog id="scramble-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Scramble</h2>
+      <button type="button" id="scramble-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+    <div id="scramble-slot" class="scramble-slot"></div>
+  </div>
+</dialog>
 
 <dialog id="import-sheet" class="sheet" tabindex="-1">
   <form method="dialog" class="sheet-inner">
