@@ -14,11 +14,19 @@ export const LED_COLORS = [
 
 const DEFAULTS = {
   led: 'ice',
+  theme: 'light',
   inspection: true,
   hideTime: true,
   decimals: 2,
-  holdMs: 400
+  holdMs: 400,
+  sound: true,
+  haptics: true,
+  celebrate: true,
+  chart: true,
+  highlight: true
 };
+
+const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'chart', 'highlight'];
 
 export function loadSettings() {
   try {
@@ -30,8 +38,8 @@ export function loadSettings() {
     if (!LED_COLORS.some((c) => c.id === settings.led)) settings.led = DEFAULTS.led;
     if (settings.decimals !== 2 && settings.decimals !== 3) settings.decimals = DEFAULTS.decimals;
     if (![250, 400, 550].includes(settings.holdMs)) settings.holdMs = DEFAULTS.holdMs;
-    settings.inspection = settings.inspection !== false;
-    settings.hideTime = settings.hideTime !== false;
+    if (!['light', 'dark', 'auto'].includes(settings.theme)) settings.theme = DEFAULTS.theme;
+    for (const key of SWITCHES) settings[key] = settings[key] !== false;
     return settings;
   } catch {
     return { ...DEFAULTS };

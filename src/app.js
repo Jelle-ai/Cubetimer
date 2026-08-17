@@ -1,8 +1,10 @@
 import { randomScramble } from './scramble.js';
 import { connectGanTimer, isSupported, TimerState } from './gan-timer.js';
-import { averageOf, best, formatSolve, formatTime, sessionMean, setDecimals } from './stats.js';
+import { averageOf, best, effective, formatSolve, formatTime, sessionMean, setDecimals } from './stats.js';
 import { load, save } from './store.js';
 import { LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
+import { celebrate, chord, tone, vibrate } from './feedback.js';
+import { sessionChart } from './chart.js';
 
 const TAP_WINDOW_MS = 600;    // window in which a second short touch counts as a double tap
 const DELETE_CONFIRM_MS = 8000; // how long a pending delete waits for its confirming tap
@@ -25,6 +27,8 @@ const el = {
   clear: document.getElementById('clear'),
   toast: document.getElementById('toast'),
   settings: document.getElementById('settings'),
+  chart: document.getElementById('chart'),
+  export: document.getElementById('export'),
   detail: document.getElementById('solve-detail'),
   detailTitle: document.getElementById('detail-title'),
   detailTime: document.getElementById('detail-time'),
@@ -55,6 +59,7 @@ let startedAt = 0;
 
 let inspectionStartedAt = null;
 let inspectionFrame = null;
+let inspectionCalls = 0; // 8 and 12 second calls already given
 let pendingPenalty = 'none'; // penalty earned during inspection, applied to the next solve
 
 let ignoreNextKeyUp = false;
@@ -62,8 +67,7 @@ let ignoreNextPointerUp = false;
 
 let device = null;
 let connectedAt = 0;
-let pendingTap = null;          // single tap waiting to see whether a second one follows
-let secondTouchStarted = false; // hands went back on while a tap was pending
+let pendingTap = null; // window in which a second tap redirects the first one
 let toastTimer = null;
 let storageWarned = false;
 let deleteArmed = false;   // a double tap asked to wipe the last time
@@ -82,6 +86,25 @@ function currentHint() {
   return settings.inspection
     ? `${key} voor inspectie · vasthouden en loslaten om te starten`
     : 'Vasthouden en loslaten om te starten';
+}
+
+/* ---------- feedback ---------- */
+
+function cue(name) {
+  if (settings.sound) {
+    if (name === 'ready') tone(880, .06);
+    else if (name === 'start') tone(660, .05);
+    else if (name === 'stop') chord([784, 1046]);
+    else if (name === 'warn8') tone(520, .12);
+    else if (name === 'warn12') chord([520, 520], .16);
+    else if (name === 'record') chord([784, 988, 1319], .1);
+  }
+  if (settings.haptics) {
+    if (name === 'ready') vibrate(25);
+    else if (name === 'start') vibrate(12);
+    else if (name === 'stop') vibrate([15, 40, 15]);
+    else if (name === 'record') vibrate([20, 60, 20, 60, 40]);
+  }
 }
 
 /* ---------- rendering ---------- */
@@ -111,6 +134,10 @@ function renderSolves() {
   el.solves.innerHTML = '';
   el.empty.hidden = solves.length > 0;
 
+  const times = solves.map(effective).filter(Number.isFinite);
+  const fastest = settings.highlight && times.length > 1 ? Math.min(...times) : null;
+  const slowest = settings.highlight && times.length > 1 ? Math.max(...times) : null;
+
   solves.forEach((solve, index) => {
     const item = document.createElement('li');
 
@@ -119,17 +146,21 @@ function renderSolves() {
     row.type = 'button';
     row.className = 'solve';
     if (solve.penalty === 'DNF') row.classList.add('is-dnf');
+
+    const value = effective(solve);
+    if (fastest !== null && value === fastest) row.classList.add('is-best');
+    else if (slowest !== null && value === slowest) row.classList.add('is-worst');
     row.addEventListener('click', () => openDetail(index));
 
     const number = document.createElement('span');
     number.className = 'solve-index';
     number.textContent = index + 1;
 
-    const value = document.createElement('span');
-    value.className = 'solve-time';
-    value.textContent = formatSolve(solve);
+    const label = document.createElement('span');
+    label.className = 'solve-time';
+    label.textContent = formatSolve(solve);
 
-    row.append(number, value);
+    row.append(number, label);
 
     if (solve.penalty !== 'none') {
       const tag = document.createElement('span');
@@ -179,6 +210,7 @@ function openDetail(index) {
   detailIndex = index;
   fillDetail();
   el.detail.showModal();
+  el.detail.focus(); // otherwise the close button opens with a focus ring on it
 }
 
 el.detailPlus2.addEventListener('click', () => {
@@ -197,9 +229,16 @@ el.detailRemove.addEventListener('click', () => {
   el.detail.close();
 });
 
+function renderChart() {
+  const markup = settings.chart ? sessionChart(solves) : '';
+  el.chart.innerHTML = markup;
+  el.chart.hidden = !markup;
+}
+
 function render() {
   renderStats();
   renderSolves();
+  renderChart();
 }
 
 function setHint(text) {
@@ -223,12 +262,20 @@ function persist() {
 }
 
 function addSolve(ms) {
+  const previousBest = best(solves);
   solves.push({ ms, penalty: pendingPenalty, scramble, at: Date.now() });
   pendingPenalty = 'none';
   persist();
   scramble = randomScramble();
   renderScramble();
   render();
+
+  const record = best(solves);
+  if (solves.length > 1 && previousBest !== null && record !== null && record < previousBest) {
+    cue('record');
+    if (settings.celebrate) celebrate(colorOf(settings.led));
+    toast(`Persoonlijk record — ${formatTime(record)}`);
+  }
 }
 
 function togglePenalty(index, penalty) {
@@ -293,6 +340,9 @@ function inspectionTick() {
   const elapsed = performance.now() - inspectionStartedAt;
   const remaining = INSPECTION_MS - elapsed;
 
+  if (elapsed >= 8000 && inspectionCalls < 1) { inspectionCalls = 1; cue('warn8'); }
+  if (elapsed >= 12000 && inspectionCalls < 2) { inspectionCalls = 2; cue('warn12'); }
+
   if (remaining > 0) el.time.textContent = String(Math.ceil(remaining / 1000));
   else if (elapsed < PLUS_TWO_MS) el.time.textContent = '+2';
   else el.time.textContent = 'DNF';
@@ -304,6 +354,7 @@ function inspectionTick() {
 function startInspection() {
   if (!settings.inspection) return;
   inspectionStartedAt = performance.now();
+  inspectionCalls = 0;
   pendingPenalty = 'none';
   setPhase('inspecting');
   cancelAnimationFrame(inspectionFrame);
@@ -351,6 +402,7 @@ function startRunning() {
   setPhase('running');
   startedAt = performance.now();
 
+  cue('start');
   cancelAnimationFrame(runningFrame);
   if (settings.hideTime) {
     el.time.textContent = DOTS;
@@ -360,6 +412,7 @@ function startRunning() {
 }
 
 function stopRunning(ms) {
+  cue('stop');
   cancelAnimationFrame(runningFrame);
   runningFrame = null;
   const elapsed = ms ?? performance.now() - startedAt;
@@ -374,7 +427,9 @@ function beginHold() {
   if (inspectionStartedAt === null) showTime(0);
   clearTimeout(holdTimer);
   holdTimer = setTimeout(() => {
-    if (phase === 'holding') setPhase('ready');
+    if (phase !== 'holding') return;
+    setPhase('ready');
+    cue('ready');
   }, settings.holdMs);
 }
 
@@ -472,25 +527,21 @@ el.stage.addEventListener('contextmenu', (event) => {
 function clearPendingTap() {
   clearTimeout(pendingTap);
   pendingTap = null;
-  secondTouchStarted = false;
 }
 
 /** HANDS_ON: hands placed on the mat. */
 function onHandsOn() {
-  // A touch that begins while a tap is pending is the start of a double tap,
-  // unless it turns into a solve — GET_SET and RUNNING clear it again.
-  if (pendingTap) {
-    clearTimeout(pendingTap);
-    pendingTap = null;
-    secondTouchStarted = true;
-  }
   if (phase === 'idle' || phase === 'inspecting') {
     setPhase('holding');
     if (inspectionStartedAt === null && !deleteArmed) showTime(0);
   }
 }
 
-/** HANDS_OFF: hands lifted before the timer armed, so this touch was a tap. */
+/**
+ * HANDS_OFF: hands lifted before the timer armed, so this touch was a tap.
+ * A tap acts at once — it starts inspection, or confirms a pending delete. A
+ * second tap inside the window turns that into "wipe the last time" instead.
+ */
 function onHandsOff() {
   if (phase !== 'running') {
     setPhase(inspectionStartedAt === null ? 'idle' : 'inspecting');
@@ -498,19 +549,18 @@ function onHandsOff() {
   }
   if (performance.now() - connectedAt < CONNECT_GRACE_MS) return;
 
-  if (secondTouchStarted) { // second tap completed: ask before wiping
-    secondTouchStarted = false;
+  if (pendingTap) { // second tap: the first one was not what was meant
+    clearTimeout(pendingTap);
+    pendingTap = null;
     cancelInspection();
     armDelete();
     return;
   }
 
-  pendingTap = setTimeout(() => {
-    pendingTap = null;
-    if (deleteArmed) removeLastSolve();          // the confirming tap
-    else if (inspectionStartedAt !== null) cancelInspection();
-    else startInspection();
-  }, TAP_WINDOW_MS);
+  if (deleteArmed) removeLastSolve();
+  else startInspection();
+
+  pendingTap = setTimeout(() => { pendingTap = null; }, TAP_WINDOW_MS);
 }
 
 function onDeviceEvent({ state, time }) {
@@ -596,7 +646,21 @@ el.connect.addEventListener('click', async () => {
 
 /* ---------- settings ---------- */
 
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+function applyTheme() {
+  const dark = settings.theme === 'dark' || (settings.theme === 'auto' && darkQuery.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', dark ? 'dark' : 'light');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0b1a22' : '#bfe3f5');
+}
+
+darkQuery.addEventListener('change', () => {
+  if (settings.theme === 'auto') applyTheme();
+});
+
 function applySettings() {
+  applyTheme();
   document.documentElement.style.setProperty('--led', colorOf(settings.led));
   setDecimals(settings.decimals);
   if (!settings.inspection) cancelInspection();
@@ -656,19 +720,51 @@ function bindGroup(id, apply) {
 }
 
 const groups = {
+  theme: bindGroup('set-theme', (v) => { settings.theme = v; }),
   inspection: bindGroup('set-inspection', (v) => { settings.inspection = v === 'on'; }),
   hide: bindGroup('set-hide', (v) => { settings.hideTime = v === 'on'; }),
   decimals: bindGroup('set-decimals', (v) => { settings.decimals = Number(v); }),
-  hold: bindGroup('set-hold', (v) => { settings.holdMs = Number(v); })
+  hold: bindGroup('set-hold', (v) => { settings.holdMs = Number(v); }),
+  sound: bindGroup('set-sound', (v) => { settings.sound = v === 'on'; }),
+  haptics: bindGroup('set-haptics', (v) => { settings.haptics = v === 'on'; }),
+  celebrate: bindGroup('set-celebrate', (v) => { settings.celebrate = v === 'on'; }),
+  chart: bindGroup('set-chart', (v) => { settings.chart = v === 'on'; }),
+  highlight: bindGroup('set-highlight', (v) => { settings.highlight = v === 'on'; })
 };
 
 function syncSettingsUi() {
+  markGroup(groups.theme, settings.theme);
   markGroup(groups.inspection, settings.inspection ? 'on' : 'off');
   markGroup(groups.hide, settings.hideTime ? 'on' : 'off');
   markGroup(groups.decimals, settings.decimals);
   markGroup(groups.hold, settings.holdMs);
+  markGroup(groups.sound, settings.sound ? 'on' : 'off');
+  markGroup(groups.haptics, settings.haptics ? 'on' : 'off');
+  markGroup(groups.celebrate, settings.celebrate ? 'on' : 'off');
+  markGroup(groups.chart, settings.chart ? 'on' : 'off');
+  markGroup(groups.highlight, settings.highlight ? 'on' : 'off');
   markGroup(el.ledColors, settings.led);
 }
+
+/** Session as plain text, one solve per line, ready to paste anywhere. */
+function sessionAsText() {
+  return solves.map((solve, index) =>
+    `${index + 1}. ${formatSolve(solve)}   ${solve.scramble || ''}`.trimEnd()).join('\n');
+}
+
+el.export.addEventListener('click', async () => {
+  el.export.blur();
+  if (!solves.length) {
+    toast('Nog geen tijden om te kopiëren.');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(sessionAsText());
+    toast(`${solves.length} tijden gekopieerd.`);
+  } catch {
+    toast('Kopiëren lukte niet in deze browser.');
+  }
+});
 
 /**
  * Lists what the connected timer actually exposes over bluetooth. The lighting
@@ -709,6 +805,7 @@ el.settingsOpen.addEventListener('click', () => {
   el.settingsOpen.blur();
   syncSettingsUi();
   el.settings.showModal();
+  el.settings.focus();
 });
 
 /* ---------- controls ---------- */
