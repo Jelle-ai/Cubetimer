@@ -86,6 +86,23 @@
   </aside>
 </main>
 
+<dialog id="import-sheet" class="sheet" tabindex="-1">
+  <form method="dialog" class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="import-title">Nieuwe tijd gevonden</h2>
+      <button value="close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <p id="import-text" class="detail-meta"></p>
+    <ul id="import-list" class="import-list"></ul>
+
+    <div class="detail-actions">
+      <button type="button" id="import-yes">Erbij zetten</button>
+      <button type="button" id="import-no" class="danger">Nee, laat maar</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="session-sheet" class="sheet" tabindex="-1">
   <form method="dialog" class="sheet-inner">
     <header class="sheet-head">
@@ -292,7 +309,7 @@
         <span>Je timer</span>
         <small id="device-note">Nog geen timer verbonden.</small>
       </div>
-      <button type="button" id="import-times" class="text-button" hidden>Tijden uit de timer overnemen</button>
+      <button type="button" id="import-times" class="text-button" hidden>Kijk of er tijden op de timer staan</button>
       <div id="device-details" class="device-details" hidden></div>
     </section>
   </form>

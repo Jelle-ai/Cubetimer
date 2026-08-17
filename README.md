@@ -72,6 +72,19 @@ solve, of raak je een kleine acht seconden niets aan, dan vervalt de vraag vanze
 Omdat de resetknop niets anders doet dan het display gelijkzetten, kan de reset na een
 solve nooit per ongeluk inspectie starten.
 
+### Tijden die op je timer staan
+
+De timer bewaart zelf zijn laatste vier tijden. Zodra de app verbinding maakt kijkt hij
+of daar tijden bij zitten die nog niet in je sessie staan — bijvoorbeeld solves die je
+deed terwijl deze pagina dicht was. Zo ja, dan vraagt hij of je ze erbij wilt zetten.
+Zeg je nee, dan wordt daar niet meer om gevraagd. Handmatig opnieuw kijken kan onder
+**Je timer** in de instellingen.
+
+Ondersteunt je browser het opvragen van eerder gekoppelde apparaten (Chrome met de
+nieuwe bluetooth-rechten), dan gebeurt dat al bij het openen van de pagina, zonder dat je
+op verbinden hoeft te klikken. Zo niet, dan komt de vraag zodra je op **Verbind timer**
+drukt.
+
 Loskoppelen doe je met dezelfde knop. Zolang de timer verbonden is, is de spatiebalk
 uitgeschakeld zodat je niet per ongeluk dubbel meet.
 

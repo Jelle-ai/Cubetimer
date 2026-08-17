@@ -1,5 +1,5 @@
 import { PUZZLES, nextScramble, puzzleById, randomMoveScramble, warmUp } from './scramble.js';
-import { connectGanTimer, isSupported, TimerState } from './gan-timer.js';
+import { connectGanTimer, isSupported, reconnectGanTimer, TimerState } from './gan-timer.js';
 import {
   averageOf, best, bestAverageOf, bestMeanOf, effective, formatSolve, formatTime,
   meanOf, sessionMean, setDecimals, worst
@@ -37,6 +37,12 @@ const el = {
   colorSlots: document.getElementById('color-slots'),
   detailNote: document.getElementById('detail-note'),
   importTimes: document.getElementById('import-times'),
+  importSheet: document.getElementById('import-sheet'),
+  importTitle: document.getElementById('import-title'),
+  importText: document.getElementById('import-text'),
+  importList: document.getElementById('import-list'),
+  importYes: document.getElementById('import-yes'),
+  importNo: document.getElementById('import-no'),
   statsButton: document.getElementById('stats'),
   statsSheet: document.getElementById('stats-sheet'),
   statsTitle: document.getElementById('stats-title'),
@@ -981,6 +987,30 @@ function onDeviceDisconnect() {
   toast('Timer losgekoppeld.');
 }
 
+/** Whatever the connection came from, wire it up the same way. */
+function adoptDevice(connection) {
+  device = connection;
+  connectedAt = performance.now();
+  clearPendingTap();
+  el.connect.textContent = 'Loskoppelen';
+  el.deviceStatus.textContent = device.name;
+  el.deviceStatus.hidden = false;
+  setHint(currentHint());
+  showDeviceDetails();
+  offerTimerTimes();
+}
+
+/**
+ * On opening the page, quietly pick up a timer this browser already knows, so
+ * a solve done while the page was closed can be offered straight away.
+ */
+async function tryQuietReconnect() {
+  const connection = await reconnectGanTimer({ onEvent: onDeviceEvent, onDisconnect: onDeviceDisconnect });
+  if (!connection) return;
+  adoptDevice(connection);
+  toast(`Verbonden met ${connection.name}.`);
+}
+
 el.connect.addEventListener('click', async () => {
   el.connect.blur();
 
@@ -996,15 +1026,8 @@ el.connect.addEventListener('click', async () => {
   el.connect.disabled = true;
   el.connect.textContent = 'Verbinden…';
   try {
-    device = await connectGanTimer({ onEvent: onDeviceEvent, onDisconnect: onDeviceDisconnect });
-    connectedAt = performance.now();
-    clearPendingTap();
-    el.connect.textContent = 'Loskoppelen';
-    el.deviceStatus.textContent = device.name;
-    el.deviceStatus.hidden = false;
-    setHint(currentHint());
+    adoptDevice(await connectGanTimer({ onEvent: onDeviceEvent, onDisconnect: onDeviceDisconnect }));
     toast(`Verbonden met ${device.name}.`);
-    showDeviceDetails();
   } catch (error) {
     device = null;
     el.connect.textContent = 'Verbind GAN timer';
@@ -1230,33 +1253,99 @@ el.export.addEventListener('click', async () => {
  * of the timer is configured through GAN's own app over a protocol that is not
  * public, so this is read-only information.
  */
-/** The timer keeps its last four times; offer to take them over. */
-async function offerRecordedTimes() {
-  el.importTimes.hidden = true;
-  if (!device) return;
+/**
+ * The timer remembers its last four times. Anything in there that is not in the
+ * session — a solve done while this page was closed — is offered on connecting.
+ */
+const IGNORED_KEY = 'cubetimer.ignored.v1';
+let offeredTimes = [];
+
+function ignoredTimes() {
   try {
-    const times = (await device.getRecordedTimes()).filter((ms) => ms > 0);
-    if (!times.length) return;
-    el.importTimes.textContent = `${times.length} tijden uit de timer overnemen`;
-    el.importTimes.hidden = false;
-    el.importTimes.onclick = () => {
-      for (const ms of times) {
-        solves.push({ ms, penalty: 'none', scramble: '', at: Date.now(), note: 'uit timergeheugen' });
-      }
-      persist();
-      render();
-      el.importTimes.hidden = true;
-      toast(`${times.length} tijden toegevoegd.`);
-    };
+    const raw = JSON.parse(localStorage.getItem(IGNORED_KEY) || '[]');
+    return Array.isArray(raw) ? raw : [];
   } catch {
-    // the timer refused the read; nothing to offer
+    return [];
   }
 }
+
+function ignoreTimes(times) {
+  try {
+    const merged = [...new Set([...ignoredTimes(), ...times])].slice(-40);
+    localStorage.setItem(IGNORED_KEY, JSON.stringify(merged));
+  } catch {
+    // storage unavailable; the question may come back next time
+  }
+}
+
+/** Times on the device that this session does not have yet, newest first. */
+async function unknownTimerTimes() {
+  if (!device) return [];
+  try {
+    const skip = new Set(ignoredTimes());
+    return (await device.getRecordedTimes())
+      .filter((ms) => ms > 0 && !skip.has(ms) && !solves.some((solve) => solve.ms === ms));
+  } catch {
+    return []; // the timer refused the read
+  }
+}
+
+async function offerTimerTimes({ announce = false } = {}) {
+  const times = await unknownTimerTimes();
+  el.importTimes.hidden = !device;
+  if (!times.length) {
+    if (announce) toast('Geen nieuwe tijden op je timer.');
+    return;
+  }
+
+  offeredTimes = times;
+  el.importTitle.textContent = times.length === 1 ? 'Nieuwe tijd gevonden' : 'Nieuwe tijden gevonden';
+  el.importText.textContent = times.length === 1
+    ? `Op je timer staat een tijd die hier nog niet bij staat. Wil je hem erbij zetten in "${currentSession().name}"?`
+    : `Op je timer staan ${times.length} tijden die hier nog niet bij staan. Wil je ze erbij zetten in "${currentSession().name}"?`;
+
+  el.importList.innerHTML = '';
+  times.forEach((ms, index) => {
+    const item = document.createElement('li');
+    const value = document.createElement('strong');
+    value.textContent = formatTime(ms);
+    const label = document.createElement('span');
+    label.textContent = index === 0 ? 'op het display' : `${index} terug`;
+    item.append(value, label);
+    el.importList.append(item);
+  });
+
+  el.importSheet.showModal();
+  el.importSheet.focus();
+}
+
+el.importYes.addEventListener('click', () => {
+  for (const ms of [...offeredTimes].reverse()) { // oldest first, so the newest ends last
+    solves.push({ ms, penalty: 'none', scramble: '', at: Date.now(), note: 'van de timer' });
+  }
+  ignoreTimes(offeredTimes);
+  persist();
+  render();
+  toast(offeredTimes.length === 1 ? 'Tijd toegevoegd.' : `${offeredTimes.length} tijden toegevoegd.`);
+  offeredTimes = [];
+  el.importSheet.close();
+});
+
+el.importNo.addEventListener('click', () => {
+  ignoreTimes(offeredTimes); // do not ask about these again
+  offeredTimes = [];
+  el.importSheet.close();
+});
+
+el.importTimes.addEventListener('click', () => {
+  el.importTimes.blur();
+  offerTimerTimes({ announce: true });
+});
 
 async function showDeviceDetails() {
   if (!device) return;
   el.deviceNote.textContent = `${device.name} — verbonden.`;
-  offerRecordedTimes();
+  el.importTimes.hidden = false;
   const description = await device.describe();
   el.deviceDetails.innerHTML = '';
 
@@ -1331,4 +1420,5 @@ syncSettingsUi();
 setPhase('idle');
 renderScramble();
 applySettings();
-newScramble(); // replaces the stand-in with an official one as soon as it is ready // sets the ring colour, decimals, hint and renders the session
+newScramble(); // replaces the stand-in with an official one as soon as it is ready
+tryQuietReconnect(); // sets the ring colour, decimals, hint and renders the session
