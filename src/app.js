@@ -25,6 +25,14 @@ const el = {
   clear: document.getElementById('clear'),
   toast: document.getElementById('toast'),
   settings: document.getElementById('settings'),
+  detail: document.getElementById('solve-detail'),
+  detailTitle: document.getElementById('detail-title'),
+  detailTime: document.getElementById('detail-time'),
+  detailMeta: document.getElementById('detail-meta'),
+  detailScramble: document.getElementById('detail-scramble'),
+  detailPlus2: document.getElementById('detail-plus2'),
+  detailDnf: document.getElementById('detail-dnf'),
+  detailRemove: document.getElementById('detail-remove'),
   settingsOpen: document.getElementById('settings-open'),
   ledColors: document.getElementById('led-colors'),
   deviceNote: document.getElementById('device-note'),
@@ -105,8 +113,13 @@ function renderSolves() {
 
   solves.forEach((solve, index) => {
     const item = document.createElement('li');
-    item.className = 'solve';
-    if (solve.penalty === 'DNF') item.classList.add('is-dnf');
+
+    // The whole row is one button that opens the details of that solve.
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'solve';
+    if (solve.penalty === 'DNF') row.classList.add('is-dnf');
+    row.addEventListener('click', () => openDetail(index));
 
     const number = document.createElement('span');
     number.className = 'solve-index';
@@ -115,35 +128,74 @@ function renderSolves() {
     const value = document.createElement('span');
     value.className = 'solve-time';
     value.textContent = formatSolve(solve);
-    value.title = solve.scramble || '';
 
-    const actions = document.createElement('span');
-    actions.className = 'solve-actions';
-    actions.append(
-      action('+2', 'plus twee', () => togglePenalty(index, '+2'), solve.penalty === '+2'),
-      action('DNF', 'niet opgelost', () => togglePenalty(index, 'DNF'), solve.penalty === 'DNF'),
-      action('×', 'verwijderen', () => removeSolve(index), false, 'remove')
-    );
+    row.append(number, value);
 
-    item.append(number, value, actions);
+    if (solve.penalty !== 'none') {
+      const tag = document.createElement('span');
+      tag.className = 'solve-tag';
+      tag.textContent = solve.penalty;
+      row.append(tag);
+    }
+
+    const chevron = document.createElement('span');
+    chevron.className = 'solve-chevron';
+    chevron.textContent = '\u203a';
+    chevron.setAttribute('aria-hidden', 'true');
+    row.append(chevron);
+
+    item.append(row);
     el.solves.prepend(item);
   });
 }
 
-function action(label, title, onClick, active = false, extraClass = '') {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = `solve-action ${extraClass}`.trim();
-  button.textContent = label;
-  button.title = title;
-  button.setAttribute('aria-pressed', String(active));
-  if (active) button.dataset.active = 'true';
-  button.addEventListener('click', () => {
-    onClick();
-    button.blur();
-  });
-  return button;
+/* ---------- solve details ---------- */
+
+let detailIndex = null;
+
+function describeMoment(at) {
+  if (!at) return '';
+  const date = new Date(at);
+  const today = new Date().toDateString() === date.toDateString();
+  const time = date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+  return today
+    ? `vandaag om ${time}`
+    : `${date.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })} om ${time}`;
 }
+
+function fillDetail() {
+  const solve = solves[detailIndex];
+  if (!solve) return;
+
+  el.detailTitle.textContent = `Solve ${detailIndex + 1}`;
+  el.detailTime.textContent = formatSolve(solve);
+  el.detailMeta.textContent = describeMoment(solve.at);
+  el.detailScramble.textContent = solve.scramble || 'Niet bewaard bij deze tijd.';
+  el.detailPlus2.dataset.active = String(solve.penalty === '+2');
+  el.detailDnf.dataset.active = String(solve.penalty === 'DNF');
+}
+
+function openDetail(index) {
+  detailIndex = index;
+  fillDetail();
+  el.detail.showModal();
+}
+
+el.detailPlus2.addEventListener('click', () => {
+  togglePenalty(detailIndex, '+2');
+  fillDetail();
+});
+
+el.detailDnf.addEventListener('click', () => {
+  togglePenalty(detailIndex, 'DNF');
+  fillDetail();
+});
+
+el.detailRemove.addEventListener('click', () => {
+  removeSolve(detailIndex);
+  detailIndex = null;
+  el.detail.close();
+});
 
 function render() {
   renderStats();
@@ -344,6 +396,7 @@ function endHold() {
 
 function manualTimingAllowed(target) {
   if (device) return false; // the GAN timer is the source of truth while connected
+  if (document.querySelector('dialog[open]')) return false;
   return !target?.closest?.('button, a, input');
 }
 

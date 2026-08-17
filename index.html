@@ -53,6 +53,29 @@
   </aside>
 </main>
 
+<dialog id="solve-detail" class="sheet">
+  <form method="dialog" class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="detail-title">Solve</h2>
+      <button value="close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <p id="detail-time" class="detail-time">–</p>
+    <p id="detail-meta" class="detail-meta"></p>
+
+    <div class="detail-block">
+      <span class="detail-label">Scramble</span>
+      <p id="detail-scramble" class="detail-scramble">–</p>
+    </div>
+
+    <div class="detail-actions">
+      <button type="button" id="detail-plus2">+2</button>
+      <button type="button" id="detail-dnf">DNF</button>
+      <button type="button" id="detail-remove" class="danger">Verwijderen</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="settings" class="sheet">
   <form method="dialog" class="sheet-inner">
     <header class="sheet-head">

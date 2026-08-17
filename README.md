@@ -10,7 +10,8 @@ via Web Bluetooth. Geen build, geen dependencies — het is gewoon HTML, CSS en 
 - GAN Smart Timer koppelen — de tijd komt dan rechtstreeks van het apparaat, op de milliseconde nauwkeurig
 - WCA-inspectie van 15 seconden, met automatisch +2 na 15s en DNF na 17s
 - Tijdens een solve blijft de tijd verborgen achter drie bolletjes
-- Sessie met best, ao5, ao12 en mean; +2 en DNF per solve
+- Sessie met best, ao5, ao12 en mean; klik een tijd aan voor de scramble waarmee hij
+  gelopen is, het tijdstip, en de knoppen voor +2, DNF en verwijderen
 - Design in de kleuren van de GAN Halo op zijn mat: lichtblauw verloop, witte ring met
   blauwe gloed. De ring kleurt rood bij het vasthouden en groen zodra je mag starten
 - De pagina groeit nooit mee: alles past op één scherm en alleen de sessielijst scrolt
@@ -81,7 +82,8 @@ Zonder timer erbij (spatiebalk, of tikken op het scherm op mobiel):
 | Timer starten | spatie vasthouden tot groen, dan loslaten |
 | Timer stoppen | spatie (of tik op het scherm) |
 | Nieuwe scramble | `nieuwe scramble` |
-| +2 / DNF / verwijderen | knopjes achter een tijd in de sessielijst |
+| Details van een tijd | klik op de tijd in de sessielijst |
+| +2 / DNF / verwijderen | knoppen in dat detailvenster |
 
 Inspectie is optioneel: vanuit stilstand meteen vasthouden en loslaten start gewoon een
 solve zonder inspectie.
