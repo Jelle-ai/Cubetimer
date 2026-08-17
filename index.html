@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Cubetimer</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230d0d0f'/><rect x='7' y='7' width='7' height='7' fill='%23fff'/><rect x='18' y='7' width='7' height='7' fill='%2338d16b'/><rect x='7' y='18' width='7' height='7' fill='%23e8453c'/><rect x='18' y='18' width='7' height='7' fill='%23f2c94c'/></svg>">
+</head>
+<body>
+
+<header class="bar">
+  <span class="brand">cubetimer</span>
+  <div class="bar-right">
+    <span id="device-status" class="status" hidden></span>
+    <button id="connect" class="ghost" type="button">Verbind GAN timer</button>
+  </div>
+</header>
+
+<main id="stage">
+  <section class="scramble-block">
+    <p id="scramble" class="scramble">–</p>
+    <div class="scramble-actions">
+      <button id="new-scramble" class="link" type="button">nieuwe scramble</button>
+      <button id="toggle-preview" class="link" type="button" aria-expanded="true">preview</button>
+    </div>
+    <div id="preview" class="preview"></div>
+  </section>
+
+  <section class="timer-block">
+    <div id="time" class="time">0.00</div>
+    <p id="hint" class="hint">Houd <kbd>spatie</kbd> vast en laat los om te starten</p>
+  </section>
+
+  <section class="stats">
+    <div class="stat"><span class="stat-label">solves</span><span id="st-count" class="stat-value">0</span></div>
+    <div class="stat"><span class="stat-label">best</span><span id="st-best" class="stat-value">–</span></div>
+    <div class="stat"><span class="stat-label">ao5</span><span id="st-ao5" class="stat-value">–</span></div>
+    <div class="stat"><span class="stat-label">ao12</span><span id="st-ao12" class="stat-value">–</span></div>
+    <div class="stat"><span class="stat-label">mean</span><span id="st-mean" class="stat-value">–</span></div>
+  </section>
+
+  <section class="session">
+    <div class="session-head">
+      <h2>Sessie</h2>
+      <button id="clear" class="link danger" type="button">wissen</button>
+    </div>
+    <ol id="solves" class="solves" reversed></ol>
+    <p id="empty" class="empty">Nog geen tijden.</p>
+  </section>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
