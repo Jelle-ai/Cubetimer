@@ -6,13 +6,6 @@
   --accent: #38d16b;
   --hold: #e8453c;
   --danger: #e8453c;
-
-  --face-U: #f5f5f5;
-  --face-R: #e8453c;
-  --face-F: #38d16b;
-  --face-D: #f2c94c;
-  --face-L: #f28c28;
-  --face-B: #3d7ff2;
 }
 
 * { box-sizing: border-box; }
@@ -145,22 +138,6 @@ main {
   margin-top: .75rem;
 }
 
-.preview {
-  margin: 1.25rem auto 0;
-  width: min(260px, 70%);
-}
-
-.preview svg { display: block; width: 100%; height: auto; }
-
-.f-U { fill: var(--face-U); }
-.f-R { fill: var(--face-R); }
-.f-F { fill: var(--face-F); }
-.f-D { fill: var(--face-D); }
-.f-L { fill: var(--face-L); }
-.f-B { fill: var(--face-B); }
-
-body.no-preview .preview { display: none; }
-
 /* ---------- timer ---------- */
 
 .timer-block { text-align: center; }
@@ -179,8 +156,26 @@ body.no-preview .preview { display: none; }
   font-size: .8rem;
 }
 
+/* Inspection turns red once the 15 seconds are gone. */
+body[data-inspection="over"] .time { color: var(--hold); }
+
 body[data-phase="holding"] .time { color: var(--hold); }
 body[data-phase="ready"] .time { color: var(--accent); }
+
+/* While solving the time is hidden behind three dots. */
+body[data-phase="running"] .time {
+  letter-spacing: .1em;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: .55; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-phase="running"] .time { animation: none; opacity: .8; }
+}
 
 /* Fade everything but the time while a solve is running. */
 body[data-phase="running"] .scramble-block,
