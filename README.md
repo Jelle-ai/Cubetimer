@@ -11,6 +11,8 @@ via Web Bluetooth. Geen build, geen dependencies — het is gewoon HTML, CSS en 
 - WCA-inspectie van 15 seconden, met automatisch +2 na 15s en DNF na 17s
 - Tijdens een solve blijft alles gewoon staan; alleen in de ring verschijnen drie bolletjes
 - Meerdere sessies naast elkaar, elk met eigen tijden; kies ze bovenaan de lijst
+- Statistiekbalk met single, mo3, ao5 en ao12 — de actuele waarde met het record van de
+  sessie eronder in goud
 - Sessie met best, ao5, ao12 en mean; klik een tijd aan voor de scramble waarmee hij
   gelopen is, het tijdstip, en de knoppen voor +2, DNF en verwijderen
 - Klik op de statistiekbalk voor alles: mo3, ao50, ao100, beste ao5, beste ao12,
@@ -102,8 +104,7 @@ Via het tandwiel rechtsboven:
 | Doeltijd | Zet een tijd; solves die eronder blijven krijgen een groen stipje |
 | Geluid | Piep op 8 en 12 seconden inspectie, klik bij start en stop |
 | Trillen | Korte trilling bij groen, start en stop (mobiel) |
-| Record vieren | Confetti en een melding bij een nieuw persoonlijk record |
-| Grafiek | Verloop van je sessie met de ao5 als stippellijn |
+| Vieren | Confetti onder je doeltijd, een korte rode puls erboven, en een feest over het hele scherm bij een record |
 | Beste en slechtste | Groen en rood in de lijst |
 | Tijden exporteren | Hele sessie met scrambles naar je klembord |
 
@@ -146,8 +147,7 @@ src/gan-timer.js  Web Bluetooth client voor de GAN Smart Timer
 src/stats.js      tijdnotatie, ao5/ao12, mean
 src/store.js      opslag van de sessie
 src/settings.js   voorkeuren en de kleuren
-src/feedback.js   tonen, trillen en confetti
-src/chart.js      sparkline van de sessie
+src/feedback.js   tonen, trillen, confetti en de puls bij een gemiste doeltijd
 ```
 
 Het bluetooth-protocol van de GAN Smart Timer (service `fff0`, state-characteristic `fff5`,

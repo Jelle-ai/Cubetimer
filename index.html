@@ -37,14 +37,27 @@
 
   <aside class="panel">
     <button type="button" id="stats" class="stats" title="Alle statistieken">
-      <div class="stat"><span class="stat-label">solves</span><span id="st-count" class="stat-value">0</span></div>
-      <div class="stat"><span class="stat-label">best</span><span id="st-best" class="stat-value">–</span></div>
-      <div class="stat"><span class="stat-label">ao5</span><span id="st-ao5" class="stat-value">–</span></div>
-      <div class="stat"><span class="stat-label">ao12</span><span id="st-ao12" class="stat-value">–</span></div>
-      <div class="stat"><span class="stat-label">mean</span><span id="st-mean" class="stat-value">–</span></div>
+      <div class="stat">
+        <span class="stat-label">single</span>
+        <span id="st-single" class="stat-value">–</span>
+        <span id="st-single-best" class="stat-best" title="beste van deze sessie">–</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">mo3</span>
+        <span id="st-mo3" class="stat-value">–</span>
+        <span id="st-mo3-best" class="stat-best" title="beste van deze sessie">–</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">ao5</span>
+        <span id="st-ao5" class="stat-value">–</span>
+        <span id="st-ao5-best" class="stat-best" title="beste van deze sessie">–</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">ao12</span>
+        <span id="st-ao12" class="stat-value">–</span>
+        <span id="st-ao12-best" class="stat-best" title="beste van deze sessie">–</span>
+      </div>
     </button>
-
-    <div id="chart" class="chart" hidden></div>
 
     <section class="session">
       <div class="session-head">
@@ -198,8 +211,8 @@
 
     <section class="setting">
       <div class="setting-label">
-        <span>Record vieren</span>
-        <small>Confetti bij een nieuw persoonlijk record</small>
+        <span>Vieren</span>
+        <small>Confetti onder je doeltijd, een feest bij een record</small>
       </div>
       <button type="button" class="switch" id="set-celebrate" role="switch" aria-checked="true" aria-label="Record vieren"><span></span></button>
     </section>
@@ -213,14 +226,6 @@
         <input id="set-target-value" class="number-input" type="number" min="1" max="600" step="0.5" inputmode="decimal">
         <button type="button" class="switch" id="set-target" role="switch" aria-checked="false" aria-label="Doeltijd"><span></span></button>
       </div>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Grafiek</span>
-        <small>Verloop van je sessie boven de lijst</small>
-      </div>
-      <button type="button" class="switch" id="set-chart" role="switch" aria-checked="true" aria-label="Grafiek"><span></span></button>
     </section>
 
     <section class="setting">

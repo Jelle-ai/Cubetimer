@@ -1,10 +1,12 @@
 import { randomScramble } from './scramble.js';
 import { connectGanTimer, isSupported, TimerState } from './gan-timer.js';
-import { averageOf, best, bestAverageOf, effective, formatSolve, formatTime, meanOf, sessionMean, setDecimals, worst } from './stats.js';
+import {
+  averageOf, best, bestAverageOf, bestMeanOf, effective, formatSolve, formatTime,
+  meanOf, sessionMean, setDecimals, worst
+} from './stats.js';
 import { load, save } from './store.js';
 import { LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
-import { celebrate, chord, tone, vibrate } from './feedback.js';
-import { sessionChart } from './chart.js';
+import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 
 const TAP_WINDOW_MS = 600;    // window in which a second short touch counts as a double tap
 const DELETE_CONFIRM_MS = 8000; // how long a pending delete waits for its confirming tap
@@ -27,7 +29,6 @@ const el = {
   clear: document.getElementById('clear'),
   toast: document.getElementById('toast'),
   settings: document.getElementById('settings'),
-  chart: document.getElementById('chart'),
   statsButton: document.getElementById('stats'),
   statsSheet: document.getElementById('stats-sheet'),
   statsTitle: document.getElementById('stats-title'),
@@ -55,11 +56,14 @@ const el = {
   deviceNote: document.getElementById('device-note'),
   deviceDetails: document.getElementById('device-details'),
   stats: {
-    count: document.getElementById('st-count'),
-    best: document.getElementById('st-best'),
+    single: document.getElementById('st-single'),
+    singleBest: document.getElementById('st-single-best'),
+    mo3: document.getElementById('st-mo3'),
+    mo3Best: document.getElementById('st-mo3-best'),
     ao5: document.getElementById('st-ao5'),
+    ao5Best: document.getElementById('st-ao5-best'),
     ao12: document.getElementById('st-ao12'),
-    mean: document.getElementById('st-mean')
+    ao12Best: document.getElementById('st-ao12-best')
   }
 };
 
@@ -111,13 +115,17 @@ function cue(name) {
     else if (name === 'stop') chord([784, 1046]);
     else if (name === 'warn8') tone(520, .12);
     else if (name === 'warn12') chord([520, 520], .16);
-    else if (name === 'record') chord([784, 988, 1319], .1);
+    else if (name === 'record') chord([784, 988, 1319, 1568], .09);
+    else if (name === 'target') chord([880, 1174], .09);
+    else if (name === 'miss') tone(196, .22, .05, 'triangle');
   }
   if (settings.haptics) {
     if (name === 'ready') vibrate(25);
     else if (name === 'start') vibrate(12);
     else if (name === 'stop') vibrate([15, 40, 15]);
     else if (name === 'record') vibrate([20, 60, 20, 60, 40]);
+    else if (name === 'target') vibrate([12, 40, 12]);
+    else if (name === 'miss') vibrate(40);
   }
 }
 
@@ -136,12 +144,18 @@ function renderScramble() {
   el.scramble.textContent = scramble;
 }
 
+/** Every column shows the latest value with the session record under it. */
 function renderStats() {
-  el.stats.count.textContent = String(solves.length);
-  el.stats.best.textContent = formatTime(best(solves));
+  const last = solves.length ? effective(solves[solves.length - 1]) : null;
+
+  el.stats.single.textContent = formatTime(last);
+  el.stats.singleBest.textContent = formatTime(best(solves));
+  el.stats.mo3.textContent = formatTime(meanOf(solves, 3));
+  el.stats.mo3Best.textContent = formatTime(bestMeanOf(solves, 3));
   el.stats.ao5.textContent = formatTime(averageOf(solves, 5));
+  el.stats.ao5Best.textContent = formatTime(bestAverageOf(solves, 5));
   el.stats.ao12.textContent = formatTime(averageOf(solves, 12));
-  el.stats.mean.textContent = formatTime(sessionMean(solves));
+  el.stats.ao12Best.textContent = formatTime(bestAverageOf(solves, 12));
 }
 
 function renderSolves() {
@@ -270,12 +284,14 @@ function statRows() {
     ['Slechtste', formatTime(worst(solves))],
     ['Mean', formatTime(sessionMean(solves))],
     ['Mo3', formatTime(meanOf(solves, 3))],
+    ['Beste mo3', formatTime(bestMeanOf(solves, 3))],
     ['Ao5', formatTime(averageOf(solves, 5))],
-    ['Ao12', formatTime(averageOf(solves, 12))],
-    ['Ao50', formatTime(averageOf(solves, 50))],
-    ['Ao100', formatTime(averageOf(solves, 100))],
     ['Beste ao5', formatTime(bestAverageOf(solves, 5))],
+    ['Ao12', formatTime(averageOf(solves, 12))],
     ['Beste ao12', formatTime(bestAverageOf(solves, 12))],
+    ['Ao50', formatTime(averageOf(solves, 50))],
+    ['Beste ao50', formatTime(bestAverageOf(solves, 50))],
+    ['Ao100', formatTime(averageOf(solves, 100))],
     ['+2', String(plusTwos)],
     ['DNF', String(dnfs)]
   ];
@@ -355,16 +371,9 @@ el.detailRemove.addEventListener('click', () => {
   el.detail.close();
 });
 
-function renderChart() {
-  const markup = settings.chart ? sessionChart(solves) : '';
-  el.chart.innerHTML = markup;
-  el.chart.hidden = !markup;
-}
-
 function render() {
   renderStats();
   renderSolves();
-  renderChart();
   renderSessions();
 }
 
@@ -397,11 +406,35 @@ function addSolve(ms) {
   renderScramble();
   render();
 
+  judgeSolve(previousBest);
+}
+
+/**
+ * A record throws a full party, staying under the target gets confetti, and
+ * going over it gets a short red pulse instead.
+ */
+function judgeSolve(previousBest) {
   const record = best(solves);
-  if (solves.length > 1 && previousBest !== null && record !== null && record < previousBest) {
+  const isRecord = solves.length > 1 && previousBest !== null
+    && record !== null && record < previousBest;
+
+  if (isRecord) {
     cue('record');
-    if (settings.celebrate) celebrate(colorOf(settings.led));
+    if (settings.celebrate) confetti('party');
     toast(`Persoonlijk record — ${formatTime(record)}`);
+    return;
+  }
+
+  if (!settings.targetOn) return;
+  const value = effective(solves[solves.length - 1]);
+  if (!Number.isFinite(value)) return;
+
+  if (value <= settings.targetMs) {
+    cue('target');
+    if (settings.celebrate) confetti('burst');
+  } else {
+    cue('miss');
+    if (settings.celebrate) flashMiss();
   }
 }
 
@@ -871,7 +904,6 @@ const switches = [
   bindSwitch('set-sound', 'sound'),
   bindSwitch('set-haptics', 'haptics'),
   bindSwitch('set-celebrate', 'celebrate'),
-  bindSwitch('set-chart', 'chart'),
   bindSwitch('set-highlight', 'highlight')
 ];
 

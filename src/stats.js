@@ -67,12 +67,27 @@ export function bestAverageOf(solves, n) {
   return record;
 }
 
-/** Mean of the last three, without trimming — a DNF makes it a DNF. */
-export function meanOf(solves, n) {
-  if (solves.length < n) return null;
-  const times = solves.slice(-n).map(effective);
+function windowMean(window) {
+  const times = window.map(effective);
   if (times.some((t) => !Number.isFinite(t))) return Infinity;
   return times.reduce((sum, t) => sum + t, 0) / times.length;
+}
+
+/** Mean of the last n, without trimming — a DNF makes it a DNF. */
+export function meanOf(solves, n) {
+  if (solves.length < n) return null;
+  return windowMean(solves.slice(-n));
+}
+
+/** The best mean of n anywhere in the session. */
+export function bestMeanOf(solves, n) {
+  if (solves.length < n) return null;
+  let record = null;
+  for (let start = 0; start + n <= solves.length; start++) {
+    const value = windowMean(solves.slice(start, start + n));
+    if (Number.isFinite(value) && (record === null || value < record)) record = value;
+  }
+  return record;
 }
 
 export function worst(solves) {

@@ -22,13 +22,12 @@ const DEFAULTS = {
   sound: true,
   haptics: true,
   celebrate: true,
-  chart: true,
   highlight: true,
   targetOn: false,
   targetMs: 20000
 };
 
-const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'chart', 'highlight'];
+const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'highlight'];
 
 export function loadSettings() {
   try {
