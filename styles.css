@@ -1,45 +1,61 @@
+/* Palette borrows from the GAN Halo timer: near black body, violet halo rings,
+   red before the timer arms, green once it is ready. */
 :root {
-  --bg: #0d0d0f;
-  --fg: #f2f2f2;
-  --muted: #6f6f78;
-  --line: #1e1e23;
-  --accent: #38d16b;
-  --hold: #e8453c;
-  --danger: #e8453c;
+  --bg: #08070c;
+  --surface: rgba(255, 255, 255, .035);
+  --surface-strong: rgba(255, 255, 255, .06);
+  --line: rgba(255, 255, 255, .09);
+  --fg: #f5f3fa;
+  --muted: #8a85a3;
+
+  --halo: #8b5cf6;
+  --halo-soft: rgba(139, 92, 246, .5);
+  --cyan: #22d3ee;
+  --hold: #ff4d5e;
+  --ready: #2ce08a;
+
+  --radius: 14px;
 }
 
 * { box-sizing: border-box; }
 
-html, body {
-  margin: 0;
-  min-height: 100%;
-}
+html, body { margin: 0; min-height: 100%; }
 
 body {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
   color: var(--fg);
   font: 400 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-variant-numeric: tabular-nums;
   -webkit-tap-highlight-color: transparent;
-  display: flex;
-  flex-direction: column;
-  min-height: 100dvh;
 }
 
-button {
-  font: inherit;
-  color: inherit;
-  background: none;
-  border: 0;
-  cursor: pointer;
+/* A faint violet wash behind everything, like the glow off the pads. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgba(139, 92, 246, .16), transparent 70%),
+    radial-gradient(50% 40% at 50% 100%, rgba(34, 211, 238, .07), transparent 70%);
+  pointer-events: none;
 }
+
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+/* Class-based display rules must never beat the hidden attribute. */
+[hidden] { display: none !important; }
 
 kbd {
   font: inherit;
+  font-size: .9em;
   border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 0 .35em;
-  color: var(--fg);
+  border-radius: 5px;
+  padding: .05em .4em;
+  background: var(--surface);
 }
 
 /* ---------- top bar ---------- */
@@ -51,71 +67,71 @@ kbd {
   gap: 1rem;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(8px);
 }
 
 .brand {
-  color: var(--muted);
-  letter-spacing: .12em;
-  text-transform: uppercase;
   font-size: .75rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
-.bar-right {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-}
+.bar-right { display: flex; align-items: center; gap: .75rem; }
 
 .status {
-  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
   font-size: .75rem;
-  letter-spacing: .04em;
+  color: var(--ready);
 }
 
 .status::before {
   content: "";
-  display: inline-block;
   width: 6px;
   height: 6px;
-  margin-right: .45rem;
   border-radius: 50%;
-  background: var(--accent);
-  vertical-align: middle;
+  background: var(--ready);
+  box-shadow: 0 0 8px var(--ready);
 }
 
 .ghost {
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: .4rem .9rem;
+  padding: .5rem 1rem;
   font-size: .8rem;
-  color: var(--muted);
-  transition: color .15s, border-color .15s;
+  color: var(--fg);
+  background: var(--surface);
+  transition: background .18s, border-color .18s, transform .18s;
 }
 
-.ghost:hover:not(:disabled) { color: var(--fg); border-color: #333; }
+.ghost:hover:not(:disabled) { background: var(--surface-strong); border-color: var(--halo-soft); }
+.ghost:active:not(:disabled) { transform: scale(.97); }
 .ghost:disabled { opacity: .5; cursor: default; }
 
 .link {
   color: var(--muted);
   font-size: .75rem;
-  letter-spacing: .04em;
-  padding: .25rem;
-  transition: color .15s;
+  letter-spacing: .06em;
+  padding: .4rem .6rem;
+  border-radius: 8px;
+  transition: color .18s, background .18s;
 }
 
-.link:hover { color: var(--fg); }
-.link.danger:hover { color: var(--danger); }
+.link:hover { color: var(--fg); background: var(--surface); }
+.link.danger:hover { color: var(--hold); }
 
 /* ---------- layout ---------- */
 
 main {
   flex: 1;
-  width: min(680px, 100%);
+  width: min(640px, 100%);
   margin: 0 auto;
   padding: 2rem 1.25rem 3rem;
   display: flex;
   flex-direction: column;
-  gap: 2.5rem;
+  gap: 2rem;
   touch-action: manipulation;
   user-select: none;
 }
@@ -125,59 +141,97 @@ main {
 .scramble {
   margin: 0;
   text-align: center;
-  font-size: clamp(1rem, 3.4vw, 1.35rem);
-  letter-spacing: .06em;
-  line-height: 1.7;
-  word-spacing: .35em;
+  font-size: clamp(1.05rem, 3.6vw, 1.4rem);
+  font-weight: 300;
+  letter-spacing: .04em;
+  line-height: 1.8;
+  word-spacing: .3em;
+  color: #e7e3f4;
 }
 
-.scramble-actions {
-  display: flex;
-  justify-content: center;
-  gap: 1.25rem;
-  margin-top: .75rem;
-}
+.scramble-actions { display: flex; justify-content: center; margin-top: .5rem; }
 
 /* ---------- timer ---------- */
 
-.timer-block { text-align: center; }
+.timer-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+/* The ring around the time is the halo. Its colour follows the timer state. */
+.halo {
+  --glow: rgba(139, 92, 246, .35);
+  --edge: rgba(139, 92, 246, .45);
+  display: grid;
+  place-items: center;
+  width: clamp(230px, 64vw, 310px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid var(--edge);
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, .03), transparent 65%);
+  box-shadow: 0 0 60px -12px var(--glow), inset 0 0 60px -30px var(--glow);
+  transition: border-color .18s, box-shadow .18s;
+}
 
 .time {
-  font-size: clamp(4rem, 18vw, 7rem);
-  font-weight: 300;
+  font-size: clamp(3.2rem, 15vw, 4.6rem);
+  font-weight: 200;
   letter-spacing: -.02em;
   line-height: 1;
-  transition: color .1s;
+  transition: color .15s;
 }
 
 .hint {
-  margin: 1rem 0 0;
+  margin: 0;
+  min-height: 1.4em;
+  text-align: center;
   color: var(--muted);
   font-size: .8rem;
 }
 
-/* Inspection turns red once the 15 seconds are gone. */
-body[data-inspection="over"] .time { color: var(--hold); }
+body[data-phase="holding"] .halo,
+body[data-confirm="delete"] .halo {
+  --glow: rgba(255, 77, 94, .55);
+  --edge: rgba(255, 77, 94, .6);
+}
 
-body[data-phase="holding"] .time { color: var(--hold); }
-body[data-phase="ready"] .time { color: var(--accent); }
+body[data-phase="ready"] .halo {
+  --glow: rgba(44, 224, 138, .55);
+  --edge: rgba(44, 224, 138, .65);
+}
+
+body[data-inspection="over"] .halo {
+  --glow: rgba(255, 77, 94, .5);
+  --edge: rgba(255, 77, 94, .55);
+}
+
+body[data-phase="holding"] .time,
+body[data-inspection="over"] .time,
+body[data-confirm="delete"] .time { color: var(--hold); }
+
+body[data-phase="ready"] .time { color: var(--ready); }
 
 /* While solving the time is hidden behind three dots. */
+body[data-phase="running"] .halo { --glow: rgba(139, 92, 246, .2); --edge: rgba(255, 255, 255, .12); }
+
 body[data-phase="running"] .time {
-  letter-spacing: .1em;
-  animation: pulse 1.6s ease-in-out infinite;
+  letter-spacing: .12em;
+  color: var(--muted);
+  animation: pulse 1.8s ease-in-out infinite;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: .55; }
+  0%, 100% { opacity: .45; }
   50% { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body[data-phase="running"] .time { animation: none; opacity: .8; }
+  body[data-phase="running"] .time { animation: none; opacity: .75; }
 }
 
-/* Fade everything but the time while a solve is running. */
+/* Fade everything but the halo while a solve is running. */
 body[data-phase="running"] .scramble-block,
 body[data-phase="running"] .stats,
 body[data-phase="running"] .session,
@@ -187,7 +241,7 @@ body[data-phase="running"] .hint {
   pointer-events: none;
 }
 
-.bar, .scramble-block, .stats, .session, .hint { transition: opacity .25s; }
+.bar, .scramble-block, .stats, .session, .hint { transition: opacity .3s; }
 
 /* ---------- stats ---------- */
 
@@ -195,92 +249,84 @@ body[data-phase="running"] .hint {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: .5rem;
-  padding: 1rem 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
 }
 
 .stat {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: .3rem;
+  gap: .35rem;
+  padding: .75rem .35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 
 .stat-label {
-  color: var(--muted);
-  font-size: .65rem;
-  letter-spacing: .1em;
+  font-size: .6rem;
+  letter-spacing: .14em;
   text-transform: uppercase;
+  color: var(--muted);
 }
 
-.stat-value { font-size: .95rem; }
+.stat-value { font-size: 1rem; font-weight: 300; }
 
 /* ---------- session ---------- */
 
 .session-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: .5rem;
+  margin-bottom: .6rem;
 }
 
 .session-head h2 {
   margin: 0;
-  font-size: .7rem;
+  font-size: .68rem;
   font-weight: 400;
-  letter-spacing: .12em;
+  letter-spacing: .16em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
-.solves {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
+.solves { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
 
 .solve {
   display: flex;
   align-items: center;
-  gap: .75rem;
-  padding: .5rem .25rem;
-  border-bottom: 1px solid var(--line);
+  gap: .6rem;
+  padding: .5rem .5rem .5rem .85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 
-.solve-index {
-  color: var(--muted);
-  font-size: .75rem;
-  min-width: 2ch;
-}
+.solve-index { color: var(--muted); font-size: .7rem; min-width: 2ch; }
 
-.solve-time { flex: 1; }
+.solve-time { flex: 1; font-size: 1.05rem; font-weight: 300; }
 .solve.is-dnf .solve-time { color: var(--muted); text-decoration: line-through; }
 
-.solve-actions {
-  display: flex;
-  gap: .25rem;
-  opacity: 0;
-  transition: opacity .15s;
-}
+.solve-actions { display: flex; gap: .3rem; }
 
-.solve:hover .solve-actions,
-.solve:focus-within .solve-actions { opacity: 1; }
-
+/* Big enough to hit with a thumb. */
 .solve-action {
+  min-width: 44px;
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0 .5rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
   color: var(--muted);
-  font-size: .7rem;
-  padding: .2rem .4rem;
-  border-radius: 4px;
+  font-size: .75rem;
+  transition: color .15s, background .15s, border-color .15s;
 }
 
-.solve-action:hover { color: var(--fg); background: var(--line); }
+.solve-action:hover { color: var(--fg); background: var(--surface-strong); border-color: var(--line); }
+.solve-action[data-active="true"] { color: var(--halo); border-color: var(--halo-soft); }
+.solve-action.remove:hover { color: var(--hold); }
 
-.empty {
-  margin: .75rem 0 0;
-  color: var(--muted);
-  font-size: .8rem;
-}
+.empty { margin: .5rem 0 0; color: var(--muted); font-size: .8rem; }
 
 /* ---------- toast ---------- */
 
@@ -290,18 +336,16 @@ body[data-phase="running"] .hint {
   bottom: 1.5rem;
   transform: translateX(-50%);
   max-width: min(90vw, 30rem);
-  padding: .6rem 1rem;
+  padding: .7rem 1.1rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #17171b;
+  border-radius: 999px;
+  background: #16141d;
+  box-shadow: 0 12px 40px -12px #000;
   font-size: .8rem;
   text-align: center;
 }
 
-@media (pointer: coarse) {
-  .solve-actions { opacity: 1; }
-}
-
 @media (max-width: 480px) {
-  .stats { grid-template-columns: repeat(3, 1fr); row-gap: 1rem; }
+  main { gap: 1.5rem; padding-top: 1.5rem; }
+  .stats { grid-template-columns: repeat(3, 1fr); }
 }

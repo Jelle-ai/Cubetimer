@@ -11,6 +11,8 @@ via Web Bluetooth. Geen build, geen dependencies — het is gewoon HTML, CSS en 
 - WCA-inspectie van 15 seconden, met automatisch +2 na 15s en DNF na 17s
 - Tijdens een solve blijft de tijd verborgen achter drie bolletjes
 - Sessie met best, ao5, ao12 en mean; +2 en DNF per solve
+- Donker design met de violette halo-ring van de GAN Halo timer: de ring kleurt rood
+  bij het vasthouden en groen zodra je mag starten
 - Alles wordt lokaal bewaard (localStorage), niets gaat naar een server
 
 ## Draaien
@@ -40,10 +42,15 @@ groen wordt — is het "knopje" van de app:
 | Gebaar | Wat er gebeurt |
 | --- | --- |
 | 1× kort aanraken | Inspectie start (15 seconden aftellen) |
-| 2× kort aanraken achter elkaar | De laatst gelopen tijd wordt gewist |
+| 2× kort aanraken achter elkaar | Vraagt of de laatste tijd weg mag — tik daarna 1× om te bevestigen |
 | 1× kort aanraken tijdens inspectie | Inspectie wordt afgebroken |
 | Aanraken en vasthouden tot groen | Gewone start van een solve — telt niet als aanraking |
 | Resetknop op de timer | Het display van de app gaat mee naar `0.00`, verder niets |
+
+Wissen gaat dus altijd via een bevestiging: na de dubbele aanraking zie je in de ring
+welke tijd weggaat, en pas de volgende korte aanraking voert het uit. Dat kun je zo vaak
+herhalen als je wilt — ook lang na een solve en na de reset. Begin je in plaats daarvan
+een solve, of raak je een kleine acht seconden niets aan, dan vervalt de vraag vanzelf.
 
 Een enkele aanraking wordt pas na 600 ms uitgevoerd, want binnen dat venster kan er nog
 een tweede volgen. Zodra je handen weer op de mat gaan telt dat als het begin van een

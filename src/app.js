@@ -5,6 +5,7 @@ import { load, save } from './store.js';
 
 const HOLD_MS = 400;          // hold this long before the timer arms
 const TAP_WINDOW_MS = 600;    // window in which a second short touch counts as a double tap
+const DELETE_CONFIRM_MS = 8000; // how long a pending delete waits for its confirming tap
 const INSPECTION_MS = 15000;  // WCA inspection
 const PLUS_TWO_MS = 17000;    // starting after this means DNF
 const CONNECT_GRACE_MS = 1500; // ignore device state echoed right after connecting
@@ -51,6 +52,8 @@ let pendingTap = null;          // single tap waiting to see whether a second on
 let secondTouchStarted = false; // hands went back on while a tap was pending
 let toastTimer = null;
 let storageWarned = false;
+let deleteArmed = false;   // a double tap asked to wipe the last time
+let deleteTimer = null;
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
 const MANUAL_HINT = isTouch
@@ -102,9 +105,9 @@ function renderSolves() {
     const actions = document.createElement('span');
     actions.className = 'solve-actions';
     actions.append(
-      action('+2', 'plus twee', () => togglePenalty(index, '+2')),
-      action('DNF', 'niet opgelost', () => togglePenalty(index, 'DNF')),
-      action('×', 'verwijderen', () => removeSolve(index))
+      action('+2', 'plus twee', () => togglePenalty(index, '+2'), solve.penalty === '+2'),
+      action('DNF', 'niet opgelost', () => togglePenalty(index, 'DNF'), solve.penalty === 'DNF'),
+      action('×', 'verwijderen', () => removeSolve(index), false, 'remove')
     );
 
     item.append(number, value, actions);
@@ -112,12 +115,14 @@ function renderSolves() {
   });
 }
 
-function action(label, title, onClick) {
+function action(label, title, onClick, active = false, extraClass = '') {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'solve-action';
+  button.className = `solve-action ${extraClass}`.trim();
   button.textContent = label;
   button.title = title;
+  button.setAttribute('aria-pressed', String(active));
+  if (active) button.dataset.active = 'true';
   button.addEventListener('click', () => {
     onClick();
     button.blur();
@@ -172,13 +177,43 @@ function removeSolve(index) {
   render();
 }
 
-/** Drop the most recent time — the double press on the timer. */
-function removeLastSolve() {
+/**
+ * A double tap does not delete straight away: it shows which time is about to
+ * go and waits for one more tap. Repeat as often as you like.
+ */
+function armDelete() {
   if (!solves.length) {
     toast('Geen tijd om te wissen.');
     return;
   }
+  const target = solves[solves.length - 1];
+  deleteArmed = true;
+  el.body.dataset.confirm = 'delete';
+  el.time.textContent = formatSolve(target);
+  setHint('Wissen? Tik <strong>1×</strong> om te bevestigen');
+
+  clearTimeout(deleteTimer);
+  deleteTimer = setTimeout(disarmDelete, DELETE_CONFIRM_MS);
+}
+
+function disarmDelete() {
+  if (!deleteArmed) return;
+  deleteArmed = false;
+  clearTimeout(deleteTimer);
+  delete el.body.dataset.confirm;
+  setHint(device ? DEVICE_HINT : MANUAL_HINT);
+  showTime(0);
+}
+
+/** Confirmed: drop the most recent time. */
+function removeLastSolve() {
+  deleteArmed = false;
+  clearTimeout(deleteTimer);
+  delete el.body.dataset.confirm;
+  setHint(device ? DEVICE_HINT : MANUAL_HINT);
+
   const removed = solves.pop();
+  if (!removed) return;
   persist();
   render();
   showTime(0);
@@ -238,6 +273,7 @@ function settleInspection() {
 /* ---------- timing ---------- */
 
 function startRunning() {
+  disarmDelete();
   settleInspection();
   setPhase('running');
   startedAt = performance.now();
@@ -284,6 +320,7 @@ function manualTimingAllowed(target) {
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
+    disarmDelete();
     cancelInspection();
     return;
   }
@@ -367,7 +404,7 @@ function onHandsOn() {
   }
   if (phase === 'idle' || phase === 'inspecting') {
     setPhase('holding');
-    if (inspectionStartedAt === null) showTime(0);
+    if (inspectionStartedAt === null && !deleteArmed) showTime(0);
   }
 }
 
@@ -375,20 +412,21 @@ function onHandsOn() {
 function onHandsOff() {
   if (phase !== 'running') {
     setPhase(inspectionStartedAt === null ? 'idle' : 'inspecting');
-    if (inspectionStartedAt === null) showTime(0);
+    if (inspectionStartedAt === null && !deleteArmed) showTime(0);
   }
   if (performance.now() - connectedAt < CONNECT_GRACE_MS) return;
 
-  if (secondTouchStarted) { // second tap completed: wipe the last time
+  if (secondTouchStarted) { // second tap completed: ask before wiping
     secondTouchStarted = false;
     cancelInspection();
-    removeLastSolve();
+    armDelete();
     return;
   }
 
   pendingTap = setTimeout(() => {
     pendingTap = null;
-    if (inspectionStartedAt !== null) cancelInspection();
+    if (deleteArmed) removeLastSolve();          // the confirming tap
+    else if (inspectionStartedAt !== null) cancelInspection();
     else startInspection();
   }, TAP_WINDOW_MS);
 }
@@ -400,6 +438,7 @@ function onDeviceEvent({ state, time }) {
       break;
     case TimerState.GET_SET:
       clearPendingTap(); // this touch is a solve, not a tap
+      disarmDelete();
       setPhase('ready');
       break;
     case TimerState.HANDS_OFF:
@@ -415,8 +454,8 @@ function onDeviceEvent({ state, time }) {
       break;
     case TimerState.IDLE:
       // Reset button on the timer: the app follows, but never interrupts a
-      // running inspection.
-      if (phase !== 'running' && inspectionStartedAt === null) {
+      // running inspection or a pending delete.
+      if (phase !== 'running' && inspectionStartedAt === null && !deleteArmed) {
         setPhase('idle');
         showTime(0);
       }
@@ -429,6 +468,7 @@ function onDeviceEvent({ state, time }) {
 function onDeviceDisconnect() {
   device = null;
   clearPendingTap();
+  disarmDelete();
   el.connect.textContent = 'Verbind GAN timer';
   el.deviceStatus.hidden = true;
   setHint(MANUAL_HINT);
