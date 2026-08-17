@@ -62,30 +62,46 @@ function readTime(data, offset) {
  * @param {(event: {state: number, time?: number}) => void} handlers.onEvent
  * @param {() => void} [handlers.onDisconnect]
  */
-export async function connectGanTimer({ onEvent, onDisconnect }) {
+export async function connectGanTimer({ onEvent, onDisconnect, anyDevice = false }) {
   if (!isSupported()) throw new Error('Web Bluetooth is niet beschikbaar in deze browser.');
-  return attach(await pickDevice(), { onEvent, onDisconnect });
+  return attach(await pickDevice(anyDevice), { onEvent, onDisconnect });
 }
 
 const cancelled = (error) => /cancel|chooser/i.test(error?.message || '');
 
 /**
- * Show the browser's device chooser. Some browsers refuse a request before the
- * chooser ever appears — over a name filter they dislike, or over a service in
- * the list they will not hand out. So if the narrow request is turned away
- * without the user having seen anything, ask again in the plainest possible
- * form: every device, and only the timer service.
+ * Whether we are on iOS. It matters because bluetooth there runs through Apple's
+ * CoreBluetooth, which cannot scan by device name at all: a browser like Bluefy
+ * has to match the name itself, against an advertised name iOS often withholds
+ * until after connecting. A name filter therefore tends to produce an empty
+ * chooser rather than an error, and an empty chooser is a dead end -- nothing is
+ * thrown, so there is nothing to fall back from.
  */
-async function pickDevice() {
-  // From richest to plainest. Browsers differ in what they accept here, and one
-  // that cannot read the request turns it down before showing anything.
+export const scansByServiceOnly = () =>
+  typeof navigator !== 'undefined'
+  && (/iPad|iPhone|iPod|Bluefy/.test(navigator.userAgent || '')
+    || (/Mac/.test(navigator.platform || '') && navigator.maxTouchPoints > 1));
+
+/** Everything nearby. The one request no platform can turn into an empty list. */
+const showEverything = { acceptAllDevices: true, optionalServices: OPTIONAL_SERVICES };
+
+/**
+ * Show the browser's device chooser. Some browsers refuse a request before the
+ * chooser ever appears -- over a name filter they dislike, or over a service in
+ * the list they will not hand out. So if a narrow request is turned away without
+ * the user having seen anything, ask again in a plainer form.
+ *
+ * @param {boolean} anyDevice skip the filters and list everything straight away.
+ */
+async function pickDevice(anyDevice) {
+  if (anyDevice || scansByServiceOnly()) return navigator.bluetooth.requestDevice(showEverything);
+
+  // From narrowest to widest. A browser that cannot read the request turns it
+  // down before showing anything, so each rejection is worth another try.
   const attempts = [
-    {
-      filters: [{ namePrefix: 'GAN' }, { namePrefix: 'Gan' }, { namePrefix: 'gan' }],
-      optionalServices: OPTIONAL_SERVICES
-    },
-    { filters: [{ services: [SERVICE] }], optionalServices: [SERVICE] },
-    { acceptAllDevices: true, optionalServices: [SERVICE] }
+    { filters: [{ namePrefix: 'GAN' }], optionalServices: OPTIONAL_SERVICES },
+    { filters: [{ services: [SERVICE] }], optionalServices: OPTIONAL_SERVICES },
+    showEverything
   ];
 
   let last = null;

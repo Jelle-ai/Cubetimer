@@ -78,6 +78,8 @@ const el = {
   ledColors: document.getElementById('led-colors'),
   deviceNote: document.getElementById('device-note'),
   deviceDetails: document.getElementById('device-details'),
+  connectAny: document.getElementById('connect-any'),
+  connectAnyNote: document.getElementById('connect-any-note'),
   stats: {
     single: document.getElementById('st-single'),
     singleBest: document.getElementById('st-single-best'),
@@ -1130,6 +1132,7 @@ function onDeviceDisconnect() {
   el.deviceNote.textContent = 'Nog geen timer verbonden.';
   el.deviceDetails.hidden = true;
   el.importTimes.hidden = true;
+  showManualPick(true);
   toast('Timer losgekoppeld.');
 }
 
@@ -1187,7 +1190,8 @@ async function reportConnectionFailure(error) {
   let text;
   if (available === false) {
     text = 'Dit apparaat heeft geen bluetooth, of de browser mag er niet bij. '
-      + 'Op een Mac staat dat onder Systeeminstellingen → Privacy → Bluetooth, op Windows bij Instellingen → Privacy.';
+      + 'Op iPhone staat dat bij Instellingen → de browser → Bluetooth, op een Mac onder '
+      + 'Systeeminstellingen → Privacy → Bluetooth, op Windows bij Instellingen → Privacy.';
   } else {
     text = explainBluetoothError(error);
   }
@@ -1195,6 +1199,12 @@ async function reportConnectionFailure(error) {
   toast(text);
   el.deviceNote.textContent = `Laatste poging mislukt — ${text} [${name || 'geen naam'}${message ? `: ${message}` : ''}]`;
   el.importTimes.hidden = true;
+}
+
+/** The unfiltered chooser is only worth offering while nothing is connected. */
+function showManualPick(show) {
+  el.connectAny.hidden = !show;
+  el.connectAnyNote.hidden = !show;
 }
 
 /** Whatever the connection came from, wire it up the same way. */
@@ -1206,11 +1216,16 @@ function adoptDevice(connection) {
   el.deviceStatus.textContent = device.name;
   el.deviceStatus.hidden = false;
   setHint(currentHint());
+  showManualPick(false);
   showDeviceDetails();
   offerTimerTimes();
 }
 
-el.connect.addEventListener('click', async () => {
+/**
+ * @param {boolean} anyDevice list every bluetooth device instead of filtering,
+ * for when the filtered list came up empty.
+ */
+async function connect(anyDevice) {
   el.connect.blur();
 
   if (device) {
@@ -1218,24 +1233,30 @@ el.connect.addEventListener('click', async () => {
     return;
   }
   if (!isSupported()) {
-    toast('Web Bluetooth werkt alleen in Chrome of Edge (desktop of Android).');
+    toast('Deze browser kan niet met bluetooth praten. Op de computer of Android werkt Chrome of Edge, op iPhone een browser als Bluefy.');
     return;
   }
 
   el.connect.disabled = true;
   el.connect.textContent = 'Verbinden…';
   try {
-    adoptDevice(await connectGanTimer({ onEvent: onDeviceEvent, onDisconnect: onDeviceDisconnect }));
+    adoptDevice(await connectGanTimer({ onEvent: onDeviceEvent, onDisconnect: onDeviceDisconnect, anyDevice }));
     toast(`Verbonden met ${device.name}.`);
   } catch (error) {
     device = null;
     el.connect.textContent = 'Verbind timer';
     const closedByUser = error?.name === 'NotFoundError' && /cancel|chooser/i.test(error.message || '');
-    if (!closedByUser) await reportConnectionFailure(error);
+    // A chooser with nothing in it and a chooser someone closed look exactly
+    // the same from here, so say what to check either way.
+    if (closedByUser) toast('Geen timer gekozen. Stond er niets in de lijst? Zet de timer aan en koppel hem los van andere apps of telefoons.');
+    else await reportConnectionFailure(error);
   } finally {
     el.connect.disabled = false;
   }
-});
+}
+
+el.connect.addEventListener('click', () => connect(false));
+el.connectAny.addEventListener('click', () => connect(true));
 
 /* ---------- screen wake lock ---------- */
 
