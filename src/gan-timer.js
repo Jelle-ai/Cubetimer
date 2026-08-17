@@ -87,6 +87,26 @@ export async function connectGanTimer({ onEvent, onDisconnect }) {
 
   return {
     name: device.name || 'GAN timer',
+    /**
+     * Everything this timer exposes over bluetooth, for the settings panel.
+     * Only services listed in optionalServices are reachable.
+     */
+    async describe() {
+      try {
+        const services = await server.getPrimaryServices();
+        return await Promise.all(services.map(async (s) => ({
+          service: s.uuid,
+          characteristics: (await s.getCharacteristics()).map((c) => ({
+            uuid: c.uuid,
+            properties: Object.entries(c.properties)
+              .filter(([, enabled]) => enabled)
+              .map(([name]) => name)
+          }))
+        })));
+      } catch {
+        return [];
+      }
+    },
     /** Last four times stored in the timer itself. */
     async getRecordedTimes() {
       const data = await timeChar.readValue();

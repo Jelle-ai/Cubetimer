@@ -7,17 +7,26 @@ export function effective(solve) {
   return solve.penalty === '+2' ? solve.ms + 2000 : solve.ms;
 }
 
+let decimals = 2;
+
+/** Two decimals like most timers, or three like the display on the Halo. */
+export function setDecimals(value) {
+  decimals = value === 3 ? 3 : 2;
+}
+
 export function formatTime(ms) {
   if (ms == null) return '–';
   if (!Number.isFinite(ms)) return 'DNF';
-  const total = Math.floor(ms / 10); // centiseconds
-  const cs = total % 100;
-  const seconds = Math.floor(total / 100) % 60;
-  const minutes = Math.floor(total / 6000);
-  const cents = String(cs).padStart(2, '0');
+
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const fraction = Math.floor((ms % 1000) / (decimals === 3 ? 1 : 10));
+  const tail = String(fraction).padStart(decimals, '0');
+
   return minutes > 0
-    ? `${minutes}:${String(seconds).padStart(2, '0')}.${cents}`
-    : `${seconds}.${cents}`;
+    ? `${minutes}:${String(seconds).padStart(2, '0')}.${tail}`
+    : `${seconds}.${tail}`;
 }
 
 /** Label for a single solve, including its penalty marker. */

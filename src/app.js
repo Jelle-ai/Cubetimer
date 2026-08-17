@@ -1,9 +1,9 @@
 import { randomScramble } from './scramble.js';
 import { connectGanTimer, isSupported, TimerState } from './gan-timer.js';
-import { averageOf, best, formatSolve, formatTime, sessionMean } from './stats.js';
+import { averageOf, best, formatSolve, formatTime, sessionMean, setDecimals } from './stats.js';
 import { load, save } from './store.js';
+import { LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 
-const HOLD_MS = 400;          // hold this long before the timer arms
 const TAP_WINDOW_MS = 600;    // window in which a second short touch counts as a double tap
 const DELETE_CONFIRM_MS = 8000; // how long a pending delete waits for its confirming tap
 const INSPECTION_MS = 15000;  // WCA inspection
@@ -24,6 +24,11 @@ const el = {
   empty: document.getElementById('empty'),
   clear: document.getElementById('clear'),
   toast: document.getElementById('toast'),
+  settings: document.getElementById('settings'),
+  settingsOpen: document.getElementById('settings-open'),
+  ledColors: document.getElementById('led-colors'),
+  deviceNote: document.getElementById('device-note'),
+  deviceDetails: document.getElementById('device-details'),
   stats: {
     count: document.getElementById('st-count'),
     best: document.getElementById('st-best'),
@@ -33,6 +38,7 @@ const el = {
   }
 };
 
+let settings = loadSettings();
 let solves = load();
 let scramble = randomScramble();
 let phase = 'idle'; // idle | inspecting | holding | ready | running
@@ -54,12 +60,21 @@ let toastTimer = null;
 let storageWarned = false;
 let deleteArmed = false;   // a double tap asked to wipe the last time
 let deleteTimer = null;
+let runningFrame = null;   // only used when the time stays visible during a solve
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
-const MANUAL_HINT = isTouch
-  ? 'Tik voor inspectie · vasthouden en loslaten om te starten'
-  : 'Tik <kbd>spatie</kbd> voor inspectie · vasthouden en loslaten om te starten';
-const DEVICE_HINT = 'Kort aanraken: 1× inspectie · 2× tijd wissen · vasthouden om te starten';
+
+function currentHint() {
+  if (device) {
+    return settings.inspection
+      ? 'Kort aanraken: 1× inspectie · 2× tijd wissen · vasthouden om te starten'
+      : 'Kort aanraken: 2× tijd wissen · vasthouden om te starten';
+  }
+  const key = isTouch ? 'Tik' : 'Tik <kbd>spatie</kbd>';
+  return settings.inspection
+    ? `${key} voor inspectie · vasthouden en loslaten om te starten`
+    : 'Vasthouden en loslaten om te starten';
+}
 
 /* ---------- rendering ---------- */
 
@@ -201,7 +216,7 @@ function disarmDelete() {
   deleteArmed = false;
   clearTimeout(deleteTimer);
   delete el.body.dataset.confirm;
-  setHint(device ? DEVICE_HINT : MANUAL_HINT);
+  setHint(currentHint());
   showTime(0);
 }
 
@@ -210,7 +225,7 @@ function removeLastSolve() {
   deleteArmed = false;
   clearTimeout(deleteTimer);
   delete el.body.dataset.confirm;
-  setHint(device ? DEVICE_HINT : MANUAL_HINT);
+  setHint(currentHint());
 
   const removed = solves.pop();
   if (!removed) return;
@@ -235,6 +250,7 @@ function inspectionTick() {
 }
 
 function startInspection() {
+  if (!settings.inspection) return;
   inspectionStartedAt = performance.now();
   pendingPenalty = 'none';
   setPhase('inspecting');
@@ -272,15 +288,28 @@ function settleInspection() {
 
 /* ---------- timing ---------- */
 
+function runningTick() {
+  showTime(performance.now() - startedAt);
+  runningFrame = requestAnimationFrame(runningTick);
+}
+
 function startRunning() {
   disarmDelete();
   settleInspection();
   setPhase('running');
   startedAt = performance.now();
-  el.time.textContent = DOTS; // the time stays hidden while solving
+
+  cancelAnimationFrame(runningFrame);
+  if (settings.hideTime) {
+    el.time.textContent = DOTS;
+  } else {
+    runningTick();
+  }
 }
 
 function stopRunning(ms) {
+  cancelAnimationFrame(runningFrame);
+  runningFrame = null;
   const elapsed = ms ?? performance.now() - startedAt;
   setPhase('idle');
   showTime(elapsed);
@@ -294,7 +323,7 @@ function beginHold() {
   clearTimeout(holdTimer);
   holdTimer = setTimeout(() => {
     if (phase === 'holding') setPhase('ready');
-  }, HOLD_MS);
+  }, settings.holdMs);
 }
 
 /**
@@ -471,7 +500,9 @@ function onDeviceDisconnect() {
   disarmDelete();
   el.connect.textContent = 'Verbind GAN timer';
   el.deviceStatus.hidden = true;
-  setHint(MANUAL_HINT);
+  setHint(currentHint());
+  el.deviceNote.textContent = 'Nog geen timer verbonden.';
+  el.deviceDetails.hidden = true;
   toast('Timer losgekoppeld.');
 }
 
@@ -496,8 +527,9 @@ el.connect.addEventListener('click', async () => {
     el.connect.textContent = 'Loskoppelen';
     el.deviceStatus.textContent = device.name;
     el.deviceStatus.hidden = false;
-    setHint(DEVICE_HINT);
+    setHint(currentHint());
     toast(`Verbonden met ${device.name}.`);
+    showDeviceDetails();
   } catch (error) {
     device = null;
     el.connect.textContent = 'Verbind GAN timer';
@@ -507,6 +539,123 @@ el.connect.addEventListener('click', async () => {
   } finally {
     el.connect.disabled = false;
   }
+});
+
+/* ---------- settings ---------- */
+
+function applySettings() {
+  document.documentElement.style.setProperty('--led', colorOf(settings.led));
+  setDecimals(settings.decimals);
+  if (!settings.inspection) cancelInspection();
+  setHint(currentHint());
+  if (phase === 'idle' && !deleteArmed) showTime(0);
+  render();
+}
+
+function storeSettings() {
+  if (!saveSettings(settings) && !storageWarned) {
+    storageWarned = true;
+    toast('Deze browser bewaart niets (privémodus?). Instellingen gelden tot je herlaadt.');
+  }
+}
+
+/** Highlights the chosen button in a group of options. */
+function markGroup(group, value) {
+  group.querySelectorAll('button').forEach((button) => {
+    const active = button.dataset.value === String(value);
+    button.dataset.active = String(active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+}
+
+function buildLedSwatches() {
+  el.ledColors.innerHTML = '';
+  LED_COLORS.forEach(({ id, label, color }) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'swatch';
+    button.dataset.value = id;
+    button.title = label;
+    button.setAttribute('aria-label', label);
+    button.style.setProperty('--swatch', color);
+    button.addEventListener('click', () => {
+      settings.led = id;
+      storeSettings();
+      applySettings();
+      markGroup(el.ledColors, id);
+    });
+    el.ledColors.append(button);
+  });
+  markGroup(el.ledColors, settings.led);
+}
+
+function bindGroup(id, apply) {
+  const group = document.getElementById(id);
+  group.addEventListener('click', (event) => {
+    const button = event.target.closest('button');
+    if (!button) return;
+    apply(button.dataset.value);
+    storeSettings();
+    applySettings();
+    markGroup(group, button.dataset.value);
+  });
+  return group;
+}
+
+const groups = {
+  inspection: bindGroup('set-inspection', (v) => { settings.inspection = v === 'on'; }),
+  hide: bindGroup('set-hide', (v) => { settings.hideTime = v === 'on'; }),
+  decimals: bindGroup('set-decimals', (v) => { settings.decimals = Number(v); }),
+  hold: bindGroup('set-hold', (v) => { settings.holdMs = Number(v); })
+};
+
+function syncSettingsUi() {
+  markGroup(groups.inspection, settings.inspection ? 'on' : 'off');
+  markGroup(groups.hide, settings.hideTime ? 'on' : 'off');
+  markGroup(groups.decimals, settings.decimals);
+  markGroup(groups.hold, settings.holdMs);
+  markGroup(el.ledColors, settings.led);
+}
+
+/**
+ * Lists what the connected timer actually exposes over bluetooth. The lighting
+ * of the timer is configured through GAN's own app over a protocol that is not
+ * public, so this is read-only information.
+ */
+async function showDeviceDetails() {
+  if (!device) return;
+  el.deviceNote.textContent = `${device.name} — verbonden.`;
+  const description = await device.describe();
+  el.deviceDetails.innerHTML = '';
+
+  if (!description.length) {
+    el.deviceDetails.textContent = 'Geen details op te vragen.';
+  } else {
+    for (const { service, characteristics } of description) {
+      const block = document.createElement('div');
+      block.className = 'device-service';
+      block.innerHTML = `<code>${service.slice(4, 8)}</code>`;
+      for (const chr of characteristics) {
+        const row = document.createElement('div');
+        row.className = 'device-chr';
+        row.innerHTML = `<code>${chr.uuid.slice(4, 8)}</code><span>${chr.properties.join(', ')}</span>`;
+        block.append(row);
+      }
+      el.deviceDetails.append(block);
+    }
+    const note = document.createElement('p');
+    note.className = 'device-hint';
+    note.textContent = 'De lampjes van de timer zijn hier niet mee te sturen: '
+      + 'dat loopt via GAN\'s eigen app over een protocol dat niet openbaar is.';
+    el.deviceDetails.append(note);
+  }
+  el.deviceDetails.hidden = false;
+}
+
+el.settingsOpen.addEventListener('click', () => {
+  el.settingsOpen.blur();
+  syncSettingsUi();
+  el.settings.showModal();
 });
 
 /* ---------- controls ---------- */
@@ -532,7 +681,9 @@ if (!isSupported()) {
   el.connect.title = 'Web Bluetooth is niet beschikbaar in deze browser';
 }
 
+buildLedSwatches();
+syncSettingsUi();
+
 setPhase('idle');
-setHint(MANUAL_HINT);
 renderScramble();
-render();
+applySettings(); // sets the ring colour, decimals, hint and renders the session

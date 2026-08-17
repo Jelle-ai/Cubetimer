@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="light">
 <title>Cubetimer</title>
 <link rel="stylesheet" href="styles.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230d0d0f'/><rect x='7' y='7' width='7' height='7' fill='%23fff'/><rect x='18' y='7' width='7' height='7' fill='%2338d16b'/><rect x='7' y='18' width='7' height='7' fill='%23e8453c'/><rect x='18' y='18' width='7' height='7' fill='%23f2c94c'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23eaf6fd'/><circle cx='16' cy='16' r='8' fill='none' stroke='%234fc3f7' stroke-width='3'/></svg>">
 </head>
 <body>
 
@@ -14,40 +14,114 @@
   <span class="brand">cubetimer</span>
   <div class="bar-right">
     <span id="device-status" class="status" hidden></span>
-    <button id="connect" class="ghost" type="button">Verbind GAN timer</button>
+    <button id="settings-open" class="icon-button" type="button" title="Instellingen" aria-label="Instellingen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2-1.5-2-3.4-2.3 1a7.6 7.6 0 0 0-1.7-1L15 3.5h-4l-.4 2.6a7.6 7.6 0 0 0-1.7 1l-2.3-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2 1.5 2 3.4 2.3-1c.5.4 1.1.8 1.7 1l.4 2.6h4l.4-2.6c.6-.2 1.2-.6 1.7-1l2.3 1 2-3.4-2-1.5Z"/></svg>
+    </button>
+    <button id="connect" class="pill" type="button">Verbind timer</button>
   </div>
 </header>
 
-<main id="stage">
-  <section class="scramble-block">
-    <p id="scramble" class="scramble">–</p>
-    <div class="scramble-actions">
+<main class="shell">
+  <section id="stage" class="stage">
+    <div class="scramble-block">
+      <p id="scramble" class="scramble">–</p>
       <button id="new-scramble" class="link" type="button">nieuwe scramble</button>
     </div>
-  </section>
 
-  <section class="timer-block">
     <div class="halo"><div id="time" class="time">0.00</div></div>
+
     <p id="hint" class="hint"></p>
   </section>
 
-  <section class="stats">
-    <div class="stat"><span class="stat-label">solves</span><span id="st-count" class="stat-value">0</span></div>
-    <div class="stat"><span class="stat-label">best</span><span id="st-best" class="stat-value">–</span></div>
-    <div class="stat"><span class="stat-label">ao5</span><span id="st-ao5" class="stat-value">–</span></div>
-    <div class="stat"><span class="stat-label">ao12</span><span id="st-ao12" class="stat-value">–</span></div>
-    <div class="stat"><span class="stat-label">mean</span><span id="st-mean" class="stat-value">–</span></div>
-  </section>
-
-  <section class="session">
-    <div class="session-head">
-      <h2>Sessie</h2>
-      <button id="clear" class="link danger" type="button">wissen</button>
+  <aside class="panel">
+    <div class="stats">
+      <div class="stat"><span class="stat-label">solves</span><span id="st-count" class="stat-value">0</span></div>
+      <div class="stat"><span class="stat-label">best</span><span id="st-best" class="stat-value">–</span></div>
+      <div class="stat"><span class="stat-label">ao5</span><span id="st-ao5" class="stat-value">–</span></div>
+      <div class="stat"><span class="stat-label">ao12</span><span id="st-ao12" class="stat-value">–</span></div>
+      <div class="stat"><span class="stat-label">mean</span><span id="st-mean" class="stat-value">–</span></div>
     </div>
-    <ol id="solves" class="solves" reversed></ol>
-    <p id="empty" class="empty">Nog geen tijden.</p>
-  </section>
+
+    <section class="session">
+      <div class="session-head">
+        <h2>Sessie</h2>
+        <button id="clear" class="link danger" type="button">wissen</button>
+      </div>
+      <ol id="solves" class="solves" reversed></ol>
+      <p id="empty" class="empty">Nog geen tijden.</p>
+    </section>
+  </aside>
 </main>
+
+<dialog id="settings" class="sheet">
+  <form method="dialog" class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Instellingen</h2>
+      <button value="close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Ringkleur</span>
+        <small>Kleur van de ring in de app</small>
+      </div>
+      <div id="led-colors" class="swatches"></div>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Inspectie</span>
+        <small>15 seconden, met +2 en DNF</small>
+      </div>
+      <div class="segmented" id="set-inspection" role="group">
+        <button type="button" data-value="on">aan</button>
+        <button type="button" data-value="off">uit</button>
+      </div>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Tijd tijdens solve</span>
+        <small>Verbergen achter drie bolletjes</small>
+      </div>
+      <div class="segmented" id="set-hide" role="group">
+        <button type="button" data-value="on">verbergen</button>
+        <button type="button" data-value="off">tonen</button>
+      </div>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Decimalen</span>
+        <small>Zoals het display van je timer</small>
+      </div>
+      <div class="segmented" id="set-decimals" role="group">
+        <button type="button" data-value="2">0.00</button>
+        <button type="button" data-value="3">0.000</button>
+      </div>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Vasthoudtijd</span>
+        <small>Hoe lang voor de timer op groen springt</small>
+      </div>
+      <div class="segmented" id="set-hold" role="group">
+        <button type="button" data-value="250">kort</button>
+        <button type="button" data-value="400">normaal</button>
+        <button type="button" data-value="550">lang</button>
+      </div>
+    </section>
+
+    <section class="setting stacked">
+      <div class="setting-label">
+        <span>Je timer</span>
+        <small id="device-note">Nog geen timer verbonden.</small>
+      </div>
+      <div id="device-details" class="device-details" hidden></div>
+    </section>
+  </form>
+</dialog>
 
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 

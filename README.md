@@ -11,8 +11,12 @@ via Web Bluetooth. Geen build, geen dependencies — het is gewoon HTML, CSS en 
 - WCA-inspectie van 15 seconden, met automatisch +2 na 15s en DNF na 17s
 - Tijdens een solve blijft de tijd verborgen achter drie bolletjes
 - Sessie met best, ao5, ao12 en mean; +2 en DNF per solve
-- Donker design met de violette halo-ring van de GAN Halo timer: de ring kleurt rood
-  bij het vasthouden en groen zodra je mag starten
+- Design in de kleuren van de GAN Halo op zijn mat: lichtblauw verloop, witte ring met
+  blauwe gloed. De ring kleurt rood bij het vasthouden en groen zodra je mag starten
+- De pagina groeit nooit mee: alles past op één scherm en alleen de sessielijst scrolt
+  (naast de timer op een groot scherm, eronder op je telefoon)
+- Instellingen voor ringkleur, inspectie, decimalen, vasthoudtijd en het tonen van de
+  tijd tijdens een solve
 - Alles wordt lokaal bewaard (localStorage), niets gaat naar een server
 
 ## Draaien
@@ -81,6 +85,30 @@ Zonder timer erbij (spatiebalk, of tikken op het scherm op mobiel):
 
 Inspectie is optioneel: vanuit stilstand meteen vasthouden en loslaten start gewoon een
 solve zonder inspectie.
+
+## Instellingen
+
+Via het tandwiel rechtsboven:
+
+| Instelling | Keuze |
+| --- | --- |
+| Ringkleur | Zes kleuren, afgeleid van de LED-kleuren van de Halo |
+| Inspectie | Aan (15 seconden, met +2 en DNF) of uit |
+| Tijd tijdens solve | Verbergen achter drie bolletjes, of gewoon laten lopen |
+| Decimalen | `0.00` of `0.000`, net als het display van je timer |
+| Vasthoudtijd | Kort (250 ms), normaal (400 ms) of lang (550 ms) |
+
+Alles wordt lokaal bewaard, net als de tijden.
+
+### Waarom de lampjes van de timer hier niet te regelen zijn
+
+De lichteffecten van de GAN Halo worden ingesteld via GAN's eigen app, over een
+protocol dat niet openbaar is. Wat de timer over bluetooth aanbiedt, is te zien onder
+**Je timer** in de instellingen: de service `fff0` met `fff2` (lezen: opgeslagen tijden)
+en `fff5` (lezen en notificaties: de toestand van de timer). Daar zit geen
+schrijfbare ingang bij, dus de app kan de LED-kleur, het knipperen of de helderheid
+van het apparaat niet veranderen. De ringkleur in de instellingen kleurt daarom de
+ring op het scherm, niet de lampjes in je mat.
 
 ## Over de scrambles
 
