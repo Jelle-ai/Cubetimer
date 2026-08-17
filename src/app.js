@@ -1124,13 +1124,37 @@ function onDeviceDisconnect() {
   device = null;
   clearPendingTap();
   disarmDelete();
-  el.connect.textContent = 'Verbind GAN timer';
+  el.connect.textContent = 'Verbind timer';
   el.deviceStatus.hidden = true;
   setHint(currentHint());
   el.deviceNote.textContent = 'Nog geen timer verbonden.';
   el.deviceDetails.hidden = true;
   el.importTimes.hidden = true;
   toast('Timer losgekoppeld.');
+}
+
+/**
+ * Say what actually went wrong instead of a blanket "mislukt". The browser's
+ * own message is kept on the end, because that is what makes a report useful.
+ */
+function explainBluetoothError(error) {
+  const name = error?.name || 'Fout';
+  const detail = error?.message ? ` (${error.message})` : '';
+
+  if (name === 'NotAllowedError') {
+    return `Geen toestemming voor bluetooth. Sta het toe in je browser en probeer opnieuw${detail}`;
+  }
+  if (name === 'NetworkError') {
+    return `Verbinden lukte niet. Staat de timer aan, en is hij niet al verbonden met een andere app of telefoon?${detail}`;
+  }
+  if (name === 'SecurityError') {
+    return `De browser blokkeert deze verbinding. Werkt de pagina wel via https?${detail}`;
+  }
+  if (name === 'NotSupportedError') {
+    return `Deze browser kan niet met de timer praten${detail}`;
+  }
+  if (name === 'Error') return error.message; // already a sentence of our own
+  return `${name}: ${error?.message || 'verbinden mislukt'}`;
 }
 
 /** Whatever the connection came from, wire it up the same way. */
@@ -1176,9 +1200,9 @@ el.connect.addEventListener('click', async () => {
     toast(`Verbonden met ${device.name}.`);
   } catch (error) {
     device = null;
-    el.connect.textContent = 'Verbind GAN timer';
+    el.connect.textContent = 'Verbind timer';
     if (error?.name !== 'NotFoundError') { // user closed the device picker
-      toast(error?.message || 'Verbinden mislukt.');
+      toast(explainBluetoothError(error));
     }
   } finally {
     el.connect.disabled = false;

@@ -10,22 +10,12 @@ const BATTERY_SERVICE = 0x180f;
 const BATTERY_LEVEL = 0x2a19;
 
 /**
- * A browser only lets a page see services it asked for up front, so anything
- * not listed here stays invisible even if the timer has it. Beyond the timer
- * service these are the usual suspects — battery, device info, the serial
- * profile and the services GAN uses on its smart cubes — so that the settings
- * panel can show whether this timer offers more than the four time slots.
+ * A browser only reveals services a page asked for up front. Keep this to the
+ * timer service plus the two standard ones: asking for unusual UUIDs makes the
+ * permission request larger for no gain, and some of them are blocked outright
+ * depending on the browser and the platform.
  */
-const OPTIONAL_SERVICES = [
-  SERVICE,
-  BATTERY_SERVICE,
-  0x180a, // device information
-  0xfff7,
-  '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART
-  '0000fe95-0000-1000-8000-00805f9b34fb',
-  '00000010-0000-fff7-fff6-fff5fff4fff0', // GAN gen2 cube
-  '8653000a-43e6-47b7-9cb0-5fc21d4ae340'  // GAN gen3 cube
-];
+const OPTIONAL_SERVICES = [SERVICE, BATTERY_SERVICE, 0x180a];
 
 export const TimerState = {
   DISCONNECT: 0,
@@ -84,6 +74,20 @@ export async function connectGanTimer({ onEvent, onDisconnect }) {
   return attach(device, { onEvent, onDisconnect });
 }
 
+/** A first GATT connect often fails on a timer that just woke up. */
+async function connectWithRetry(device, attempts = 3) {
+  let last = null;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await device.gatt.connect();
+    } catch (error) {
+      last = error;
+      if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
+    }
+  }
+  throw last;
+}
+
 /**
  * Reconnect to a timer this browser already has permission for, without asking
  * anything. Only some browsers expose that list; elsewhere this is a no-op.
@@ -102,8 +106,16 @@ export async function reconnectGanTimer({ onEvent, onDisconnect }) {
 }
 
 async function attach(device, { onEvent, onDisconnect }) {
-  const server = await device.gatt.connect();
-  const service = await server.getPrimaryService(SERVICE);
+  const server = await connectWithRetry(device);
+
+  let service;
+  try {
+    service = await server.getPrimaryService(SERVICE);
+  } catch {
+    if (server.connected) server.disconnect();
+    throw new Error(`${device.name || 'Dit apparaat'} biedt de tijd-dienst van de GAN timer niet aan.`);
+  }
+
   const timeChar = await service.getCharacteristic(TIME_CHARACTERISTIC);
   const stateChar = await service.getCharacteristic(STATE_CHARACTERISTIC);
 

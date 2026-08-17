@@ -80,11 +80,15 @@ solve nooit per ongeluk inspectie starten.
 
 ### Tijden die op je timer staan
 
-De app leest bij het verbinden ook de batterijstand uit, als je timer die doorgeeft, en
-vraagt de browser toegang tot de gangbare bluetooth-diensten (batterij, apparaatinfo,
-seriële profielen en de diensten van GAN's smart cubes). Wat je timer daarvan werkelijk
-heeft, staat onder **Je timer** in de instellingen — een browser laat een pagina namelijk
-alleen diensten zien waar vooraf om gevraagd is.
+De app vraagt toegang tot de tijd-dienst van de timer plus de twee standaarddiensten
+batterij en apparaatinfo, en leest je batterijstand uit als de timer die doorgeeft. Wat je
+timer allemaal aanbiedt staat onder **Je timer** in de instellingen — een browser laat een
+pagina namelijk alleen diensten zien waar vooraf om gevraagd is.
+
+Lukt verbinden niet, dan zegt de melding wat er misging: geen toestemming, timer uit of al
+verbonden met een andere app, geen https, of een apparaat zonder de tijd-dienst. De eerste
+poging om te koppelen mislukt bij bluetooth vaker zonder aanwijsbare reden, dus die wordt
+automatisch tot drie keer herhaald.
 
 De timer bewaart zelf een handvol tijden: de tijd op het display, gevolgd door de vorige.
 De app leest élke plek uit die het apparaat doorgeeft — niet een vast aantal — en biedt
