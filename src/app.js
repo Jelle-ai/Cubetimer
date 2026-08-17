@@ -48,6 +48,14 @@ const el = {
   statsSheet: document.getElementById('stats-sheet'),
   statsTitle: document.getElementById('stats-title'),
   statsList: document.getElementById('stats-list'),
+  selectMode: document.getElementById('select-mode'),
+  selectionBar: document.getElementById('selection-bar'),
+  selectionCount: document.getElementById('selection-count'),
+  selectAll: document.getElementById('select-all'),
+  selectionPlus2: document.getElementById('selection-plus2'),
+  selectionDnf: document.getElementById('selection-dnf'),
+  selectionDelete: document.getElementById('selection-delete'),
+  selectDone: document.getElementById('select-done'),
   sessionSelect: document.getElementById('session-select'),
   sessionManage: document.getElementById('session-manage'),
   sessionSheet: document.getElementById('session-sheet'),
@@ -111,6 +119,11 @@ let armedByCurrentTouch = false; // the touch that raised the question cannot an
 let penaltyStep = 0; // how far the double taps have walked the last solve along
 let confirmTimer = null; // a confirming tap, held back to see if a second one follows
 let runningFrame = null;   // only used when the time stays visible during a solve
+
+// Solve objects themselves are held, not their positions: an index would point
+// at the wrong time as soon as one is removed.
+let selecting = false;
+const selected = new Set();
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
 
@@ -205,7 +218,15 @@ function renderSolves() {
     if (settings.targetOn && Number.isFinite(value) && value <= settings.targetMs) {
       row.classList.add('is-under');
     }
-    row.addEventListener('click', () => openDetail(index));
+    row.addEventListener('click', () => (selecting ? toggleSelected(solve) : openDetail(index)));
+
+    if (selecting) {
+      const check = document.createElement('span');
+      check.className = 'solve-check';
+      check.textContent = selected.has(solve) ? '✓' : '';
+      row.setAttribute('aria-pressed', String(selected.has(solve)));
+      row.prepend(check);
+    }
 
     const number = document.createElement('span');
     number.className = 'solve-index';
@@ -364,6 +385,8 @@ function useSession(index) {
   saveFile.active = index;
   solves = currentSession().solves;
   penaltyStep = 0;
+  selecting = false;
+  selected.clear();
   disarmDelete();
   persist();
   render();
@@ -460,6 +483,82 @@ el.statsButton.addEventListener('click', () => {
   el.statsSheet.focus();
 });
 
+/* ---------- selecting several solves ---------- */
+
+function renderSelection() {
+  el.selectionBar.hidden = !selecting;
+  el.body.toggleAttribute('data-selecting', selecting);
+  el.selectMode.textContent = selecting ? 'stop selectie' : 'selecteer';
+  el.selectionCount.textContent = `${selected.size} gekozen`;
+
+  const none = selected.size === 0;
+  for (const button of [el.selectionPlus2, el.selectionDnf, el.selectionDelete]) {
+    button.disabled = none;
+    button.style.opacity = none ? '.4' : '1';
+  }
+  el.selectAll.textContent = selected.size === solves.length && solves.length ? 'geen' : 'alles';
+}
+
+function toggleSelected(solve) {
+  if (selected.has(solve)) selected.delete(solve);
+  else selected.add(solve);
+  renderSolves();
+  renderSelection();
+}
+
+function setSelecting(on) {
+  selecting = on;
+  selected.clear();
+  renderSolves();
+  renderSelection();
+}
+
+el.selectMode.addEventListener('click', () => {
+  el.selectMode.blur();
+  setSelecting(!selecting);
+});
+
+el.selectDone.addEventListener('click', () => setSelecting(false));
+
+el.selectAll.addEventListener('click', () => {
+  if (selected.size === solves.length) selected.clear();
+  else solves.forEach((solve) => selected.add(solve));
+  renderSolves();
+  renderSelection();
+});
+
+/** Apply a penalty to everything ticked; a second press lifts it again. */
+function penaliseSelection(penalty) {
+  if (!selected.size) return;
+  const allSet = [...selected].every((solve) => solve.penalty === penalty);
+  for (const solve of selected) solve.penalty = allSet ? 'none' : penalty;
+  persist();
+  renderSolves();
+  render();
+  renderSelection();
+  toast(allSet ? `${selected.size} tijden weer gewoon.` : `${penalty} op ${selected.size} tijden.`);
+}
+
+el.selectionPlus2.addEventListener('click', () => penaliseSelection('+2'));
+el.selectionDnf.addEventListener('click', () => penaliseSelection('DNF'));
+
+el.selectionDelete.addEventListener('click', () => {
+  const count = selected.size;
+  if (!count) return;
+  if (!confirm(count === 1 ? 'Deze tijd verwijderen?' : `${count} tijden verwijderen?`)) return;
+
+  const doomed = new Set(selected);
+  for (let index = solves.length - 1; index >= 0; index--) {
+    if (doomed.has(solves[index])) solves.splice(index, 1);
+  }
+  selected.clear();
+  penaltyStep = 0;
+  persist();
+  render();
+  renderSelection();
+  toast(count === 1 ? 'Tijd verwijderd.' : `${count} tijden verwijderd.`);
+});
+
 /* ---------- solve details ---------- */
 
 let detailIndex = null;
@@ -523,6 +622,7 @@ el.detailRemove.addEventListener('click', () => {
 function render() {
   renderStats();
   renderSolves();
+  renderSelection();
   renderSessions();
   renderPuzzles();
   renderInsight();
@@ -858,6 +958,7 @@ document.addEventListener('keydown', (event) => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
+    if (selecting) setSelecting(false);
     disarmDelete();
     cancelInspection();
     return;
@@ -1420,7 +1521,10 @@ el.importTimes.addEventListener('click', () => {
 
 async function showDeviceDetails() {
   if (!device) return;
-  el.deviceNote.textContent = `${device.name} — verbonden.`;
+  const battery = await device.getBattery();
+  el.deviceNote.textContent = battery === null
+    ? `${device.name} — verbonden.`
+    : `${device.name} — verbonden, batterij ${battery}%.`;
   el.importTimes.hidden = false;
   const description = await device.describe();
   el.deviceDetails.innerHTML = '';

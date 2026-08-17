@@ -76,10 +76,23 @@
       <div class="session-head">
         <select id="session-select" class="session-select" aria-label="Kies sessie"></select>
         <div class="session-tools">
+          <button id="select-mode" class="link" type="button">selecteer</button>
           <button id="session-manage" class="link" type="button">beheer</button>
           <button id="clear" class="link danger" type="button">wissen</button>
         </div>
       </div>
+
+      <div id="selection-bar" class="selection-bar" hidden>
+        <span id="selection-count" class="selection-count">0 gekozen</span>
+        <div class="selection-actions">
+          <button id="select-all" class="link" type="button">alles</button>
+          <button id="selection-plus2" class="link" type="button">+2</button>
+          <button id="selection-dnf" class="link" type="button">DNF</button>
+          <button id="selection-delete" class="link danger" type="button">wis</button>
+          <button id="select-done" class="link" type="button">klaar</button>
+        </div>
+      </div>
+
       <ol id="solves" class="solves" reversed></ol>
       <p id="empty" class="empty">Nog geen tijden.</p>
     </section>

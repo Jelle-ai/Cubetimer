@@ -6,6 +6,27 @@ const SERVICE = '0000fff0-0000-1000-8000-00805f9b34fb';
 const TIME_CHARACTERISTIC = '0000fff2-0000-1000-8000-00805f9b34fb';
 const STATE_CHARACTERISTIC = '0000fff5-0000-1000-8000-00805f9b34fb';
 
+const BATTERY_SERVICE = 0x180f;
+const BATTERY_LEVEL = 0x2a19;
+
+/**
+ * A browser only lets a page see services it asked for up front, so anything
+ * not listed here stays invisible even if the timer has it. Beyond the timer
+ * service these are the usual suspects — battery, device info, the serial
+ * profile and the services GAN uses on its smart cubes — so that the settings
+ * panel can show whether this timer offers more than the four time slots.
+ */
+const OPTIONAL_SERVICES = [
+  SERVICE,
+  BATTERY_SERVICE,
+  0x180a, // device information
+  0xfff7,
+  '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART
+  '0000fe95-0000-1000-8000-00805f9b34fb',
+  '00000010-0000-fff7-fff6-fff5fff4fff0', // GAN gen2 cube
+  '8653000a-43e6-47b7-9cb0-5fc21d4ae340'  // GAN gen3 cube
+];
+
 export const TimerState = {
   DISCONNECT: 0,
   GET_SET: 1,   // grace delay passed, timer is armed
@@ -58,7 +79,7 @@ export async function connectGanTimer({ onEvent, onDisconnect }) {
 
   const device = await navigator.bluetooth.requestDevice({
     filters: [{ namePrefix: 'GAN' }, { namePrefix: 'Gan' }, { namePrefix: 'gan' }],
-    optionalServices: [SERVICE]
+    optionalServices: OPTIONAL_SERVICES
   });
   return attach(device, { onEvent, onDisconnect });
 }
@@ -107,6 +128,16 @@ async function attach(device, { onEvent, onDisconnect }) {
 
   return {
     name: device.name || 'GAN timer',
+    /** Battery percentage, when the timer publishes it. */
+    async getBattery() {
+      try {
+        const service = await server.getPrimaryService(BATTERY_SERVICE);
+        const level = await (await service.getCharacteristic(BATTERY_LEVEL)).readValue();
+        return level.getUint8(0);
+      } catch {
+        return null;
+      }
+    },
     /**
      * Everything this timer exposes over bluetooth, for the settings panel.
      * Only services listed in optionalServices are reachable.

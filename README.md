@@ -80,6 +80,12 @@ solve nooit per ongeluk inspectie starten.
 
 ### Tijden die op je timer staan
 
+De app leest bij het verbinden ook de batterijstand uit, als je timer die doorgeeft, en
+vraagt de browser toegang tot de gangbare bluetooth-diensten (batterij, apparaatinfo,
+seriële profielen en de diensten van GAN's smart cubes). Wat je timer daarvan werkelijk
+heeft, staat onder **Je timer** in de instellingen — een browser laat een pagina namelijk
+alleen diensten zien waar vooraf om gevraagd is.
+
 De timer bewaart zelf een handvol tijden: de tijd op het display, gevolgd door de vorige.
 De app leest élke plek uit die het apparaat doorgeeft — niet een vast aantal — en biedt
 alles aan wat nog niet in je sessie staat. Zodra de app verbinding maakt kijkt hij
@@ -123,6 +129,7 @@ Zonder timer erbij (spatiebalk, of tikken op het scherm op mobiel):
 | Volledig scherm | `F` |
 | Details van een tijd | klik op de tijd in de sessielijst |
 | +2 / DNF / verwijderen | knoppen in dat detailvenster |
+| Meerdere tijden tegelijk | `selecteer` boven de lijst, tik ze aan, dan +2, DNF of wis |
 
 Inspectie is optioneel: vanuit stilstand meteen vasthouden en loslaten start gewoon een
 solve zonder inspectie.

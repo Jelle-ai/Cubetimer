@@ -182,6 +182,7 @@ kbd {
 
 .stage {
   min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -426,8 +427,12 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .2rem;
   margin-bottom: .5rem;
 }
+
+.session-tools .link { padding: .3rem .4rem; }
 
 .session-head h2 {
   margin: 0;
@@ -702,9 +707,9 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
 /* ---------- session picker ---------- */
 
 .session-select {
-  flex: 1;
+  flex: 1 1 8rem;
   min-width: 0;
-  max-width: 60%;
+  max-width: 100%;
   padding: .3rem .4rem;
   border: 1px solid transparent;
   border-radius: 9px;
@@ -766,6 +771,42 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
   background: var(--ready);
   vertical-align: middle;
 }
+
+/* ---------- selecting several solves ---------- */
+
+/* While selecting, this bar takes the place of the session header. */
+.selection-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .2rem;
+  margin-bottom: .5rem;
+}
+
+body[data-selecting] .session-head { display: none; }
+
+.selection-count { font-size: .74rem; font-weight: 700; color: var(--led); padding-left: .3rem; white-space: nowrap; }
+.selection-actions { display: flex; align-items: center; gap: 0; }
+.selection-actions .link { padding: .3rem .4rem; }
+
+/* A checkbox appears in front of every time while selecting. */
+.solve-check {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  border-radius: 5px;
+  border: 1.5px solid var(--muted);
+  display: grid;
+  place-items: center;
+  font-size: .7rem;
+  color: #fff;
+  line-height: 1;
+}
+
+.solve[aria-pressed="true"] { border-color: var(--led); background: color-mix(in srgb, var(--led) 10%, var(--card-solid)); }
+.solve[aria-pressed="true"] .solve-check { background: var(--led); border-color: var(--led); }
 
 /* ---------- times found on the timer ---------- */
 
@@ -936,16 +977,19 @@ body[data-miss] .halo {
     grid-template-columns: 1fr;
     /* The timer takes what it needs, the session gets at least a third of the
        screen and scrolls inside itself. */
-    grid-template-rows: auto minmax(38dvh, 1fr);
-    gap: .6rem;
-    padding: .6rem;
+    grid-template-rows: minmax(0, auto) minmax(38dvh, 1fr);
+    gap: .5rem;
+    padding: .5rem;
   }
 
-  .stage { gap: .6rem; justify-content: flex-start; }
-  .preview { width: clamp(74px, 9vh, 96px); }
+  .stage { gap: .35rem; justify-content: flex-start; }
+  .scramble { font-size: .88rem; line-height: 1.45; padding: .1rem .3rem; }
+  .scramble-block .link { font-size: .68rem; padding: .15rem .4rem; }
+  .preview { width: clamp(62px, 7.5vh, 84px); margin-top: 0; }
+  .puzzles { gap: .25rem; }
+  .puzzle { padding: .25rem .6rem; font-size: .7rem; }
   .halo { width: clamp(132px, 19vh, 185px); border-width: 4px; }
   .time { font-size: clamp(1.8rem, 5.6vh, 2.4rem); }
-  .scramble { font-size: .95rem; line-height: 1.55; }
   .hint { font-size: .72rem; }
   .stats { gap: .25rem; }
   .stat { padding: .35rem .15rem; border-radius: 10px; gap: .05rem; }
