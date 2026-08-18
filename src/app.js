@@ -130,7 +130,6 @@ let storageWarned = false;
 let deleteArmed = false;   // a double tap asked to wipe the last time
 let deleteTimer = null;
 let armedByCurrentTouch = false; // the touch that raised the question cannot answer it
-let penaltyStep = 0; // how far the double taps have walked the last solve along
 let confirmTimer = null; // a confirming tap, held back to see if a second one follows
 let runningFrame = null;   // only used when the time stays visible during a solve
 
@@ -154,8 +153,8 @@ function currentHint() {
         : 'Vasthouden om te starten';
     }
     return settings.inspection
-      ? 'Kort aanraken: 1× inspectie · 2× +2, nog eens DNF, nog eens wissen · vasthouden om te starten'
-      : 'Kort aanraken: 2× +2, nog eens DNF, nog eens wissen · vasthouden om te starten';
+      ? 'Kort aanraken: 1× inspectie · 2× de laatste tijd wissen · vasthouden om te starten'
+      : 'Kort aanraken: 2× de laatste tijd wissen · vasthouden om te starten';
   }
   const key = isTouch ? 'Tik' : 'Tik <kbd>spatie</kbd>';
   if (!settings.inspection) return 'Vasthouden en loslaten om te starten';
@@ -451,7 +450,6 @@ function renderSessions() {
 function useSession(index) {
   saveFile.active = index;
   solves = currentSession().solves;
-  penaltyStep = 0;
   selecting = false;
   selected.clear();
   disarmDelete();
@@ -623,7 +621,6 @@ el.selectionDelete.addEventListener('click', () => {
     if (doomed.has(solves[index])) solves.splice(index, 1);
   }
   selected.clear();
-  penaltyStep = 0;
   persist();
   render();
   renderSelection();
@@ -721,7 +718,6 @@ function persist() {
 
 function addSolve(ms) {
   const previousBest = best(solves);
-  penaltyStep = 0;
   solves.push({ ms, penalty: pendingPenalty, scramble, at: Date.now() });
   pendingPenalty = 'none';
   persist();
@@ -774,39 +770,10 @@ function removeSolve(index) {
 }
 
 /**
- * Every double tap takes the last solve one step further: +2, then DNF, then
- * the question to wipe it, then back to plain. The step resets as soon as a new
- * solve comes in, so a double tap always speaks about the time you just did.
- */
-function advancePenalty() {
-  if (!solves.length) {
-    toast('Nog geen tijd om aan te passen.');
-    return;
-  }
-
-  penaltyStep = (penaltyStep + 1) % 4;
-  const solve = solves[solves.length - 1];
-
-  if (penaltyStep === 3) { // ask before wiping
-    armDelete();
-    return;
-  }
-
-  disarmDelete();
-  solve.penalty = penaltyStep === 1 ? '+2' : penaltyStep === 2 ? 'DNF' : 'none';
-  persist();
-  render();
-
-  el.time.textContent = formatSolve(solve);
-  cue(penaltyStep === 0 ? 'target' : 'miss');
-  toast(penaltyStep === 1 ? `+2 · nu ${formatSolve(solve)}`
-    : penaltyStep === 2 ? 'DNF'
-    : `Weer gewoon ${formatSolve(solve)}`);
-}
-
-/**
  * A double tap does not delete straight away: it shows which time is about to
- * go and waits for one more tap. Repeat as often as you like.
+ * go and waits for one more tap. Repeat as often as you like. Penalties are not
+ * on the mat at all -- +2 and DNF are set on the solve itself, or on a whole
+ * selection at once.
  */
 function armDelete() {
   if (!solves.length) {
@@ -837,7 +804,6 @@ function disarmDelete() {
 function removeLastSolve() {
   deleteArmed = false;
   armedByCurrentTouch = false;
-  penaltyStep = 0;
   clearTimeout(deleteTimer);
   delete el.body.dataset.confirm;
   setHint(currentHint());
@@ -1106,7 +1072,7 @@ function clearPendingTap() {
 
 /**
  * HANDS_ON: hands land on the mat. Everything happens here so there is no wait
- * at all — inspection starts on contact. A second touch inside the window turns
+ * at all -- inspection starts on contact. A second touch inside the window turns
  * that first action into "wipe the last time" instead.
  */
 function onHandsOn() {
@@ -1116,7 +1082,7 @@ function onHandsOn() {
   if (pendingTap) { // second touch: the first action was not what was meant
     clearPendingTap();
     cancelInspection();
-    advancePenalty();
+    armDelete();
     armedByCurrentTouch = true; // lifting off again may not answer the question
     setPhase('holding');
     return;

@@ -58,22 +58,21 @@ groen wordt — is het "knopje" van de app:
 | Gebaar | Wat er gebeurt |
 | --- | --- |
 | 1× kort aanraken | Inspectie start meteen (15 seconden aftellen) |
-| 2× kort aanraken achter elkaar | Zet **+2** op je laatste tijd |
-| Nog eens dubbel | Maakt er **DNF** van |
-| Nog eens dubbel | Vraagt of de tijd weg mag |
-| Nog eens dubbel | Alles weer ongedaan, gewoon je tijd |
+| 2× kort aanraken achter elkaar | Vraagt of je laatste tijd weg mag |
 | 1× kort aanraken bij die vraag | Bevestigt het wissen |
 | Aanraken en vasthouden tot groen | Gewone start van een solve — telt niet als aanraking |
 | Resetknop op de timer | Het display van de app gaat mee naar `0.00`, verder niets |
 
++2 en DNF zitten niet op de mat: die zet je op de solve zelf (tik hem aan in de lijst) of
+op een hele selectie tegelijk.
+
 Een aanraking wordt direct uitgevoerd, zonder wachten. Volgt er binnen 600 ms een tweede,
-dan wordt die eerste actie teruggedraaid en zet de app in de plaats daarvan je laatste
-tijd een stap verder in die rij. De rij begint opnieuw zodra je een nieuwe tijd loopt, dus
-een dubbeltik gaat altijd over de solve die je net deed. Alleen het bevestigen van het
-wissen wacht die 600 ms af, zodat een volgende dubbeltik nog kan ingrijpen. Wissen kan op
-elk moment — ook meteen na een solve terwijl de timer de tijd nog
-toont, en zo vaak achter elkaar als je wilt. Begin je in plaats van te bevestigen een
-solve, of raak je een kleine acht seconden niets aan, dan vervalt de vraag vanzelf.
+dan wordt die eerste actie teruggedraaid en vraagt de app in de plaats daarvan of je
+laatste tijd weg mag. Alleen het bevestigen van het wissen wacht die 600 ms af, zodat een
+volgende dubbeltik nog kan ingrijpen. Wissen kan op elk moment — ook meteen na een solve
+terwijl de timer de tijd nog toont, en zo vaak achter elkaar als je wilt. Begin je in
+plaats van te bevestigen een solve, of raak je een kleine acht seconden niets aan, dan
+vervalt de vraag vanzelf.
 
 Omdat de resetknop niets anders doet dan het display gelijkzetten, kan de reset na een
 solve nooit per ongeluk inspectie starten.
