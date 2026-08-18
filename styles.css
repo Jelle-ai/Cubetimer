@@ -1158,58 +1158,46 @@ body[data-miss] .halo {
 @media (max-width: 860px) and (min-height: 620px) {
   .shell {
     grid-template-columns: 1fr;
-    /* The session gets everything the stage does not, and the stage is capped
-       so it can never take so much that the times are pushed off the screen --
-       a row asked for a minimum is still clipped when the row above overruns,
-       and on a phone the browser's own bars make the screen shorter than the
-       page thinks. Capping the top is the only version that cannot fail. */
-    grid-template-rows: minmax(0, auto) minmax(0, 1fr);
+    /* One row: with the times in a sheet of their own, the stage has the
+       screen to itself. */
+    grid-template-rows: minmax(0, 1fr);
     gap: .7rem;
     padding: .6rem;
   }
 
-  .stage {
-    justify-content: center;
-    gap: .7rem;
-    max-height: 46vh;
-    max-height: 46dvh;
-  }
-  .halo { width: clamp(150px, 22vh, 210px); border-width: 6px; }
-  .time { font-size: clamp(2.1rem, 7vh, 2.9rem); }
+  .stage { justify-content: center; gap: 1.4rem; }
+  .halo { width: clamp(190px, 30vh, 280px); border-width: 7px; }
+  .time { font-size: clamp(2.6rem, 9vh, 3.6rem); }
+  .scramble { font-size: .95rem; }
+  .setup { padding: .7rem .9rem; }
 }
 
 /* ---------- what a phone leaves out ----------
 
-   Three things on the timer screen: the scramble, the ring, the times. The
-   puzzle chips move into a sheet of their own by applyLayout(), reachable from
-   the top bar. The cube is not drawn at all. The averages give up their card
-   and keep a "stats" link above the list, which opens the full set. */
+   Two things on the timer screen: the scramble and the ring. The puzzle chips
+   and the whole times panel are moved into sheets of their own by
+   applyLayout(), each behind a button in the top bar. The cube is not drawn
+   there at all. */
 @media (max-width: 860px) {
   /* Nothing needs saying under the ring -- except the one line that asks a
      question, which has to be answerable. */
   body[data-compact="true"] .hint { display: none; }
   body[data-compact="true"][data-confirm] .hint { display: block; }
 
-  body[data-compact="true"] .insight,
-  body[data-compact="true"] .stats { display: none; }
+  /* With the panel moved into its sheet there is no second column to fill,
+     whichever way the phone is held. */
+  body[data-compact="true"] .shell { grid-template-columns: minmax(0, 1fr); }
 
-  /* Room is no longer scarce, so the times stop being miniatures. */
-  body[data-compact="true"] .solve { min-height: 46px; padding: .4rem .35rem .4rem .6rem; }
-  body[data-compact="true"] .solve-time { font-size: 1.05rem; }
-  body[data-compact="true"] .solve-index { font-size: .72rem; }
-
-  .brand { font-size: .68rem; letter-spacing: .18em; }
+  /* Three buttons and the connect pill: the wordmark gives up its place to
+     them and leaves the lit ring it is drawn from. */
+  .brand { font-size: 0; gap: 0; }
+  .brand::before { width: 13px; height: 13px; }
   .bar { padding: .7rem .85rem; gap: .5rem; }
   .bar-right { gap: .4rem; }
   .pill { padding: .5rem .9rem; font-size: .78rem; }
   .icon-button { width: 36px; height: 36px; }
 }
 
-/* The narrowest phones: the name goes, the ring it is drawn from stays. */
-@media (max-width: 360px) {
-  .brand { font-size: 0; gap: 0; }
-  .brand::before { width: 13px; height: 13px; }
-}
 
 /* The puzzle picker, once it is a sheet of its own rather than a strip. */
 .scramble-slot { display: flex; flex-direction: column; align-items: stretch; gap: .5rem; }
@@ -1220,8 +1208,42 @@ body[data-miss] .halo {
 @media (max-height: 620px) {
   .shell { gap: .8rem; padding: .6rem; }
   .stage { gap: .45rem; justify-content: center; }
-  .halo { width: clamp(96px, 32vh, 190px); border-width: 5px; }
-  .time { font-size: clamp(1.5rem, 9vh, 2.6rem); }
+  .halo { width: clamp(110px, 46vh, 240px); border-width: 5px; }
+  .time { font-size: clamp(1.6rem, 13vh, 3rem); }
   .preview { width: clamp(70px, 20vh, 110px); }
   .insight { display: none; }
 }
+
+/* ---------- the times, in a sheet of their own on a phone ----------
+
+   Taller than the other sheets, and it does not scroll as a whole: the session
+   header stays put while the list scrolls under it, the way it does beside the
+   timer on a wide screen. */
+.sheet-tall .sheet-inner {
+  height: 84dvh;
+  overflow: hidden;
+}
+
+.solves-slot {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.solves-slot .panel { flex: 1; min-height: 0; }
+
+/* Inside the sheet there is no page behind it to sit on, so the panel's own
+   card drops its frame and lets the sheet be the surface. */
+.solves-slot .session {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.solves-slot .solve { min-height: 46px; padding: .4rem .35rem .4rem .6rem; }
+.solves-slot .solve-time { font-size: 1.05rem; }
+.solves-slot .solve-index { font-size: .72rem; }

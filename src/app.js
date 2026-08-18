@@ -85,7 +85,13 @@ const el = {
   scrambleSlot: document.getElementById('scramble-slot'),
   scrambleOpen: document.getElementById('scramble-open'),
   scrambleClose: document.getElementById('scramble-close'),
-  statsOpen: document.getElementById('stats-open'),
+  shell: document.getElementById('shell'),
+  panel: document.getElementById('panel'),
+  solvesSheet: document.getElementById('solves-sheet'),
+  solvesSlot: document.getElementById('solves-slot'),
+  solvesOpen: document.getElementById('solves-open'),
+  solvesClose: document.getElementById('solves-close'),
+  solvesSheetTitle: document.getElementById('solves-sheet-title'),
   stats: {
     single: document.getElementById('st-single'),
     singleBest: document.getElementById('st-single-best'),
@@ -159,22 +165,27 @@ function currentHint() {
 }
 
 /**
- * A phone screen shows the scramble, the ring and the times, and nothing else.
- * The puzzle chips move into a sheet of their own, one tap away in the top bar;
- * the same element is moved across, so there is never a second copy to keep in
- * step. The statistics keep an entry of their own above the list, since the
- * card that used to open them is gone.
+ * A phone screen is the scramble and the ring, and nothing else at all. The
+ * puzzle chips and the whole times panel each move into a sheet of their own,
+ * one tap away in the top bar. The same elements are moved across rather than
+ * copied, so there is never a second version to keep in step.
  */
 function applyLayout() {
   const phone = narrow.matches;
   el.scrambleOpen.hidden = !phone;
-  el.statsOpen.hidden = !phone;
+  el.solvesOpen.hidden = !phone;
   el.body.dataset.compact = String(phone);
 
-  if (phone) el.scrambleSlot.append(el.puzzles);
-  else el.stage.prepend(el.puzzles); // back ahead of the scramble
+  if (phone) {
+    el.scrambleSlot.append(el.puzzles);
+    el.solvesSlot.append(el.panel);
+  } else {
+    el.stage.prepend(el.puzzles); // back ahead of the scramble
+    el.shell.append(el.panel);    // back beside the stage
+    if (el.scrambleSheet.open) el.scrambleSheet.close();
+    if (el.solvesSheet.open) el.solvesSheet.close();
+  }
 
-  if (!phone && el.scrambleSheet.open) el.scrambleSheet.close();
   renderScramble(); // the cube is drawn on a wide screen only
   if (!el.body.dataset.phase || el.body.dataset.phase === 'idle') setHint(currentHint());
 }
@@ -184,6 +195,13 @@ narrow.addEventListener('change', applyLayout);
 
 el.scrambleOpen.addEventListener('click', () => el.scrambleSheet.showModal());
 el.scrambleClose.addEventListener('click', () => el.scrambleSheet.close());
+
+el.solvesOpen.addEventListener('click', () => {
+  el.solvesSheetTitle.textContent = `Tijden - ${currentSession().name}`;
+  el.solvesSheet.showModal();
+});
+
+el.solvesClose.addEventListener('click', () => el.solvesSheet.close());
 
 /* ---------- feedback ---------- */
 
@@ -531,15 +549,8 @@ function openStats() {
   el.statsSheet.focus();
 }
 
-// Two ways in: the card of averages on a wide screen, and a link above the list
-// on a phone, where that card is not on screen at all.
 el.statsButton.addEventListener('click', () => {
   el.statsButton.blur();
-  openStats();
-});
-
-el.statsOpen.addEventListener('click', () => {
-  el.statsOpen.blur();
   openStats();
 });
 
