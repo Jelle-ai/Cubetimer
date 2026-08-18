@@ -669,39 +669,52 @@ el.sessionDelete.addEventListener('click', () => {
 
 /* ---------- all statistics ---------- */
 
-function statRows(list = solves) {
+/**
+ * Everything measurable about a set of solves, grouped the way it is read:
+ * the session at a glance, the averages with their records beside them, and
+ * what went wrong. Grouping is not decoration -- a flat list of fifteen rows
+ * makes you hunt for the one you want, and pairs an average with its record
+ * only by their being adjacent.
+ */
+function statGroups(list = solves) {
   const solves = list; // every measure below reads this, and this one only
   const dnfs = solves.filter((solve) => solve.penalty === 'DNF').length;
   const plusTwos = solves.filter((solve) => solve.penalty === '+2').length;
-  const rows = [
-    ['Solves', String(solves.length)],
-    ['Beste', formatTime(best(solves))],
-    ['Slechtste', formatTime(worst(solves))],
-    ['Mean', formatTime(sessionMean(solves))],
-    ['Mo3', formatTime(meanOf(solves, 3))],
-    ['Beste mo3', formatTime(bestMeanOf(solves, 3))],
-    ['Ao5', formatTime(averageOf(solves, 5))],
-    ['Beste ao5', formatTime(bestAverageOf(solves, 5))],
-    ['Ao12', formatTime(averageOf(solves, 12))],
-    ['Beste ao12', formatTime(bestAverageOf(solves, 12))],
-    ['Ao50', formatTime(averageOf(solves, 50))],
-    ['Beste ao50', formatTime(bestAverageOf(solves, 50))],
-    ['Ao100', formatTime(averageOf(solves, 100))],
-    ['+2', String(plusTwos)],
-    ['DNF', String(dnfs)]
-  ];
 
+  const wrong = [['+2', String(plusTwos)], ['DNF', String(dnfs)]];
   if (settings.targetOn) {
     const under = solves.filter((solve) => {
       const value = effective(solve);
       return Number.isFinite(value) && value <= settings.targetMs;
     }).length;
     const share = solves.length ? Math.round((under / solves.length) * 100) : 0;
-    rows.push([`Onder ${formatTime(settings.targetMs)}`, `${under} van ${solves.length} (${share}%)`]);
+    wrong.push([`Onder ${formatTime(settings.targetMs)}`, `${under} (${share}%)`]);
   }
-  return rows;
-}
 
+  return [
+    {
+      title: 'Sessie',
+      tiles: [
+        ['solves', String(solves.length)],
+        ['mean', formatTime(sessionMean(solves))],
+        ['beste', formatTime(best(solves))],
+        ['slechtste', formatTime(worst(solves))]
+      ]
+    },
+    {
+      title: 'Gemiddelden',
+      // label, where it stands now, the best it has ever been
+      averages: [
+        ['mo3', formatTime(meanOf(solves, 3)), formatTime(bestMeanOf(solves, 3))],
+        ['ao5', formatTime(averageOf(solves, 5)), formatTime(bestAverageOf(solves, 5))],
+        ['ao12', formatTime(averageOf(solves, 12)), formatTime(bestAverageOf(solves, 12))],
+        ['ao50', formatTime(averageOf(solves, 50)), formatTime(bestAverageOf(solves, 50))],
+        ['ao100', formatTime(averageOf(solves, 100)), formatTime(bestAverageOf(solves, 100))]
+      ]
+    },
+    { title: 'Straffen', tiles: wrong }
+  ];
+}
 let compareWith = null; // index of a second session to set beside this one
 
 /** Every session except the one being looked at, as options to compare with. */
@@ -727,44 +740,116 @@ function renderCompareOptions() {
   el.statsCompare.value = compareWith === null ? '' : String(compareWith);
 }
 
-function renderStatsList() {
-  const other = compareWith === null ? null : saveFile.sessions[compareWith];
-  const mine = statRows();
-  const theirs = other ? statRows(other.solves) : null;
-
-  el.statsList.dataset.columns = theirs ? '2' : '1';
-  el.statsList.innerHTML = '';
-
-  if (theirs) {
-    const spacer = document.createElement('dt');
-    spacer.className = 'stats-corner';
-    const a = document.createElement('dd');
-    a.className = 'stats-column';
-    a.textContent = currentSession().name;
-    const b = document.createElement('dd');
-    b.className = 'stats-column';
-    b.textContent = other.name;
-    el.statsList.append(spacer, a, b);
-  }
-
-  mine.forEach(([label, value], row) => {
-    const term = document.createElement('dt');
-    term.textContent = label;
-    el.statsList.append(term);
-
-    const definition = document.createElement('dd');
-    definition.textContent = value;
-    el.statsList.append(definition);
-
-    if (theirs) {
-      const second = document.createElement('dd');
-      second.className = 'stats-other';
-      second.textContent = theirs[row] ? theirs[row][1] : '–';
-      el.statsList.append(second);
-    }
-  });
+/** A heading, and whatever the group holds under it. */
+function statSection(title) {
+  const section = document.createElement('section');
+  section.className = 'stats-group';
+  const heading = document.createElement('h3');
+  heading.className = 'stats-group-title';
+  heading.textContent = title;
+  section.append(heading);
+  return section;
 }
 
+function tileGrid(tiles) {
+  const grid = document.createElement('div');
+  grid.className = 'stats-tiles';
+  for (const [label, value] of tiles) {
+    const tile = document.createElement('div');
+    tile.className = 'stats-tile';
+    const name = document.createElement('span');
+    name.className = 'stats-tile-label';
+    name.textContent = label;
+    const figure = document.createElement('span');
+    figure.className = 'stats-tile-value';
+    figure.textContent = value;
+    tile.append(name, figure);
+    grid.append(tile);
+  }
+  return grid;
+}
+
+/**
+ * A row is one element rather than three cells, so its rule runs unbroken from
+ * the label to the last number. As three grid cells the rule broke: baseline
+ * alignment gives each cell a different height, and so a border-top at a
+ * different place.
+ */
+function statRow(label, values, kinds) {
+  const row = document.createElement('div');
+  row.className = 'stats-row';
+
+  const name = document.createElement('span');
+  name.className = 'stats-row-label';
+  name.textContent = label;
+  row.append(name);
+
+  values.forEach((value, index) => {
+    const cell = document.createElement('span');
+    cell.className = `stats-row-value ${kinds[index] || ''}`.trim();
+    cell.textContent = value;
+    row.append(cell);
+  });
+
+  return row;
+}
+
+function statTable(heads, rows, kinds, extraClass = '') {
+  const table = document.createElement('div');
+  table.className = `stats-table ${extraClass}`.trim();
+
+  const head = document.createElement('div');
+  head.className = 'stats-row stats-row-head';
+  for (const label of ['', ...heads]) {
+    const cell = document.createElement('span');
+    cell.textContent = label;
+    head.append(cell);
+  }
+  table.append(head);
+
+  for (const [label, ...values] of rows) table.append(statRow(label, values, kinds));
+  return table;
+}
+
+/** One row per average, with its record right beside it rather than below. */
+const averageTable = (rows) => statTable(['nu', 'record'], rows, ['', 'stats-row-record']);
+
+/** Side by side, every measure gets a column per session instead. */
+const comparisonTable = (rows, names) =>
+  statTable(names, rows, ['', 'stats-row-other'], 'stats-table-compare');
+
+/** Every measure of a group, flattened, for setting two sessions side by side. */
+function flatten(group) {
+  if (group.tiles) return group.tiles.map(([label, value]) => [label, value]);
+  return group.averages.flatMap(([label, now, record]) => [
+    [label, now], [`beste ${label}`, record]
+  ]);
+}
+
+function renderStatsList() {
+  const other = compareWith === null ? null : saveFile.sessions[compareWith];
+  const mine = statGroups();
+  const theirs = other ? statGroups(other.solves) : null;
+
+  el.statsList.innerHTML = '';
+
+  mine.forEach((group, index) => {
+    const section = statSection(group.title);
+
+    if (!theirs) {
+      section.append(group.tiles ? tileGrid(group.tiles) : averageTable(group.averages));
+    } else {
+      const ours = flatten(group);
+      const others = flatten(theirs[index]);
+      section.append(comparisonTable(
+        ours.map(([label, value], row) => [label, value, others[row] ? others[row][1] : '–']),
+        [currentSession().name, other.name]
+      ));
+    }
+
+    el.statsList.append(section);
+  });
+}
 function openStats() {
   el.statsTitle.textContent = compareWith === null ? currentSession().name : 'Statistieken';
   renderCompareOptions();

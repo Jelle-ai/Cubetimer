@@ -200,8 +200,10 @@ Op een telefoon staat de kaart met gemiddelden op het timerscherm zelf, onder de
 single, mo3, ao5 en ao12, met het sessierecord in goud eronder. De lijst met tijden blijft
 in zijn eigen menu.
 
-Tik de kaart met gemiddelden aan voor alle statistieken. Daar staat bovenaan **vergelijk
-met**: kies een tweede sessie en alles komt in twee kolommen naast elkaar te staan.
+Tik de kaart met gemiddelden aan voor alle statistieken. Die staan in drie groepen —
+**sessie** (aantal, mean, beste, slechtste), **gemiddelden** (mo3 tot ao100, met het
+record ernaast in plaats van eronder) en **straffen**. Bovenaan staat **vergelijk met**:
+kies een tweede sessie en elke waarde krijgt een kolom per sessie.
 
 Tijden uit een oudere versie van de app worden bij het eerste bezoek automatisch als
 "Sessie 1" overgenomen.

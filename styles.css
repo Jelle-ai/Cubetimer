@@ -67,7 +67,7 @@ body[data-font="mono"] { --digits: ui-monospace, SFMono-Regular, "SF Mono", Menl
    little size rather than pushing against the ring. */
 body[data-font="mono"] .time { font-size: clamp(2rem, 6.6vh, 3.2rem); letter-spacing: -.04em; }
 
-.time, .solve-time, .stat-value, .stat-best, .detail-time, .stats-list dd {
+.time, .solve-time, .stat-value, .stat-best, .detail-time {
   font-family: var(--digits);
 }
 
@@ -884,32 +884,116 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
 
 /* ---------- statistics sheet ---------- */
 
-.stats-list {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: .1rem .8rem;
+/* ---------- the statistics sheet ----------
+
+   A flat list of fifteen label-and-number rows put the label at one edge and
+   the number at the other with a hand's width of nothing in between, so
+   reading one meant crossing that gap for every line. The measures are grouped
+   instead, and each shape gets the layout it wants: counts as tiles, averages
+   as a table with the record in a column of its own beside the current value. */
+
+.stats-body { display: flex; flex-direction: column; gap: 1.1rem; }
+
+.stats-group { display: flex; flex-direction: column; gap: .45rem; }
+
+.stats-group-title {
   margin: 0;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
-/* With a second session beside it, a third column and a heading row. */
-.stats-list[data-columns="2"] { grid-template-columns: 1fr auto auto; }
+.stats-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .4rem;
+}
 
-.stats-column {
-  padding: 0 0 .35rem !important;
-  border-top: 0 !important;
-  font-size: .62rem !important;
-  font-weight: 700 !important;
+.stats-tile {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  padding: .55rem .75rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+}
+
+.stats-tile-label {
+  font-size: .62rem;
+  font-weight: 600;
   letter-spacing: .1em;
   text-transform: uppercase;
   color: var(--muted);
-  max-width: 8ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.stats-corner { border-top: 0 !important; padding: 0 !important; }
-.stats-other { color: var(--muted); }
+.stats-tile-value { font-family: var(--digits); font-size: 1.05rem; font-weight: 500; }
+
+.stats-table {
+  display: flex;
+  flex-direction: column;
+  padding: .3rem .75rem .45rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+}
+
+/* Fixed number columns rather than auto ones, so they stay in line from row to
+   row however wide the figures happen to be. */
+.stats-row {
+  display: grid;
+  grid-template-columns: 1fr 6.4ch 6.4ch;
+  align-items: baseline;
+  column-gap: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.stats-row-head {
+  border-top: 0;
+  padding-bottom: .3rem;
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stats-row-head span { text-align: right; }
+.stats-row-head span:first-child { text-align: left; }
+
+.stats-row-label {
+  padding: .35rem 0;
+  font-size: .82rem;
+  color: var(--ink-soft);
+}
+
+.stats-row-value {
+  padding: .35rem 0;
+  font-family: var(--digits);
+  font-size: .92rem;
+  font-weight: 500;
+  text-align: right;
+}
+
+.stats-row-record { color: var(--record); }
+.stats-row-other { color: var(--muted); }
+
+/* Two session names need more room than "nu" and "record" do. */
+.stats-table-compare .stats-row { grid-template-columns: 1fr 8.5ch 8.5ch; column-gap: .7rem; }
+.stats-table-compare .stats-row-head span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.field-inline {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-bottom: .9rem;
+}
+
+.field-inline span { flex: none; }
+.field-inline .field-select { flex: 1; min-width: 0; }
 
 .field-select {
   padding: .55rem .7rem;
@@ -943,10 +1027,6 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: .92em;
 }
-
-.stats-list dt { padding: .45rem 0; color: var(--muted); font-size: .82rem; border-top: 1px solid var(--line); }
-.stats-list dd { margin: 0; padding: .45rem 0; text-align: right; font-size: .9rem; font-weight: 500; border-top: 1px solid var(--line); }
-.stats-list dt:first-of-type, .stats-list dd:first-of-type { border-top: 0; }
 
 /* the stats row is a button now */
 .stats { padding: 0; text-align: inherit; }
@@ -1627,3 +1707,7 @@ body[data-miss] .halo {
 .practice-day-count { color: var(--muted); font-size: .74rem; min-width: 3.5ch; text-align: right; }
 
 .practice-empty { padding: 1rem; text-align: center; color: var(--muted); font-size: .82rem; }
+
+/* The statistics carry a three-column table, which wants a little more width
+   than a sheet of settings rows does. */
+#stats-sheet { width: min(500px, 94vw); }
