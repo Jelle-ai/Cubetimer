@@ -180,10 +180,11 @@ function currentHint() {
 }
 
 /**
- * A phone screen is the scramble and the ring, and nothing else at all. The
- * puzzle chips and the whole times panel each move into a sheet of their own,
- * one tap away in the top bar. The same elements are moved across rather than
- * copied, so there is never a second version to keep in step.
+ * A phone screen is the scramble, the ring and the averages. The puzzle chips
+ * and the list of times each move into a sheet of their own, one tap away in
+ * the top bar. The same elements are moved across rather than copied, so there
+ * is never a second version to keep in step -- which is why the card of
+ * averages has to be lifted back out of the panel after the panel has gone in.
  */
 function applyLayout() {
   const phone = narrow.matches;
@@ -194,9 +195,11 @@ function applyLayout() {
   if (phone) {
     el.scrambleSlot.append(el.puzzles);
     el.solvesSlot.append(el.panel);
+    el.stage.insertBefore(el.statsButton, el.hint); // out of the sheet, onto the screen
   } else {
-    el.stage.prepend(el.puzzles); // back ahead of the scramble
-    el.shell.append(el.panel);    // back beside the stage
+    el.stage.prepend(el.puzzles);      // back ahead of the scramble
+    el.shell.append(el.panel);         // back beside the stage
+    el.panel.prepend(el.statsButton);  // back at the head of it
     if (el.scrambleSheet.open) el.scrambleSheet.close();
     if (el.solvesSheet.open) el.solvesSheet.close();
   }

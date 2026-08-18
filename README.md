@@ -177,6 +177,10 @@ Boven de lijst staat een keuzelijst met je sessies. Via **beheer** hernoem je de
 sessie, start je een nieuwe, of gooi je er een weg. Elke sessie houdt zijn eigen tijden
 en statistieken bij; de laatst gekozen sessie staat er bij het openen weer.
 
+Op een telefoon staat de kaart met gemiddelden op het timerscherm zelf, onder de ring:
+single, mo3, ao5 en ao12, met het sessierecord in goud eronder. De lijst met tijden blijft
+in zijn eigen menu.
+
 Tik de kaart met gemiddelden aan voor alle statistieken. Daar staat bovenaan **vergelijk
 met**: kies een tweede sessie en alles komt in twee kolommen naast elkaar te staan.
 

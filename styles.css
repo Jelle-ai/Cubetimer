@@ -1241,9 +1241,9 @@ body[data-miss] .halo {
     padding: .6rem;
   }
 
-  .stage { justify-content: center; gap: 1.4rem; }
-  .halo { width: clamp(190px, 30vh, 280px); border-width: 7px; }
-  .time { font-size: clamp(2.6rem, 9vh, 3.6rem); }
+  .stage { justify-content: center; gap: 1.2rem; }
+  .halo { width: clamp(180px, 27vh, 260px); border-width: 7px; }
+  .time { font-size: clamp(2.5rem, 8.4vh, 3.4rem); }
   .scramble { font-size: .95rem; }
   .setup { padding: .7rem .9rem; }
 }
@@ -1279,6 +1279,15 @@ body[data-miss] .halo {
   /* and the toast moves up out of the bar's way */
   .toast { bottom: calc(5.2rem + env(safe-area-inset-bottom)); }
 
+  /* The averages sit on the timer screen again, lifted out of the panel that
+     went into the sheet. Wider than in the panel, so they read at a glance
+     from across a table. */
+  body[data-compact="true"] .stats { width: 100%; }
+  body[data-compact="true"] .stat { padding: .5rem .2rem; gap: .1rem; }
+  body[data-compact="true"] .stat-label { font-size: .54rem; letter-spacing: .1em; }
+  body[data-compact="true"] .stat-value { font-size: .95rem; }
+  body[data-compact="true"] .stat-best { font-size: .74rem; }
+
   /* Three buttons and the connect pill: the wordmark gives up its place to
      them and leaves the lit ring it is drawn from. */
   .brand { font-size: 0; gap: 0; }
@@ -1289,6 +1298,48 @@ body[data-miss] .halo {
   .icon-button { width: 36px; height: 36px; }
 }
 
+
+/* ---------- a phone held sideways ----------
+
+   Barely 340px of height once the bar has its share, and width to spare. So
+   the stage stops being a column: the ring takes the right, and the scramble
+   and the averages stack up the left beside it. */
+@media (max-width: 940px) and (orientation: landscape) {
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "setup halo"
+      "stats halo"
+      "hint  halo";
+    align-items: center;
+    align-content: center;
+    justify-items: stretch;
+    gap: .5rem 1.1rem;
+    /* The ring's glow reaches well past its own box. Nothing here can make the
+       page grow -- the shell is one fixed cell and the body clips -- so the
+       stage can stop cutting it off. */
+    overflow: visible;
+    padding-right: 1.4rem;
+  }
+
+  #setup { grid-area: setup; }
+  .halo { grid-area: halo; align-self: center; }
+  .stats { grid-area: stats; }
+  .hint { grid-area: hint; }
+
+  .halo { width: clamp(120px, 50vh, 195px); border-width: 6px; justify-self: center; }
+  .time { font-size: clamp(1.8rem, 17vh, 2.9rem); }
+  .scramble { font-size: .82rem; line-height: 1.5; }
+  .setup { padding: .45rem .7rem; }
+  .shell { padding: .5rem .7rem; gap: .7rem; }
+
+  /* Nothing here scrolls, so anything that overruns has to be given back. */
+  .stat { padding: .35rem .2rem; }
+  .stat-value { font-size: .88rem; }
+  .stat-best { font-size: .7rem; }
+}
 
 /* The puzzle picker, once it is a sheet of its own rather than a strip. */
 .scramble-slot { display: flex; flex-direction: column; align-items: stretch; gap: .5rem; }
