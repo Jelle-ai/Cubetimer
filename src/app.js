@@ -85,12 +85,19 @@ const el = {
   pickedList: document.getElementById('picked-list'),
   pickedClose: document.getElementById('picked-close'),
   cameraSheet: document.getElementById('camera-sheet'),
+  cameraFrame: document.getElementById('camera-frame'),
   cameraVideo: document.getElementById('camera-video'),
   cameraOutline: document.getElementById('camera-outline'),
   cameraSeams: document.getElementById('camera-seams'),
   cameraStatus: document.getElementById('camera-status'),
-  cameraSkip: document.getElementById('camera-skip'),
+  cameraSize: document.getElementById('camera-size'),
+  cameraDone: document.getElementById('camera-done'),
   cameraClose: document.getElementById('camera-close'),
+  cameraAim: document.getElementById('camera-aim'),
+  cameraNote: document.getElementById('camera-note'),
+  cameraPeek: document.getElementById('camera-peek'),
+  peekVideo: document.getElementById('peek-video'),
+  peekOutline: document.getElementById('peek-outline'),
   practice: document.getElementById('practice'),
   practiceFlame: document.getElementById('practice-flame'),
   practiceRun: document.getElementById('practice-run'),
@@ -1252,7 +1259,7 @@ function addSolve(ms) {
 
   // The check comes after the celebration, so a record still gets its party
   // even when the camera is about to turn it into a DNF.
-  if (settings.camera) checkCube(solves[solves.length - 1]);
+  watchCube(solves[solves.length - 1]);
 }
 
 /**
@@ -1600,6 +1607,10 @@ function startRunning() {
   settleInspection();
   setPhase('running');
   startedAt = performance.now();
+
+  // Opened now so it is ready the moment the cube lands; a solve is long enough
+  // that nobody waits for it.
+  warmCamera();
 
   cue('start');
   cancelAnimationFrame(runningFrame);
@@ -2011,22 +2022,45 @@ async function connect(anyDevice) {
 el.connect.addEventListener('click', () => connect(false));
 el.connectAny.addEventListener('click', () => connect(true));
 
-/* ---------- checking the cube with the camera ---------- */
+/* ---------- checking the cube with the camera ----------
+
+   The camera is not something to be operated. It opens when a solve starts,
+   looks at the mat once the cube has landed and the time has stopped, and puts
+   itself away. The only thing ever asked of anyone is where on the mat to look,
+   once, because a phone propped beside it does not move between solves. */
 
 const FRAME_SIZE = 480;      // the square the camera frame is cropped to
-const LOOK_EVERY_MS = 220;
+const LOOK_EVERY_MS = 200;
+const SETTLE_MS = 800;       // let the cube stop rolling before looking at it
+const GIVE_UP_MS = 3500;     // and do not stare at it forever
 const AGREEMENTS = 2;        // readings in a row before anything is allowed to change
 
 let camera = null;
 let cameraTimer = null;
+let cameraDeadline = 0;
 let cameraSubject = null;    // the solve being judged
 let lastReading = null;
 let agreed = 0;
+let aiming = false;
 
-el.cameraOutline.setAttribute('d', guidePath());
-el.cameraSeams.setAttribute('d', guideSeams());
+function drawGuides() {
+  el.cameraOutline.setAttribute('d', guidePath(settings.aim));
+  el.cameraSeams.setAttribute('d', guideSeams(settings.aim));
+  el.peekOutline.setAttribute('d', guidePath(settings.aim));
+}
 
-function stopCamera() {
+/** One camera, handed to whichever video element wants to show it. */
+async function useCamera(video) {
+  if (camera) {
+    video.srcObject = camera.stream;
+    await video.play().catch(() => {});
+    return camera;
+  }
+  camera = await openCamera(video);
+  return camera;
+}
+
+function releaseCamera() {
   clearInterval(cameraTimer);
   cameraTimer = null;
   camera?.stream.getTracks().forEach((track) => track.stop());
@@ -2034,30 +2068,113 @@ function stopCamera() {
   cameraSubject = null;
   lastReading = null;
   agreed = 0;
-  if (el.cameraSheet.open) el.cameraSheet.close();
+  el.cameraPeek.hidden = true;
+  el.peekVideo.srcObject = null;
+  el.cameraVideo.srcObject = null;
 }
 
-/**
- * Judge one frame, and only act on a verdict that two readings in a row agree
- * on. A single frame is a snapshot of a hand still moving; two the same is a
- * cube being held still, which is when it is worth believing.
- */
+/* ---------- aiming ---------- */
+
+el.cameraAim.addEventListener('click', async () => {
+  el.cameraAim.blur();
+  aiming = true;
+  drawGuides();
+  el.cameraSize.value = String(Math.round(settings.aim.radius * 100));
+  el.cameraStatus.textContent = 'Camera starten…';
+  el.cameraSheet.showModal();
+
+  try {
+    await useCamera(el.cameraVideo);
+    el.cameraStatus.textContent = 'Sleep de zeshoek over de kubus';
+  } catch (error) {
+    el.cameraStatus.textContent = error?.name === 'NotAllowedError'
+      ? 'Geen toegang tot de camera. Sta het toe in je browser.'
+      : `Camera lukt niet: ${error?.message || error}`;
+  }
+});
+
+/** Dragging anywhere in the picture moves the guide there. */
+function aimAt(event) {
+  const box = el.cameraFrame.getBoundingClientRect();
+  settings.aim = {
+    ...settings.aim,
+    x: Math.min(Math.max((event.clientX - box.left) / box.width, 0.15), 0.85),
+    y: Math.min(Math.max((event.clientY - box.top) / box.height, 0.15), 0.85)
+  };
+  drawGuides();
+}
+
+el.cameraFrame.addEventListener('pointerdown', (event) => {
+  el.cameraFrame.setPointerCapture(event.pointerId);
+  aimAt(event);
+});
+
+el.cameraFrame.addEventListener('pointermove', (event) => {
+  if (el.cameraFrame.hasPointerCapture(event.pointerId)) aimAt(event);
+});
+
+el.cameraSize.addEventListener('input', () => {
+  settings.aim = { ...settings.aim, radius: Number(el.cameraSize.value) / 100 };
+  drawGuides();
+});
+
+const closeAiming = () => { el.cameraSheet.close(); };
+
+el.cameraDone.addEventListener('click', closeAiming);
+el.cameraClose.addEventListener('click', closeAiming);
+
+el.cameraSheet.addEventListener('close', () => {
+  if (!aiming) return;
+  aiming = false;
+  storeSettings();
+  releaseCamera();
+});
+
+/* ---------- judging, without being asked ---------- */
+
+/** Started when a solve starts, so the camera is warm by the time it is over. */
+async function warmCamera() {
+  if (!settings.camera || camera) return;
+  try {
+    await useCamera(el.peekVideo);
+  } catch {
+    // Nothing to say here: a solve is running, and a camera that will not open
+    // is not worth interrupting it for. It is reported when aiming instead.
+  }
+}
+
+function watchCube(solve) {
+  if (!settings.camera || !camera) return;
+
+  cameraSubject = solve;
+  lastReading = null;
+  agreed = 0;
+  el.cameraPeek.hidden = false;
+  cameraDeadline = performance.now() + SETTLE_MS + GIVE_UP_MS;
+
+  clearInterval(cameraTimer);
+  setTimeout(() => {
+    if (!cameraSubject) return;
+    cameraTimer = setInterval(look, LOOK_EVERY_MS);
+  }, SETTLE_MS);
+}
+
 function look() {
   if (!camera || !cameraSubject) return;
+
+  if (performance.now() > cameraDeadline) { // never seen well enough to say
+    releaseCamera();
+    return;
+  }
 
   const frame = camera.grab(FRAME_SIZE);
   if (!frame) return;
 
-  const reading = inspectFrame(frame, guideFor(FRAME_SIZE));
-  const sure = reading.confidence >= CERTAIN && reading.state !== 'askew' && reading.state !== 'unreadable';
+  const reading = inspectFrame(frame, guideFor(FRAME_SIZE, settings.aim));
+  const sure = reading.confidence >= CERTAIN
+    && reading.state !== 'askew' && reading.state !== 'unreadable';
 
-  el.cameraStatus.textContent = !sure
-    ? (reading.state === 'askew' ? 'Zet de kubus recht in de zeshoek' : 'Zoeken naar de kubus…')
-    : reading.state === 'solved' ? 'Ziet er opgelost uit'
-    : reading.state === 'one-move' ? 'Eén zet ernaast — dat is +2'
-    : 'Meer dan één zet ernaast — dat is DNF';
-
-  el.cameraStatus.dataset.sure = String(sure);
+  el.cameraPeek.dataset.state = sure ? reading.state : 'looking';
 
   if (!sure) { lastReading = null; agreed = 0; return; }
   agreed = reading.state === lastReading ? agreed + 1 : 1;
@@ -2070,13 +2187,8 @@ function look() {
 function applyVerdict(verdict) {
   const solve = cameraSubject;
   const index = solves.indexOf(solve);
-  stopCamera();
-  if (index < 0) return;
-
-  if (verdict === 'none') {
-    toast('Kubus zag er opgelost uit — gewone solve.');
-    return;
-  }
+  releaseCamera();
+  if (index < 0 || verdict === 'none') return; // solved, or near enough to leave alone
 
   const before = solve.penalty;
   solve.penalty = verdict;
@@ -2094,33 +2206,7 @@ function applyVerdict(verdict) {
   });
 }
 
-/** Offered after a solve, and only ever offered -- never forced. */
-async function checkCube(solve) {
-  cameraSubject = solve;
-  lastReading = null;
-  agreed = 0;
-  el.cameraStatus.textContent = 'Camera starten…';
-  delete el.cameraStatus.dataset.sure;
-  el.cameraSheet.showModal();
-
-  try {
-    camera = await openCamera(el.cameraVideo);
-  } catch (error) {
-    el.cameraStatus.textContent = error?.name === 'NotAllowedError'
-      ? 'Geen toegang tot de camera. Sta het toe in je browser, of zet de controle uit.'
-      : `Camera lukt niet: ${error?.message || error}`;
-    el.cameraStatus.dataset.sure = 'false';
-    cameraSubject = null;
-    return;
-  }
-
-  if (!el.cameraSheet.open) { stopCamera(); return; } // closed while it was starting
-  cameraTimer = setInterval(look, LOOK_EVERY_MS);
-}
-
-el.cameraSkip.addEventListener('click', stopCamera);
-el.cameraClose.addEventListener('click', stopCamera);
-el.cameraSheet.addEventListener('close', stopCamera);
+drawGuides();
 
 /* ---------- screen wake lock ---------- */
 

@@ -184,14 +184,20 @@
   </div>
 </dialog>
 
+<!-- Aiming, once. The phone stays put beside the mat, so where the cube lands
+     is asked for one time and remembered. -->
 <dialog id="camera-sheet" class="sheet" tabindex="-1">
   <div class="sheet-inner">
     <header class="sheet-head">
-      <h2>Kubus controleren</h2>
+      <h2>Camera richten</h2>
       <button type="button" id="camera-close" class="icon-button" aria-label="Sluiten">✕</button>
     </header>
 
-    <div class="camera-frame">
+    <p class="import-note">Zet je telefoon zo neer dat hij het matje ziet, leg een kubus
+      waar hij na een solve belandt, en sleep de zeshoek eroverheen. Drie vlakken moeten
+      hem vullen. Dit hoef je maar één keer te doen.</p>
+
+    <div class="camera-frame" id="camera-frame">
       <video id="camera-video" playsinline muted></video>
       <svg class="camera-guide" viewBox="0 0 1 1" aria-hidden="true">
         <path id="camera-outline" fill="none" />
@@ -199,15 +205,26 @@
       </svg>
     </div>
 
+    <label class="field">
+      <span>Grootte</span>
+      <input id="camera-size" type="range" min="12" max="48" step="1" class="camera-size">
+    </label>
+
     <p id="camera-status" class="camera-status">Camera starten…</p>
-    <p class="import-note">Houd een hoek van de kubus naar de camera, zodat drie vlakken de
-      zeshoek vullen. Weet hij het niet zeker, dan blijft de solve zoals hij is.</p>
 
     <div class="detail-actions">
-      <button type="button" id="camera-skip">Laat maar, gewone solve</button>
+      <button type="button" id="camera-done">Klaar</button>
     </div>
   </div>
 </dialog>
+
+<!-- What the camera sees while it is judging a solve, small and out of the way. -->
+<div id="camera-peek" class="camera-peek" hidden>
+  <video id="peek-video" playsinline muted></video>
+  <svg class="camera-guide" viewBox="0 0 1 1" aria-hidden="true">
+    <path id="peek-outline" fill="none" />
+  </svg>
+</div>
 
 <!-- The solves a number in the statistics was made of. -->
 <dialog id="picked-sheet" class="sheet sheet-tall" tabindex="-1">
@@ -509,10 +526,18 @@
     <section class="setting">
       <div class="setting-label">
         <span>Kubus controleren</span>
-        <small>Na een solve de camera erop: herkent hij een DNF of een +2, dan zet hij die.
-          Twijfelt hij, dan blijft het een gewone solve</small>
+        <small>Zodra de tijd stopt kijkt de camera zelf naar het matje. Ziet hij een +2 of
+          een DNF, dan zet hij die; twijfelt hij, dan blijft het een gewone solve</small>
       </div>
       <button type="button" class="switch" id="set-camera" role="switch" aria-checked="false" aria-label="Kubus controleren"><span></span></button>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Camera richten</span>
+        <small id="camera-note">Eén keer aanwijzen waar de kubus belandt</small>
+      </div>
+      <button type="button" id="camera-aim" class="text-button">richten</button>
     </section>
 
     <section class="setting">

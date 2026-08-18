@@ -266,21 +266,30 @@ export function inspectFrame(image, guide) {
  * the guide drawn on screen uses the same square, so what the eye lines up
  * with and what the code looks at are the same thing.
  */
-export const GUIDE_SHARE = 0.34;
+/**
+ * Where the cube lands, as a share of the square frame. A phone propped beside
+ * the mat does not move between solves, so this is asked for once and then
+ * never again -- which is the whole point of the thing being automatic.
+ */
+export const DEFAULT_AIM = { x: 0.5, y: 0.5, radius: 0.3 };
 
-export const guideFor = (size) => ({ x: size / 2, y: size / 2, radius: size * GUIDE_SHARE });
+export const guideFor = (size, aim = DEFAULT_AIM) => ({
+  x: aim.x * size,
+  y: aim.y * size,
+  radius: aim.radius * size
+});
 
 /** The guide outline, as an SVG path in a 0..1 box. */
-export function guidePath() {
+export function guidePath(aim = DEFAULT_AIM) {
   return HEX.map(([x, y], i) =>
-    `${i ? 'L' : 'M'}${(0.5 + x * GUIDE_SHARE).toFixed(4)} ${(0.5 + y * GUIDE_SHARE).toFixed(4)}`
+    `${i ? 'L' : 'M'}${(aim.x + x * aim.radius).toFixed(4)} ${(aim.y + y * aim.radius).toFixed(4)}`
   ).join(' ') + ' Z';
 }
 
 /** The three seams from the centre out, so the guide reads as a cube corner. */
-export function guideSeams() {
+export function guideSeams(aim = DEFAULT_AIM) {
   return [0, 2, 4].map((i) =>
-    `M0.5 0.5L${(0.5 + HEX[i][0] * GUIDE_SHARE).toFixed(4)} ${(0.5 + HEX[i][1] * GUIDE_SHARE).toFixed(4)}`
+    `M${aim.x} ${aim.y}L${(aim.x + HEX[i][0] * aim.radius).toFixed(4)} ${(aim.y + HEX[i][1] * aim.radius).toFixed(4)}`
   ).join(' ');
 }
 

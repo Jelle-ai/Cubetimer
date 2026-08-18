@@ -1812,3 +1812,45 @@ body[data-miss] .halo {
 }
 
 .camera-status[data-sure="true"] { color: var(--ink); }
+
+.camera-size {
+  width: 100%;
+  accent-color: var(--led);
+}
+
+/* ---------- what the camera sees while it judges ----------
+
+   Small, in a corner, and only there while it is actually looking: enough to
+   see that it is aimed at the right place, not enough to be in the way. */
+.camera-peek {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 40;
+  width: 92px;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #10181d;
+  box-shadow: var(--shadow);
+  border: 2px solid color-mix(in srgb, var(--led) 60%, transparent);
+  transition: border-color .25s;
+  animation: peekIn .25s ease both;
+}
+
+.camera-peek video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.camera-peek path { stroke: rgba(255, 255, 255, .85); stroke-width: .012; fill: none; }
+
+.camera-peek[data-state="solved"] { border-color: var(--ready); }
+.camera-peek[data-state="one-move"] { border-color: var(--record); }
+.camera-peek[data-state="scrambled"] { border-color: var(--hold); }
+
+@keyframes peekIn {
+  from { opacity: 0; transform: translateY(8px) scale(.9); }
+  to { opacity: 1; transform: none; }
+}
+
+/* On a phone the bar is at the bottom, so it sits above that instead. */
+@media (max-width: 860px) {
+  body[data-compact="true"] .camera-peek { bottom: calc(4.6rem + env(safe-area-inset-bottom)); }
+}

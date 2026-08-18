@@ -193,16 +193,24 @@ Alles telt over al je sessies samen — oefenen is oefenen, op welke puzzel dan 
 
 ## De kubus laten controleren
 
-Staat **kubus controleren** aan, dan gaat na elke solve de camera open. Houd een hoek van
-de kubus in de zeshoek, zodat drie vlakken hem vullen. Ziet hij één zet ernaast, dan wordt
-het een **+2**; ziet hij meer, een **DNF**. In beide gevallen staat er `toch niet` in de
-melding.
+Staat **kubus controleren** aan, dan gebeurt dit vanzelf: de camera gaat open zodra je
+solve begint, en zodra de tijd stopt kijkt hij naar het matje. Je hoeft niets te doen —
+geen knop, geen kubus omhoog houden. Linksonder verschijnt kort een klein venstertje zodat
+je ziet dat hij kijkt; de rand wordt groen, oranje of rood naargelang wat hij ziet.
+
+Ziet hij één zet ernaast, dan wordt het een **+2**; ziet hij meer, een **DNF**. In beide
+gevallen staat er `toch niet` in de melding.
+
+**Eén keer richten.** Je telefoon staat stil naast je matje, dus waar de kubus belandt
+verandert niet. Ga naar **instellingen → camera richten**, leg een kubus waar hij normaal
+terechtkomt, en sleep de zeshoek eroverheen. Daarna nooit meer.
 
 **Twijfelt hij, dan blijft het een gewone solve** — en dat is geen bijzaak, het is de
 belangrijkste regel. Drie vlakken kunnen namelijk niet bewijzen dát een kubus opgelost is:
 de drie stukjes die je niet ziet kunnen onderling verwisseld zijn. Wat ze wél kunnen
 bewijzen is dat hij het níét is. De aflezing is daarom bewust scheef: rommel telt als
-bewijs, netheid niet.
+bewijs, netheid niet. Ziet hij binnen een paar seconden niets waar hij zeker van is, dan
+zwijgt hij en ruimt hij zichzelf op.
 
 Kleuren worden niet benoemd maar gegroepeerd — de vraag is welke stickers bij elkaar
 horen, niet welke kleur ze hebben. Daardoor maakt een warme lamp, een koel raam of een

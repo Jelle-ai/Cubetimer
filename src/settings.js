@@ -36,6 +36,7 @@ const DEFAULTS = {
   countUp: true,
   wakeLock: true,
   camera: false,
+  aim: { x: 0.5, y: 0.5, radius: 0.3 },
   font: 'rounded',
   practice: true,
   goalKind: 'time',   // 'time' counts the solving up, 'solves' counts the solves
@@ -78,6 +79,17 @@ export function loadSettings() {
     settings.goalSolves = clampNumber(settings.goalSolves, 1, 500, DEFAULTS.goalSolves);
     for (const key of SWITCHES) settings[key] = settings[key] !== false;
     for (const key of OPT_IN) settings[key] = settings[key] === true;
+
+    // Where the camera looks for the cube, kept inside the frame whatever is
+    // in storage.
+    const aim = { ...DEFAULTS.aim, ...(settings.aim || {}) };
+    const clamp = (value, low, high, fallback) =>
+      Number.isFinite(Number(value)) ? Math.min(Math.max(Number(value), low), high) : fallback;
+    settings.aim = {
+      radius: clamp(aim.radius, 0.12, 0.48, DEFAULTS.aim.radius),
+      x: clamp(aim.x, 0.15, 0.85, DEFAULTS.aim.x),
+      y: clamp(aim.y, 0.15, 0.85, DEFAULTS.aim.y)
+    };
 
     const colors = { ...DEFAULTS.colors, ...(settings.colors || {}) };
     for (const { key, fallback } of COLOR_SLOTS) {
