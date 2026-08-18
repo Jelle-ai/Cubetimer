@@ -290,6 +290,8 @@ kbd {
 }
 
 .scramble-block {
+  width: 100%;
+  max-width: 36rem;
   text-align: center;
   padding: .5rem .9rem .35rem;
   border-radius: var(--radius);
@@ -306,25 +308,32 @@ kbd {
   padding: .2rem .4rem;
   border-radius: 10px;
   text-align: center;
+  /* A megaminx scramble comes as seven lines and has to stay that way. */
+  white-space: pre-line;
+  max-width: 100%;
+  font-size: clamp(1rem, 2.2vw, 1.22rem);
+  font-weight: 500;
+  letter-spacing: .04em;
+  line-height: 1.7;
+  word-spacing: .3em;
+  color: var(--ink);
   transition: background .15s;
 }
+
+.scramble[data-long="true"] {
+  font-size: clamp(.72rem, 1.1vw, .84rem);
+  letter-spacing: .02em;
+  word-spacing: .12em;
+  line-height: 1.55;
+}
+
+.scramble-block:has(.scramble[data-long="true"]) { max-width: 44rem; }
 
 .scramble:hover { background: var(--hover); }
 .scramble[data-loading] { opacity: .5; }
 
 /* A scramble the official scrambler could not deliver. */
 .scramble[data-official="false"] { text-decoration: underline dotted var(--muted); text-underline-offset: 5px; }
-
-.scramble-inner {
-  margin: 0 auto;
-  max-width: 26ch;
-  font-size: clamp(1.02rem, 2.3vw, 1.28rem);
-  font-weight: 500;
-  letter-spacing: .04em;
-  line-height: 1.75;
-  word-spacing: .34em;
-  color: var(--ink);
-}
 
 /* ---------- cube preview ---------- */
 
@@ -335,14 +344,15 @@ kbd {
 
 .preview svg { display: block; width: 100%; height: auto; }
 
-.f-U { fill: #f7f7f7; }
-.f-R { fill: #e8453c; }
-.f-F { fill: #38d16b; }
-.f-D { fill: #f2c94c; }
-.f-L { fill: #f28c28; }
-.f-B { fill: #3d7ff2; }
+/* The net comes with its colours already on it; only the seams between the
+   stickers are ours, so they can follow the theme. */
+.preview .sticker {
+  stroke: color-mix(in srgb, var(--ink) 55%, transparent);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+}
 
-[data-theme="dark"] .f-U { fill: #e8e8e8; }
+[data-theme="dark"] .preview .sticker { stroke: color-mix(in srgb, #000 70%, transparent); }
 
 /* ---------- inspection ring ---------- */
 
@@ -1283,7 +1293,6 @@ body[data-miss] .halo {
   }
 
   .scramble { font-size: .82rem; line-height: 1.5; padding: .1rem .2rem; }
-  .scramble-inner { max-width: none; }
   .scramble-block .link { font-size: .66rem; padding: .1rem .3rem; }
 
   .preview {

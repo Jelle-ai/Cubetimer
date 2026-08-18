@@ -1,5 +1,5 @@
 // Offline shell. Bump CACHE when the files below change.
-const CACHE = 'cubetimer-v16';
+const CACHE = 'cubetimer-v17';
 
 // The scrambler is vendored, so it has to be cached too or offline use falls
 // back to random-move scrambles.
@@ -15,7 +15,7 @@ const SHELL = [
   './src/store.js',
   './src/settings.js',
   './src/feedback.js',
-  './src/cube.js',
+  './src/preview.js',
   './src/practice.js',
   './vendor/cubing/alg/index.js',
   './vendor/cubing/chunks/big-puzzle-orientation-ZVZQJEF5.js',
@@ -48,7 +48,7 @@ const SHELL = [
   './vendor/cubing/puzzle-geometry/index.js',
   './vendor/cubing/puzzles/index.js',
   './vendor/cubing/scramble/index.js',
-  './vendor/random-uint-below/index.js'
+  './vendor/random-uint-below/index.js',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];

@@ -6,11 +6,11 @@ offline als je hem installeert.
 
 ## Features
 
-- Scrambles voor 3x3, 2x2, 4x4, Pyraminx en Skewb; elke puzzel heeft zijn eigen sessie
+- Scrambles voor 3x3, 2x2, 4x4, Pyraminx, Skewb en Megaminx; elke puzzel heeft zijn eigen sessie
 - Inspectie start op het moment dat je de mat aanraakt, met een ring die in 15 seconden
   leegloopt rond de tijd
 - Klik op de scramble om hem te kopiëren; notities per solve in het detailvenster
-- Klein kubusvoorbeeld onder de scramble (3x3 en 2x2), aan of uit in de instellingen
+- Voorbeeld van de gescramblede puzzel onder de scramble, voor alle zes, aan of uit in de instellingen
 - Installeerbaar als app en bruikbaar zonder internet
 - Timen met de spatiebalk (of tikken op mobiel): vasthouden tot groen, loslaten om te starten
 - GAN Smart Timer koppelen — de tijd komt dan rechtstreeks van het apparaat, op de milliseconde nauwkeurig
@@ -160,7 +160,7 @@ Via het tandwiel rechtsboven:
 | Tijd tijdens solve | Verbergen achter drie bolletjes, of gewoon laten lopen |
 | Decimalen | `0.00` of `0.000`, net als het display van je timer |
 | Vasthoudtijd | Kort (250 ms), normaal (400 ms) of lang (550 ms) |
-| Kubusvoorbeeld | Klein plaatje van de gescramblede kubus |
+| Voorbeeld | Plaatje van de gescramblede puzzel |
 | Doeltijd | Zet een tijd; solves die eronder blijven krijgen een stipje, met een reeksteller |
 | Tijd laten oplopen | Het eindgetal telt op na het stoppen |
 | Scherm wakker houden | Voorkomt dat je telefoon in slaap valt tussen solves |

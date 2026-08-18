@@ -7,7 +7,7 @@ import {
 import { load, save } from './store.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
-import { previewSvg } from './cube.js';
+import { hasPreview, previewOf } from './preview.js';
 import {
   dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
 } from './practice.js';
@@ -276,15 +276,33 @@ function showTime(ms) {
   el.time.textContent = formatTime(ms);
 }
 
+let previewToken = 0;
+
 function renderScramble() {
   el.scramble.textContent = scramble;
+  // A megaminx scramble is seven lines and some seventy tokens; set at the size
+  // a 3x3 scramble wants, it wraps to twelve lines and pushes the ring off the
+  // screen. Long ones are set smaller and given a wider column.
+  el.scramble.dataset.long = String(scramble.length > 110);
 
-  // No cube on a phone: there the screen is the scramble, the ring and the times.
-  const markup = settings.preview && !narrow.matches
-    ? previewSvg(scramble, currentSession().puzzle)
-    : '';
-  el.preview.innerHTML = markup;
-  el.preview.hidden = !markup;
+  // No picture on a phone: there the screen is the scramble, the ring and the
+  // times. Drawing one means loading the puzzle library, so it is done off to
+  // the side, and a token drops any picture that a newer scramble has overtaken.
+  const puzzle = currentSession().puzzle;
+  const wanted = settings.preview && !narrow.matches && hasPreview(puzzle);
+  const token = ++previewToken;
+
+  if (!wanted) {
+    el.preview.replaceChildren();
+    el.preview.hidden = true;
+    return;
+  }
+
+  previewOf(scramble, puzzle).then((svg) => {
+    if (token !== previewToken) return;
+    el.preview.replaceChildren(...(svg ? [svg] : []));
+    el.preview.hidden = !svg;
+  });
 }
 
 /** Every column shows the latest value with the session record under it. */

@@ -60,6 +60,19 @@ export const PUZZLES = [
     faces: ['U', 'L', 'R', 'B'],
     suffixes: ['', "'"],
     opposite: {}
+  },
+  {
+    id: 'minx',
+    name: 'Megaminx',
+    event: 'minx',
+    // A megaminx scramble is not a free string of turns: it is seven lines of
+    // alternating R and D by a fifth twice over, each closed by a U. The
+    // stand-in keeps to that shape so it still reads as a megaminx scramble.
+    length: 7,
+    megaminx: true,
+    faces: [],
+    suffixes: [],
+    opposite: {}
   }
 ];
 
@@ -72,6 +85,8 @@ const pick = (list) => list[(Math.random() * list.length) | 0];
 /** Stand-in scramble, used until the real scrambler has warmed up. */
 export function randomMoveScramble(puzzleId = '333') {
   const puzzle = puzzleById(puzzleId);
+  if (puzzle.megaminx) return randomMinxScramble(puzzle.length);
+
   const moves = [];
   let previous = null;
   let beforePrevious = null;
@@ -94,6 +109,21 @@ export function randomMoveScramble(puzzleId = '333') {
   }
 
   return moves.join(' ');
+}
+
+/** Seven lines of R and D by a fifth, each closed off with a U. */
+function randomMinxScramble(lines) {
+  const rows = [];
+  for (let line = 0; line < lines; line++) {
+    const moves = [];
+    for (let pair = 0; pair < 5; pair++) {
+      moves.push(`R${Math.random() < 0.5 ? '++' : '--'}`);
+      moves.push(`D${Math.random() < 0.5 ? '++' : '--'}`);
+    }
+    moves.push(Math.random() < 0.5 ? 'U' : "U'");
+    rows.push(moves.join(' '));
+  }
+  return rows.join('\n');
 }
 
 /**
