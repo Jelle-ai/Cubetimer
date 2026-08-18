@@ -1411,6 +1411,14 @@ body[data-miss] .halo {
 
 /* ---------- swiping a row ---------- */
 
+/* flex: none is not decoration here. A flex item's automatic minimum size is
+   what normally stops it being squashed below its content -- and setting any
+   overflow other than visible, which the swipe reveal below needs, throws that
+   protection away. Without this the rows in a list taller than its box are free
+   to shrink to nothing, which is exactly what they did: a full list of times
+   rendering at zero height. */
+.solves > li { flex: none; }
+
 .solve-row {
   position: relative;
   overflow: hidden;
