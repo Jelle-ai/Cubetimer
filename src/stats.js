@@ -56,15 +56,29 @@ export function averageOf(solves, n) {
   return windowAverage(solves.slice(-n));
 }
 
-/** The best average of n anywhere in the session. */
-export function bestAverageOf(solves, n) {
+/**
+ * The best window of n anywhere in the session, by whichever measure.
+ * @returns {{value: number, start: number}|null}
+ */
+function bestWindow(solves, n, measure) {
   if (solves.length < n) return null;
   let record = null;
   for (let start = 0; start + n <= solves.length; start++) {
-    const value = windowAverage(solves.slice(start, start + n));
-    if (Number.isFinite(value) && (record === null || value < record)) record = value;
+    const value = measure(solves.slice(start, start + n));
+    if (Number.isFinite(value) && (record === null || value < record.value)) record = { value, start };
   }
   return record;
+}
+
+/** The best average of n anywhere in the session. */
+export function bestAverageOf(solves, n) {
+  return bestWindow(solves, n, windowAverage)?.value ?? null;
+}
+
+/** Where that best average sits, as indices into the session. */
+export function bestAverageAt(solves, n) {
+  const record = bestWindow(solves, n, windowAverage);
+  return record ? { start: record.start, end: record.start + n } : null;
 }
 
 function windowMean(window) {
@@ -81,13 +95,12 @@ export function meanOf(solves, n) {
 
 /** The best mean of n anywhere in the session. */
 export function bestMeanOf(solves, n) {
-  if (solves.length < n) return null;
-  let record = null;
-  for (let start = 0; start + n <= solves.length; start++) {
-    const value = windowMean(solves.slice(start, start + n));
-    if (Number.isFinite(value) && (record === null || value < record)) record = value;
-  }
-  return record;
+  return bestWindow(solves, n, windowMean)?.value ?? null;
+}
+
+export function bestMeanAt(solves, n) {
+  const record = bestWindow(solves, n, windowMean);
+  return record ? { start: record.start, end: record.start + n } : null;
 }
 
 export function worst(solves) {

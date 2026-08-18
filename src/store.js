@@ -19,7 +19,17 @@ function tidy(solve) {
 }
 
 function emptyState(solves = []) {
-  return { active: 0, sessions: [{ name: '3x3', puzzle: '333', solves }] };
+  return { active: 0, sessions: [{ name: '3x3', puzzle: '333', solves, target: null }] };
+}
+
+/**
+ * A session's own goal time, in milliseconds, or null for none. It lives on the
+ * session rather than in the settings because what counts as a good 4x4 solve
+ * has nothing to do with what counts as a good 2x2 one.
+ */
+function cleanTarget(value) {
+  const ms = Math.round(Number(value));
+  return Number.isFinite(ms) && ms > 0 ? Math.min(Math.max(ms, 1000), 600000) : null;
 }
 
 function clean(state) {
@@ -28,6 +38,7 @@ function clean(state) {
     .map((session, index) => ({
       name: String(session.name || `Sessie ${index + 1}`).slice(0, 40),
       puzzle: typeof session.puzzle === 'string' ? session.puzzle : '333',
+      target: cleanTarget(session.target),
       solves: session.solves.filter(isSolve).map(tidy)
     }));
 

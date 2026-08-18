@@ -572,7 +572,11 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
 
 .solve {
   box-shadow: var(--shadow-soft);
-  animation: rowIn .22s ease both;
+  /* backwards, not both: a finished animation with forwards fill keeps applying
+     its last keyframe, and an animation outranks even an inline style -- which
+     silently pinned every row at transform: none and stopped a swipe from
+     moving anything. */
+  animation: rowIn .22s ease backwards;
 }
 
 .solve:hover {
@@ -989,6 +993,37 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
 
 .stats-row-record { color: var(--record); }
 .stats-row-other { color: var(--muted); }
+
+button.stats-tile {
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+
+button.stats-tile:hover {
+  border-color: color-mix(in srgb, var(--led) 50%, transparent);
+  background: color-mix(in srgb, var(--led) 8%, var(--sunken));
+}
+
+/* A row that stands for solves can be pressed, and says so on hover. */
+button.stats-row {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background .15s;
+}
+
+button.stats-row:hover { background: color-mix(in srgb, var(--led) 9%, transparent); }
+button.stats-row:hover .stats-row-label { color: var(--ink); }
+
+.picked-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: .5rem 0 0;
+}
 
 /* Two session names need more room than "nu" and "record" do. */
 .stats-table-compare .stats-row { grid-template-columns: 1fr 8.5ch 8.5ch; column-gap: .7rem; }
@@ -1514,40 +1549,36 @@ body[data-miss] .halo {
   border-radius: 12px;
 }
 
-/* What shows up behind a row on its way out. */
-.solve-row::before {
-  content: "";
+/* What shows up behind a row on its way out. Dragging left uncovers the right
+   edge and the bin waiting there; dragging right uncovers the left edge and the
+   penalty, which turns from +2 into DNF once the row is dragged far enough. */
+.swipe-mark {
   position: absolute;
   inset: 0;
   display: none;
   align-items: center;
-  padding: 0 1rem;
+  padding: 0 1.1rem;
   border-radius: 12px;
-  font-size: .72rem;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
   color: #fff;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .06em;
 }
+
+.swipe-mark-bin { justify-content: flex-end; background: color-mix(in srgb, var(--hold) 55%, transparent); }
+.swipe-mark-bin svg { width: 20px; height: 20px; }
+
+.swipe-mark-penalty { justify-content: flex-start; background: color-mix(in srgb, var(--record) 55%, transparent); }
 
 .solve-row[data-swipe] .solve { position: relative; z-index: 1; }
-.solve-row[data-swipe]::before { display: flex; }
-
-.solve-row[data-swipe="delete"]::before {
-  content: "wissen";
-  justify-content: flex-end;
-  background: color-mix(in srgb, var(--hold) 55%, transparent);
-}
-
-.solve-row[data-swipe="plus2"]::before {
-  content: "+2";
-  justify-content: flex-start;
-  background: color-mix(in srgb, var(--record) 55%, transparent);
-}
+.solve-row[data-swipe="delete"] .swipe-mark-bin { display: flex; }
+.solve-row[data-swipe="plus2"] .swipe-mark-penalty,
+.solve-row[data-swipe="dnf"] .swipe-mark-penalty { display: flex; }
 
 /* Past the point of no return it goes solid, so you can feel it commit. */
-.solve-row[data-armed="true"][data-swipe="delete"]::before { background: var(--hold); }
-.solve-row[data-armed="true"][data-swipe="plus2"]::before { background: var(--record); }
+.solve-row[data-armed="true"] .swipe-mark-bin { background: var(--hold); }
+.solve-row[data-armed="true"][data-swipe="plus2"] .swipe-mark-penalty { background: var(--record); }
+.solve-row[data-swipe="dnf"] .swipe-mark-penalty { background: var(--hold); }
 
 /* ---------- quick actions ---------- */
 
@@ -1608,7 +1639,21 @@ body[data-miss] .halo {
 
 .practice:hover { border-color: color-mix(in srgb, var(--led) 45%, transparent); }
 
+/* The count belongs against the flame: it is the flame's number. */
+.practice-run { flex: none; display: flex; align-items: center; gap: .25rem; }
+
 .practice-flame { font-size: 1.15rem; line-height: 1; filter: grayscale(1); opacity: .5; transition: filter .3s, opacity .3s; }
+
+.practice-days-count {
+  font-family: var(--digits);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
+  min-width: 1ch;
+  transition: color .3s;
+}
+
+.practice[data-done="true"] .practice-days-count { color: var(--record); }
 
 /* The flame only lights once the day is actually earned. */
 .practice[data-done="true"] .practice-flame { filter: none; opacity: 1; }

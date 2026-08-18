@@ -1,8 +1,8 @@
 import { PUZZLES, nextScramble, puzzleById, randomMoveScramble, warmUp } from './scramble.js';
 import { bluetoothAvailable, connectGanTimer, isSupported, TimerState } from './gan-timer.js';
 import {
-  averageOf, best, bestAverageOf, bestMeanOf, effective, formatSolve, formatTime,
-  meanOf, sessionMean, setDecimals, worst
+  averageOf, best, bestAverageAt, bestAverageOf, bestMeanAt, bestMeanOf, effective,
+  formatSolve, formatTime, meanOf, sessionMean, setDecimals, worst
 } from './stats.js';
 import { load, save } from './store.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
@@ -67,6 +67,7 @@ const el = {
   sessionNew: document.getElementById('session-new'),
   sessionDelete: document.getElementById('session-delete'),
   targetSwitch: document.getElementById('set-target'),
+  targetNote: document.getElementById('target-note'),
   targetValue: document.getElementById('set-target-value'),
   export: document.getElementById('export'),
   exportFormat: document.getElementById('export-format'),
@@ -77,8 +78,14 @@ const el = {
   pasteAdd: document.getElementById('paste-add'),
   pasteClose: document.getElementById('paste-close'),
   statsCompare: document.getElementById('stats-compare'),
+  pickedSheet: document.getElementById('picked-sheet'),
+  pickedTitle: document.getElementById('picked-title'),
+  pickedNote: document.getElementById('picked-note'),
+  pickedList: document.getElementById('picked-list'),
+  pickedClose: document.getElementById('picked-close'),
   practice: document.getElementById('practice'),
   practiceFlame: document.getElementById('practice-flame'),
+  practiceRun: document.getElementById('practice-run'),
   practiceToday: document.getElementById('practice-today'),
   practiceGoal: document.getElementById('practice-goal'),
   practiceFill: document.getElementById('practice-fill'),
@@ -140,6 +147,19 @@ const el = {
 
 let settings = loadSettings();
 let saveFile = load();
+
+// The goal time used to be one number for every session. Sessions that predate
+// it being their own inherit whatever was set globally, once.
+if (settings.targetOn === true && Number.isFinite(settings.targetMs)) {
+  let carried = false;
+  for (const session of saveFile.sessions) {
+    if (session.target === null) { session.target = settings.targetMs; carried = true; }
+  }
+  if (carried) save(saveFile);
+  delete settings.targetOn;
+  delete settings.targetMs;
+  saveSettings(settings);
+}
 let solves = saveFile.sessions[saveFile.active].solves;
 let scramble = randomMoveScramble(saveFile.sessions[saveFile.active].puzzle);
 let scrambleToken = 0; // guards against a slow scramble landing after a newer one
@@ -376,7 +396,7 @@ function renderSolves() {
     const value = effective(solve);
     if (fastest !== null && value === fastest) row.classList.add('is-best');
     else if (slowest !== null && value === slowest) row.classList.add('is-worst');
-    if (settings.targetOn && Number.isFinite(value) && value <= settings.targetMs) {
+    if (currentTarget() !== null && Number.isFinite(value) && value <= currentTarget()) {
       row.classList.add('is-under');
     }
     row.addEventListener('click', () => (selecting ? toggleSelected(solve) : openDetail(index)));
@@ -450,12 +470,11 @@ function renderPractice() {
 
   el.practice.dataset.done = String(meetsGoal(now, goal));
   el.practiceFlame.textContent = current > 0 ? '\u{1f525}' : '\u{1f56f}\ufe0f';
+  el.practiceRun.textContent = String(current);
   el.practiceToday.textContent = now
     ? `${formatDuration(now.ms)} · ${now.count} ${now.count === 1 ? 'solve' : 'solves'}`
     : 'nog niets vandaag';
-  el.practiceGoal.textContent = current > 0
-    ? `${current} ${current === 1 ? 'dag' : 'dagen'}`
-    : goalText();
+  el.practiceGoal.textContent = goalText();
   el.practiceFill.style.width = `${Math.round(progress(now, goal) * 100)}%`;
 }
 
@@ -522,7 +541,7 @@ function currentStreak() {
   let streak = 0;
   for (let index = solves.length - 1; index >= 0; index--) {
     const value = effective(solves[index]);
-    if (!Number.isFinite(value) || value > settings.targetMs) break;
+    if (!Number.isFinite(value) || value > currentTarget()) break;
     streak++;
   }
   return streak;
@@ -547,12 +566,12 @@ function ao5Ceiling(goal) {
 function renderInsight() {
   const parts = [];
 
-  if (settings.targetOn) {
+  if (currentTarget() !== null) {
     const streak = currentStreak();
-    if (streak >= 2) parts.push(`${streak} op rij onder ${formatTime(settings.targetMs)}`);
+    if (streak >= 2) parts.push(`${streak} op rij onder ${formatTime(currentTarget())}`);
   }
 
-  const goal = settings.targetOn ? settings.targetMs : bestAverageOf(solves, 5);
+  const goal = currentTarget() ?? bestAverageOf(solves, 5);
   if (goal) {
     const ceiling = ao5Ceiling(goal);
     if (ceiling === Infinity) parts.push(`ao5 onder ${formatTime(goal)} is zeker`);
@@ -616,6 +635,9 @@ async function newScramble() {
 
 /* ---------- sessions ---------- */
 
+/** This session's goal time in milliseconds, or null when it has none. */
+const currentTarget = () => currentSession().target;
+
 function currentSession() {
   return saveFile.sessions[saveFile.active];
 }
@@ -635,6 +657,7 @@ function renderSessions() {
 
 function useSession(index) {
   saveFile.active = index;
+  syncTargetUi();
   solves = currentSession().solves;
   selecting = false;
   selected.clear();
@@ -699,35 +722,55 @@ function statGroups(list = solves) {
   const dnfs = solves.filter((solve) => solve.penalty === 'DNF').length;
   const plusTwos = solves.filter((solve) => solve.penalty === '+2').length;
 
-  const wrong = [['+2', String(plusTwos)], ['DNF', String(dnfs)]];
-  if (settings.targetOn) {
-    const under = solves.filter((solve) => {
-      const value = effective(solve);
-      return Number.isFinite(value) && value <= settings.targetMs;
-    }).length;
-    const share = solves.length ? Math.round((under / solves.length) * 100) : 0;
-    wrong.push([`Onder ${formatTime(settings.targetMs)}`, `${under} (${share}%)`]);
+  const all = solves.map((_, index) => index);
+  const where = (test) => all.filter((index) => test(solves[index]));
+  const extreme = (value) => {
+    const index = all.find((i) => effective(solves[i]) === value);
+    return index === undefined ? [] : [index];
+  };
+  const last = (n) => (solves.length >= n ? all.slice(-n) : []);
+  const window = (at) => (at ? all.slice(at.start, at.end) : []);
+
+  const wrong = [
+    ['+2', String(plusTwos), where((s) => s.penalty === '+2')],
+    ['DNF', String(dnfs), where((s) => s.penalty === 'DNF')]
+  ];
+
+  const target = currentTarget();
+  if (target !== null && list === solves) {
+    const under = where((s) => {
+      const value = effective(s);
+      return Number.isFinite(value) && value <= target;
+    });
+    const share = solves.length ? Math.round((under.length / solves.length) * 100) : 0;
+    wrong.push([`Onder ${formatTime(target)}`, `${under.length} (${share}%)`, under]);
   }
 
   return [
     {
       title: 'Sessie',
       tiles: [
-        ['solves', String(solves.length)],
-        ['mean', formatTime(sessionMean(solves))],
-        ['beste', formatTime(best(solves))],
-        ['slechtste', formatTime(worst(solves))]
+        ['solves', String(solves.length), all],
+        ['mean', formatTime(sessionMean(solves)), all],
+        ['beste', formatTime(best(solves)), extreme(best(solves))],
+        ['slechtste', formatTime(worst(solves)), extreme(worst(solves))]
       ]
     },
     {
       title: 'Gemiddelden',
-      // label, where it stands now, the best it has ever been
+      // label, where it stands now, the best it has ever been, and the solves
+      // behind each of those two
       averages: [
-        ['mo3', formatTime(meanOf(solves, 3)), formatTime(bestMeanOf(solves, 3))],
-        ['ao5', formatTime(averageOf(solves, 5)), formatTime(bestAverageOf(solves, 5))],
-        ['ao12', formatTime(averageOf(solves, 12)), formatTime(bestAverageOf(solves, 12))],
-        ['ao50', formatTime(averageOf(solves, 50)), formatTime(bestAverageOf(solves, 50))],
-        ['ao100', formatTime(averageOf(solves, 100)), formatTime(bestAverageOf(solves, 100))]
+        ['mo3', formatTime(meanOf(solves, 3)), formatTime(bestMeanOf(solves, 3)),
+          last(3), window(bestMeanAt(solves, 3))],
+        ['ao5', formatTime(averageOf(solves, 5)), formatTime(bestAverageOf(solves, 5)),
+          last(5), window(bestAverageAt(solves, 5))],
+        ['ao12', formatTime(averageOf(solves, 12)), formatTime(bestAverageOf(solves, 12)),
+          last(12), window(bestAverageAt(solves, 12))],
+        ['ao50', formatTime(averageOf(solves, 50)), formatTime(bestAverageOf(solves, 50)),
+          last(50), window(bestAverageAt(solves, 50))],
+        ['ao100', formatTime(averageOf(solves, 100)), formatTime(bestAverageOf(solves, 100)),
+          last(100), window(bestAverageAt(solves, 100))]
       ]
     },
     { title: 'Straffen', tiles: wrong }
@@ -772,15 +815,24 @@ function statSection(title) {
 function tileGrid(tiles) {
   const grid = document.createElement('div');
   grid.className = 'stats-tiles';
-  for (const [label, value] of tiles) {
-    const tile = document.createElement('div');
+
+  for (const [label, value, pick] of tiles) {
+    const usable = pick && pick.length;
+    const tile = document.createElement(usable ? 'button' : 'div');
+    if (usable) {
+      tile.type = 'button';
+      tile.addEventListener('click', () => showSolves(label, pick));
+    }
     tile.className = 'stats-tile';
+
     const name = document.createElement('span');
     name.className = 'stats-tile-label';
     name.textContent = label;
+
     const figure = document.createElement('span');
     figure.className = 'stats-tile-value';
     figure.textContent = value;
+
     tile.append(name, figure);
     grid.append(tile);
   }
@@ -792,9 +844,13 @@ function tileGrid(tiles) {
  * the label to the last number. As three grid cells the rule broke: baseline
  * alignment gives each cell a different height, and so a border-top at a
  * different place.
+ *
+ * A row that stands for actual solves is a button: pressing it shows them.
  */
-function statRow(label, values, kinds) {
-  const row = document.createElement('div');
+function statRow(label, values, kinds, picks) {
+  const usable = (picks || []).some((pick) => pick && pick.length);
+  const row = document.createElement(usable ? 'button' : 'div');
+  if (usable) row.type = 'button';
   row.className = 'stats-row';
 
   const name = document.createElement('span');
@@ -809,6 +865,16 @@ function statRow(label, values, kinds) {
     row.append(cell);
   });
 
+  // With one set of solves the whole row opens it; with two -- now and record --
+  // whichever number was pressed decides which.
+  if (usable) {
+    row.addEventListener('click', (event) => {
+      const cell = event.target.closest('.stats-row-value');
+      const which = cell ? [...row.children].indexOf(cell) - 1 : 0;
+      const pick = picks[which]?.length ? picks[which] : picks.find((p) => p?.length);
+      if (pick) showSolves(`${label}${picks.length > 1 && which === 1 ? ' · record' : ''}`, pick);
+    });
+  }
   return row;
 }
 
@@ -825,7 +891,11 @@ function statTable(heads, rows, kinds, extraClass = '') {
   }
   table.append(head);
 
-  for (const [label, ...values] of rows) table.append(statRow(label, values, kinds));
+  for (const [label, ...rest] of rows) {
+    const values = rest.slice(0, heads.length);
+    const picks = rest.slice(heads.length);
+    table.append(statRow(label, values, kinds, picks));
+  }
   return table;
 }
 
@@ -842,6 +912,64 @@ function flatten(group) {
   return group.averages.flatMap(([label, now, record]) => [
     [label, now], [`beste ${label}`, record]
   ]);
+}
+
+/* ---------- the solves behind a number ---------- */
+
+let pickedIndices = [];
+
+/**
+ * What a measure was made of. Pressing one of them opens that solve with its
+ * scramble, the same sheet a time in the list opens.
+ */
+function showSolves(title, indices) {
+  pickedIndices = indices;
+  el.pickedTitle.textContent = title;
+  el.pickedNote.textContent = indices.length === 1
+    ? 'Tik de tijd aan voor de scramble.'
+    : `${indices.length} solves · tik er een aan voor de scramble.`;
+
+  el.pickedList.innerHTML = '';
+  for (const index of indices) {
+    const solve = solves[index];
+    if (!solve) continue;
+
+    const item = document.createElement('li');
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'solve';
+    if (solve.penalty === 'DNF') row.classList.add('is-dnf');
+
+    const number = document.createElement('span');
+    number.className = 'solve-index';
+    number.textContent = index + 1;
+
+    const label = document.createElement('span');
+    label.className = 'solve-time';
+    label.textContent = formatSolve(solve);
+
+    row.append(number, label);
+
+    if (solve.penalty && solve.penalty !== 'none') {
+      const tag = document.createElement('span');
+      tag.className = 'solve-tag';
+      tag.textContent = solve.penalty;
+      row.append(tag);
+    }
+
+    const chevron = document.createElement('span');
+    chevron.className = 'solve-chevron';
+    chevron.textContent = '\u203a';
+    chevron.setAttribute('aria-hidden', 'true');
+    row.append(chevron);
+
+    row.addEventListener('click', () => openDetail(index));
+    item.append(row);
+    el.pickedList.append(item);
+  }
+
+  el.pickedSheet.showModal();
+  el.pickedSheet.focus();
 }
 
 function renderStatsList() {
@@ -875,6 +1003,8 @@ function openStats() {
   el.statsSheet.showModal();
   el.statsSheet.focus();
 }
+
+el.pickedClose.addEventListener('click', () => el.pickedSheet.close());
 
 el.statsCompare.addEventListener('change', () => {
   compareWith = el.statsCompare.value === '' ? null : Number(el.statsCompare.value);
@@ -1129,11 +1259,11 @@ function judgeSolve(previousBest) {
     return;
   }
 
-  if (!settings.targetOn) return;
+  if (currentTarget() === null) return;
   const value = effective(solves[solves.length - 1]);
   if (!Number.isFinite(value)) return;
 
-  if (value <= settings.targetMs) {
+  if (value <= currentTarget()) {
     cue('target');
     if (settings.celebrate) confetti('burst');
   } else {
@@ -1179,8 +1309,39 @@ function removeSolveWithUndo(index) {
 /* ---------- gestures on a row ---------- */
 
 const SWIPE_TRIGGER = 72;   // how far a row must travel before it acts
+const SWIPE_FAR = 165;      // and how far again before the right-hand swipe escalates
 const SWIPE_CLAIM = 10;     // beyond this the swipe owns the touch, not the scroller
 const HOLD_MS = 500;
+
+const BIN_PATH = 'M4 6.5h16M9.5 6.5V4.8a1.3 1.3 0 0 1 1.3-1.3h2.4a1.3 1.3 0 0 1 1.3 1.3v1.7'
+  + 'M6.2 6.5l.8 12.2a1.6 1.6 0 0 0 1.6 1.5h6.8a1.6 1.6 0 0 0 1.6-1.5l.8-12.2M10 10.5v6M14 10.5v6';
+
+/** The bin and the labels that sit behind a row while it is being dragged. */
+function swipeMarks() {
+  const bin = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  bin.setAttribute('viewBox', '0 0 24 24');
+  bin.setAttribute('fill', 'none');
+  bin.setAttribute('stroke', 'currentColor');
+  bin.setAttribute('stroke-width', '1.7');
+  bin.setAttribute('stroke-linecap', 'round');
+  bin.setAttribute('stroke-linejoin', 'round');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', BIN_PATH);
+  bin.append(path);
+
+  // Dragging left uncovers the right-hand edge, and the other way round, the
+  // way a mail app does it.
+  const left = document.createElement('span');
+  left.className = 'swipe-mark swipe-mark-bin';
+  left.setAttribute('aria-hidden', 'true');
+  left.append(bin);
+
+  const right = document.createElement('span');
+  right.className = 'swipe-mark swipe-mark-penalty';
+  right.setAttribute('aria-hidden', 'true');
+
+  return [left, right];
+}
 
 let quickIndex = null;      // the solve the quick-action sheet is about
 
@@ -1190,6 +1351,9 @@ let quickIndex = null;      // the solve the quick-action sheet is about
  * Right-clicking does the same as holding, so a mouse is not left out.
  */
 function attachRowGestures(item, row, solve, index) {
+  const [bin, penalty] = swipeMarks();
+  item.prepend(bin, penalty);
+
   let startX = 0;
   let startY = 0;
   let offset = 0;
@@ -1235,8 +1399,10 @@ function attachRowGestures(item, row, solve, index) {
 
     event.preventDefault(); // the list scroller may not also have this touch
     offset = dx;
-    item.dataset.swipe = dx < 0 ? 'delete' : 'plus2';
+    const action = dx < 0 ? 'delete' : dx >= SWIPE_FAR ? 'dnf' : 'plus2';
+    item.dataset.swipe = action;
     item.dataset.armed = String(Math.abs(dx) >= SWIPE_TRIGGER);
+    penalty.textContent = action === 'dnf' ? 'DNF' : '+2';
     row.style.transform = `translateX(${dx}px)`;
   }, { passive: false });
 
@@ -1246,6 +1412,7 @@ function attachRowGestures(item, row, solve, index) {
 
     const far = Math.abs(offset) >= SWIPE_TRIGGER;
     const left = offset < 0;
+    const dnf = !left && offset >= SWIPE_FAR;
     axis = null;
     acted = far;
 
@@ -1260,7 +1427,7 @@ function attachRowGestures(item, row, solve, index) {
     settle(`translateX(${left ? '-110%' : '110%'})`);
     setTimeout(() => {
       if (left) removeSolveWithUndo(index);
-      else togglePenalty(index, '+2');
+      else togglePenalty(index, dnf ? 'DNF' : '+2');
     }, 160);
   };
 
@@ -1990,7 +2157,6 @@ const groups = {
 };
 
 const switches = [
-  bindSwitch('set-target', 'targetOn'),
   bindSwitch('set-preview', 'preview'),
   bindSwitch('set-countUp', 'countUp'),
   bindSwitch('set-wakeLock', 'wakeLock'),
@@ -2031,8 +2197,17 @@ el.goalValue.addEventListener('change', () => {
   renderPractice();
 });
 
+/** The goal box shows the session's own time; empty means it has none. */
+function syncTargetUi() {
+  const target = currentTarget();
+  el.targetSwitch.setAttribute('aria-checked', String(target !== null));
+  el.targetValue.value = ((target ?? 20000) / 1000).toFixed(2).replace(/\.?0+$/, '');
+  el.targetValue.disabled = target === null;
+  el.targetNote.textContent = `Alleen voor ${currentSession().name}; elke sessie heeft zijn eigen doel.`;
+}
+
 function syncSettingsUi() {
-  el.targetValue.value = (settings.targetMs / 1000).toFixed(2).replace(/\.?0+$/, '');
+  syncTargetUi();
   markGroup(groups.theme, settings.theme);
   markGroup(groups.decimals, settings.decimals);
   markGroup(groups.hold, settings.holdMs);
@@ -2045,14 +2220,23 @@ function syncSettingsUi() {
   for (const { control, key } of switches) control.setAttribute('aria-checked', String(settings[key]));
 }
 
+el.targetSwitch.addEventListener('click', () => {
+  const seconds = Number(el.targetValue.value);
+  const ms = Number.isFinite(seconds) && seconds > 0
+    ? Math.min(Math.max(Math.round(seconds * 1000), 1000), 600000)
+    : 20000;
+  currentSession().target = currentTarget() === null ? ms : null;
+  persist();
+  syncTargetUi();
+  applySettings();
+});
+
 el.targetValue.addEventListener('change', () => {
   const seconds = Number(el.targetValue.value);
-  if (!Number.isFinite(seconds) || seconds <= 0) {
-    el.targetValue.value = (settings.targetMs / 1000).toFixed(2).replace(/\.?0+$/, '');
-    return;
-  }
-  settings.targetMs = Math.min(Math.max(Math.round(seconds * 1000), 1000), 600000);
-  storeSettings();
+  if (!Number.isFinite(seconds) || seconds <= 0) { syncTargetUi(); return; }
+  currentSession().target = Math.min(Math.max(Math.round(seconds * 1000), 1000), 600000);
+  persist();
+  syncTargetUi();
   applySettings();
 });
 

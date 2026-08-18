@@ -137,7 +137,8 @@ Zonder timer erbij (spatiebalk, of tikken op het scherm op mobiel):
 | Volledig scherm | `F` |
 | Details van een tijd | klik op de tijd in de sessielijst |
 | +2 / DNF / verwijderen | knoppen in dat detailvenster |
-| Sneller dan dat | Veeg een rij naar links om te wissen, naar rechts voor +2 |
+| Sneller dan dat | Veeg een rij naar links tot het vuilbakje om te wissen |
+| Straf per veeg | Veeg naar rechts voor **+2**, verder door voor **DNF** |
 | Alles in één keer | Houd een rij vast (of klik met rechts) voor +2, DNF, details en wissen |
 | Per ongeluk gewist | De melding onderaan biedt zes seconden lang `ongedaan maken` |
 | Meerdere tijden tegelijk | `selecteer` boven de lijst, tik ze aan, dan +2, DNF of wis |
@@ -161,7 +162,7 @@ Via het tandwiel rechtsboven:
 | Decimalen | `0.00` of `0.000`, net als het display van je timer |
 | Vasthoudtijd | Kort (250 ms), normaal (400 ms) of lang (550 ms) |
 | Voorbeeld | Plaatje van de gescramblede puzzel |
-| Doeltijd | Zet een tijd; solves die eronder blijven krijgen een stipje, met een reeksteller |
+| Doeltijd | **Per sessie**: solves die eronder blijven krijgen een stipje, met een reeksteller |
 | Tijd laten oplopen | Het eindgetal telt op na het stoppen |
 | Scherm wakker houden | Voorkomt dat je telefoon in slaap valt tussen solves |
 | Geluid | Piep op 8 en 12 seconden inspectie, klik bij start en stop |
@@ -199,6 +200,10 @@ en statistieken bij; de laatst gekozen sessie staat er bij het openen weer.
 Op een telefoon staat de kaart met gemiddelden op het timerscherm zelf, onder de ring:
 single, mo3, ao5 en ao12, met het sessierecord in goud eronder. De lijst met tijden blijft
 in zijn eigen menu.
+
+Tik een getal in de statistieken aan en je ziet de solves waar het uit bestaat: de vijf
+van je ao5, de vijf van je beste ao5, je +2's, je DNF's, alles onder je doeltijd. Tik daar
+een tijd aan en je hebt de scramble.
 
 Tik de kaart met gemiddelden aan voor alle statistieken. Die staan in drie groepen —
 **sessie** (aantal, mean, beste, slechtste), **gemiddelden** (mo3 tot ao100, met het

@@ -33,8 +33,6 @@ const DEFAULTS = {
   celebrate: true,
   highlight: true,
   preview: true,
-  targetOn: false,
-  targetMs: 20000,
   countUp: true,
   wakeLock: true,
   font: 'rounded',
@@ -74,9 +72,6 @@ export function loadSettings() {
     settings.goalMinutes = clampNumber(settings.goalMinutes, 1, 600, DEFAULTS.goalMinutes);
     settings.goalSolves = clampNumber(settings.goalSolves, 1, 500, DEFAULTS.goalSolves);
     for (const key of SWITCHES) settings[key] = settings[key] !== false;
-    settings.targetOn = settings.targetOn === true;
-    const target = Number(settings.targetMs);
-    settings.targetMs = Number.isFinite(target) ? Math.min(Math.max(target, 1000), 600000) : DEFAULTS.targetMs;
 
     const colors = { ...DEFAULTS.colors, ...(settings.colors || {}) };
     for (const { key, fallback } of COLOR_SLOTS) {

@@ -89,7 +89,10 @@
     </button>
 
     <button type="button" id="practice" class="practice" title="Je oefengeschiedenis" hidden>
-      <span class="practice-flame" id="practice-flame" aria-hidden="true">🔥</span>
+      <span class="practice-run">
+        <span class="practice-flame" id="practice-flame" aria-hidden="true">🔥</span>
+        <span class="practice-days-count" id="practice-run">0</span>
+      </span>
       <span class="practice-body">
         <span class="practice-line">
           <span id="practice-today">–</span>
@@ -178,6 +181,18 @@
 
     <p id="practice-note" class="import-note"></p>
     <ol id="practice-days" class="practice-days"></ol>
+  </div>
+</dialog>
+
+<!-- The solves a number in the statistics was made of. -->
+<dialog id="picked-sheet" class="sheet sheet-tall" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="picked-title">Solves</h2>
+      <button type="button" id="picked-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+    <p id="picked-note" class="import-note"></p>
+    <ol id="picked-list" class="solves picked-list"></ol>
   </div>
 </dialog>
 
@@ -458,7 +473,7 @@
     <section class="setting">
       <div class="setting-label">
         <span>Doeltijd</span>
-        <small>Markeer solves die er onder blijven</small>
+        <small id="target-note">Markeer solves die er onder blijven</small>
       </div>
       <div class="setting-control">
         <input id="set-target-value" class="number-input" type="number" min="1" max="600" step="0.5" inputmode="decimal">
