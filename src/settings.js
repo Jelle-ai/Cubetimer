@@ -35,6 +35,7 @@ const DEFAULTS = {
   preview: true,
   countUp: true,
   wakeLock: true,
+  camera: false,
   font: 'rounded',
   practice: true,
   goalKind: 'time',   // 'time' counts the solving up, 'solves' counts the solves
@@ -48,6 +49,10 @@ const DEFAULTS = {
 export const FONTS = ['rounded', 'system', 'mono'];
 
 const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'highlight', 'preview', 'countUp', 'wakeLock', 'practice'];
+
+// Switches that start off rather than on, so "anything but false is true" --
+// the rule the ones above use -- would turn them on by mistake.
+const OPT_IN = ['camera'];
 
 function clampNumber(value, low, high, fallback) {
   const number = Math.round(Number(value));
@@ -72,6 +77,7 @@ export function loadSettings() {
     settings.goalMinutes = clampNumber(settings.goalMinutes, 1, 600, DEFAULTS.goalMinutes);
     settings.goalSolves = clampNumber(settings.goalSolves, 1, 500, DEFAULTS.goalSolves);
     for (const key of SWITCHES) settings[key] = settings[key] !== false;
+    for (const key of OPT_IN) settings[key] = settings[key] === true;
 
     const colors = { ...DEFAULTS.colors, ...(settings.colors || {}) };
     for (const { key, fallback } of COLOR_SLOTS) {
@@ -79,7 +85,10 @@ export function loadSettings() {
     }
     settings.colors = colors;
     return settings;
-  } catch {
+  } catch (error) {
+    // Falling back silently is how a typo in here once wiped every preference
+    // on load without a word about it.
+    console.error('Instellingen konden niet gelezen worden:', error);
     return { ...DEFAULTS };
   }
 }

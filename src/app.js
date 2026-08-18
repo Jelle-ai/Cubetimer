@@ -8,6 +8,7 @@ import { load, save } from './store.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
+import { CERTAIN, guideFor, guidePath, guideSeams, inspectFrame, openCamera } from './vision.js';
 import {
   dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
 } from './practice.js';
@@ -83,6 +84,13 @@ const el = {
   pickedNote: document.getElementById('picked-note'),
   pickedList: document.getElementById('picked-list'),
   pickedClose: document.getElementById('picked-close'),
+  cameraSheet: document.getElementById('camera-sheet'),
+  cameraVideo: document.getElementById('camera-video'),
+  cameraOutline: document.getElementById('camera-outline'),
+  cameraSeams: document.getElementById('camera-seams'),
+  cameraStatus: document.getElementById('camera-status'),
+  cameraSkip: document.getElementById('camera-skip'),
+  cameraClose: document.getElementById('camera-close'),
   practice: document.getElementById('practice'),
   practiceFlame: document.getElementById('practice-flame'),
   practiceRun: document.getElementById('practice-run'),
@@ -1241,6 +1249,10 @@ function addSolve(ms) {
   render();
 
   judgeSolve(previousBest);
+
+  // The check comes after the celebration, so a record still gets its party
+  // even when the camera is about to turn it into a DNF.
+  if (settings.camera) checkCube(solves[solves.length - 1]);
 }
 
 /**
@@ -1999,6 +2011,117 @@ async function connect(anyDevice) {
 el.connect.addEventListener('click', () => connect(false));
 el.connectAny.addEventListener('click', () => connect(true));
 
+/* ---------- checking the cube with the camera ---------- */
+
+const FRAME_SIZE = 480;      // the square the camera frame is cropped to
+const LOOK_EVERY_MS = 220;
+const AGREEMENTS = 2;        // readings in a row before anything is allowed to change
+
+let camera = null;
+let cameraTimer = null;
+let cameraSubject = null;    // the solve being judged
+let lastReading = null;
+let agreed = 0;
+
+el.cameraOutline.setAttribute('d', guidePath());
+el.cameraSeams.setAttribute('d', guideSeams());
+
+function stopCamera() {
+  clearInterval(cameraTimer);
+  cameraTimer = null;
+  camera?.stream.getTracks().forEach((track) => track.stop());
+  camera = null;
+  cameraSubject = null;
+  lastReading = null;
+  agreed = 0;
+  if (el.cameraSheet.open) el.cameraSheet.close();
+}
+
+/**
+ * Judge one frame, and only act on a verdict that two readings in a row agree
+ * on. A single frame is a snapshot of a hand still moving; two the same is a
+ * cube being held still, which is when it is worth believing.
+ */
+function look() {
+  if (!camera || !cameraSubject) return;
+
+  const frame = camera.grab(FRAME_SIZE);
+  if (!frame) return;
+
+  const reading = inspectFrame(frame, guideFor(FRAME_SIZE));
+  const sure = reading.confidence >= CERTAIN && reading.state !== 'askew' && reading.state !== 'unreadable';
+
+  el.cameraStatus.textContent = !sure
+    ? (reading.state === 'askew' ? 'Zet de kubus recht in de zeshoek' : 'Zoeken naar de kubus…')
+    : reading.state === 'solved' ? 'Ziet er opgelost uit'
+    : reading.state === 'one-move' ? 'Eén zet ernaast — dat is +2'
+    : 'Meer dan één zet ernaast — dat is DNF';
+
+  el.cameraStatus.dataset.sure = String(sure);
+
+  if (!sure) { lastReading = null; agreed = 0; return; }
+  agreed = reading.state === lastReading ? agreed + 1 : 1;
+  lastReading = reading.state;
+  if (agreed < AGREEMENTS) return;
+
+  applyVerdict(reading.verdict);
+}
+
+function applyVerdict(verdict) {
+  const solve = cameraSubject;
+  const index = solves.indexOf(solve);
+  stopCamera();
+  if (index < 0) return;
+
+  if (verdict === 'none') {
+    toast('Kubus zag er opgelost uit — gewone solve.');
+    return;
+  }
+
+  const before = solve.penalty;
+  solve.penalty = verdict;
+  persist();
+  render();
+  cue('miss');
+  toast(`Camera zag ${verdict === 'DNF' ? 'meer dan één zet' : 'één zet'} ernaast — ${verdict} gezet.`, {
+    label: 'toch niet',
+    run: () => {
+      solve.penalty = before;
+      persist();
+      render();
+      toast(`${formatSolve(solve)} weer zonder straf.`);
+    }
+  });
+}
+
+/** Offered after a solve, and only ever offered -- never forced. */
+async function checkCube(solve) {
+  cameraSubject = solve;
+  lastReading = null;
+  agreed = 0;
+  el.cameraStatus.textContent = 'Camera starten…';
+  delete el.cameraStatus.dataset.sure;
+  el.cameraSheet.showModal();
+
+  try {
+    camera = await openCamera(el.cameraVideo);
+  } catch (error) {
+    el.cameraStatus.textContent = error?.name === 'NotAllowedError'
+      ? 'Geen toegang tot de camera. Sta het toe in je browser, of zet de controle uit.'
+      : `Camera lukt niet: ${error?.message || error}`;
+    el.cameraStatus.dataset.sure = 'false';
+    cameraSubject = null;
+    return;
+  }
+
+  if (!el.cameraSheet.open) { stopCamera(); return; } // closed while it was starting
+  cameraTimer = setInterval(look, LOOK_EVERY_MS);
+}
+
+el.cameraSkip.addEventListener('click', stopCamera);
+el.cameraClose.addEventListener('click', stopCamera);
+el.cameraSheet.addEventListener('close', stopCamera);
+
 /* ---------- screen wake lock ---------- */
 
 let wakeSentinel = null;
@@ -2166,6 +2289,7 @@ const switches = [
   bindSwitch('set-haptics', 'haptics'),
   bindSwitch('set-celebrate', 'celebrate'),
   bindSwitch('set-highlight', 'highlight'),
+  bindSwitch('set-camera', 'camera'),
   bindSwitch('set-practice', 'practice')
 ];
 

@@ -184,6 +184,31 @@
   </div>
 </dialog>
 
+<dialog id="camera-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Kubus controleren</h2>
+      <button type="button" id="camera-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <div class="camera-frame">
+      <video id="camera-video" playsinline muted></video>
+      <svg class="camera-guide" viewBox="0 0 1 1" aria-hidden="true">
+        <path id="camera-outline" fill="none" />
+        <path id="camera-seams" fill="none" />
+      </svg>
+    </div>
+
+    <p id="camera-status" class="camera-status">Camera starten…</p>
+    <p class="import-note">Houd een hoek van de kubus naar de camera, zodat drie vlakken de
+      zeshoek vullen. Weet hij het niet zeker, dan blijft de solve zoals hij is.</p>
+
+    <div class="detail-actions">
+      <button type="button" id="camera-skip">Laat maar, gewone solve</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- The solves a number in the statistics was made of. -->
 <dialog id="picked-sheet" class="sheet sheet-tall" tabindex="-1">
   <div class="sheet-inner">
@@ -479,6 +504,15 @@
         <input id="set-target-value" class="number-input" type="number" min="1" max="600" step="0.5" inputmode="decimal">
         <button type="button" class="switch" id="set-target" role="switch" aria-checked="false" aria-label="Doeltijd"><span></span></button>
       </div>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Kubus controleren</span>
+        <small>Na een solve de camera erop: herkent hij een DNF of een +2, dan zet hij die.
+          Twijfelt hij, dan blijft het een gewone solve</small>
+      </div>
+      <button type="button" class="switch" id="set-camera" role="switch" aria-checked="false" aria-label="Kubus controleren"><span></span></button>
     </section>
 
     <section class="setting">

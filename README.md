@@ -191,6 +191,28 @@ haalden krijgen een streep in de recordkleur.
 
 Alles telt over al je sessies samen — oefenen is oefenen, op welke puzzel dan ook.
 
+## De kubus laten controleren
+
+Staat **kubus controleren** aan, dan gaat na elke solve de camera open. Houd een hoek van
+de kubus in de zeshoek, zodat drie vlakken hem vullen. Ziet hij één zet ernaast, dan wordt
+het een **+2**; ziet hij meer, een **DNF**. In beide gevallen staat er `toch niet` in de
+melding.
+
+**Twijfelt hij, dan blijft het een gewone solve** — en dat is geen bijzaak, het is de
+belangrijkste regel. Drie vlakken kunnen namelijk niet bewijzen dát een kubus opgelost is:
+de drie stukjes die je niet ziet kunnen onderling verwisseld zijn. Wat ze wél kunnen
+bewijzen is dat hij het níét is. De aflezing is daarom bewust scheef: rommel telt als
+bewijs, netheid niet.
+
+Kleuren worden niet benoemd maar gegroepeerd — de vraag is welke stickers bij elkaar
+horen, niet welke kleur ze hebben. Daardoor maakt een warme lamp, een koel raam of een
+donkere kamer niet uit. Hoeveel kleuren er voor de lens liggen wordt afgeleid uit waar het
+samenvoegen duur wordt: twee helften van één vlak samenvoegen kost bijna niets, rood aan
+oranje plakken kost veel.
+
+Op 320 gerenderde kubussen onder wisselend licht en ruis kwam er geen enkele valse straf
+op een opgeloste kubus uit. Bij te veel ruis zwijgt hij liever dan te gokken.
+
 ## Sessies
 
 Boven de lijst staat een keuzelijst met je sessies. Via **beheer** hernoem je de huidige
