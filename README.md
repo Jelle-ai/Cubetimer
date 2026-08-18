@@ -154,6 +154,8 @@ Via het tandwiel rechtsboven:
 | Kleuren | Zes snelkeuzes voor de ring, plus een kiezer voor elke kleur apart: ring, klaar, vasthouden en records |
 | Thema | Licht, donker of volg je toestel |
 | Cijfers | Het lettertype van de timer: rond, strak of mono |
+| Oefenreeks | Het strookje met je dagreeks aan of uit |
+| Dagdoel | Op tijd of op solves, met het aantal erbij |
 | Inspectie | Aan (15 seconden, met +2 en DNF) of uit |
 | Tijd tijdens solve | Verbergen achter drie bolletjes, of gewoon laten lopen |
 | Decimalen | `0.00` of `0.000`, net als het display van je timer |
@@ -170,6 +172,23 @@ Via het tandwiel rechtsboven:
 | Tijden invoeren | Plak een lijst; `12.34`, `1:23.45`, `12.34+` en `DNF(12.34)` worden herkend |
 
 Alles wordt lokaal bewaard, net als de tijden.
+
+## Oefenreeks
+
+Onder de gemiddelden staat een strookje met hoeveel je vandaag al gesolved hebt en
+hoeveel dagen je reeks loopt. De tijd daarin is **je solves bij elkaar opgeteld**, niet
+hoe lang de app openstond — een tabblad dat blijft staan is geen oefening.
+
+Een dag telt mee zodra hij het dagdoel haalt. Dat doel is in de instellingen te kiezen:
+op **tijd** (zoveel minuten solven) of op **solves** (zoveel keer), met het aantal erbij.
+De vlam brandt zolang de reeks loopt; een dag die nog bezig is breekt hem niet, dus
+'s ochtends staat je reeks nog gewoon op de stand van gisteren.
+
+Tik het strookje aan voor de geschiedenis: je huidige reeks, je langste ooit, vandaag,
+het totaal, en de laatste zestig dagen met tijd en aantal per dag. Dagen die het doel
+haalden krijgen een streep in de recordkleur.
+
+Alles telt over al je sessies samen — oefenen is oefenen, op welke puzzel dan ook.
 
 ## Sessies
 

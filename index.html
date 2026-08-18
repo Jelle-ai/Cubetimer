@@ -88,6 +88,17 @@
       </div>
     </button>
 
+    <button type="button" id="practice" class="practice" title="Je oefengeschiedenis" hidden>
+      <span class="practice-flame" id="practice-flame" aria-hidden="true">🔥</span>
+      <span class="practice-body">
+        <span class="practice-line">
+          <span id="practice-today">–</span>
+          <span id="practice-goal" class="practice-goal"></span>
+        </span>
+        <span class="practice-track"><span id="practice-fill" class="practice-fill"></span></span>
+      </span>
+    </button>
+
     <p id="insight" class="insight" hidden></p>
 
     <section class="session">
@@ -136,6 +147,37 @@
     <div class="detail-actions">
       <button type="button" id="paste-add">Toevoegen</button>
     </div>
+  </div>
+</dialog>
+
+<dialog id="practice-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Oefening</h2>
+      <button type="button" id="practice-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <div class="practice-totals">
+      <div class="practice-total">
+        <span class="stat-label">reeks</span>
+        <span id="practice-streak" class="stat-value">0</span>
+      </div>
+      <div class="practice-total">
+        <span class="stat-label">langste</span>
+        <span id="practice-longest" class="stat-value">0</span>
+      </div>
+      <div class="practice-total">
+        <span class="stat-label">vandaag</span>
+        <span id="practice-sum-today" class="stat-value">0m</span>
+      </div>
+      <div class="practice-total">
+        <span class="stat-label">totaal</span>
+        <span id="practice-sum-all" class="stat-value">0m</span>
+      </div>
+    </div>
+
+    <p id="practice-note" class="import-note"></p>
+    <ol id="practice-days" class="practice-days"></ol>
   </div>
 </dialog>
 
@@ -389,6 +431,28 @@
         <small>Confetti onder je doeltijd, een feest bij een record</small>
       </div>
       <button type="button" class="switch" id="set-celebrate" role="switch" aria-checked="true" aria-label="Record vieren"><span></span></button>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Oefenreeks</span>
+        <small>Houdt bij hoeveel je per dag solvet, en telt de dagen op rij</small>
+      </div>
+      <button type="button" class="switch" id="set-practice" role="switch" aria-checked="true" aria-label="Oefenreeks"><span></span></button>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Dagdoel</span>
+        <small id="goal-note">Wat een dag moet halen om de vlam brandend te houden</small>
+      </div>
+      <div class="setting-control">
+        <div class="segmented" id="set-goalKind" role="group">
+          <button type="button" data-value="time">tijd</button>
+          <button type="button" data-value="solves">solves</button>
+        </div>
+        <input id="set-goal-value" class="number-input" type="number" min="1" max="600" step="1" inputmode="numeric">
+      </div>
     </section>
 
     <section class="setting">

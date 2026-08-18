@@ -8,6 +8,9 @@ import { load, save } from './store.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 import { previewSvg } from './cube.js';
+import {
+  dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
+} from './practice.js';
 
 const TAP_WINDOW_MS = 600;    // window in which a second short touch counts as a double tap
 const DELETE_CONFIRM_MS = 8000; // how long a pending delete waits for its confirming tap
@@ -74,6 +77,21 @@ const el = {
   pasteAdd: document.getElementById('paste-add'),
   pasteClose: document.getElementById('paste-close'),
   statsCompare: document.getElementById('stats-compare'),
+  practice: document.getElementById('practice'),
+  practiceFlame: document.getElementById('practice-flame'),
+  practiceToday: document.getElementById('practice-today'),
+  practiceGoal: document.getElementById('practice-goal'),
+  practiceFill: document.getElementById('practice-fill'),
+  practiceSheet: document.getElementById('practice-sheet'),
+  practiceClose: document.getElementById('practice-close'),
+  practiceStreak: document.getElementById('practice-streak'),
+  practiceLongest: document.getElementById('practice-longest'),
+  practiceSumToday: document.getElementById('practice-sum-today'),
+  practiceSumAll: document.getElementById('practice-sum-all'),
+  practiceNote: document.getElementById('practice-note'),
+  practiceDays: document.getElementById('practice-days'),
+  goalNote: document.getElementById('goal-note'),
+  goalValue: document.getElementById('set-goal-value'),
   detail: document.getElementById('solve-detail'),
   detailTitle: document.getElementById('detail-title'),
   detailTime: document.getElementById('detail-time'),
@@ -195,10 +213,13 @@ function applyLayout() {
   if (phone) {
     el.scrambleSlot.append(el.puzzles);
     el.solvesSlot.append(el.panel);
-    el.stage.insertBefore(el.statsButton, el.hint); // out of the sheet, onto the screen
+    // out of the sheet and onto the screen, in the order they read in
+    el.stage.insertBefore(el.statsButton, el.hint);
+    el.stage.insertBefore(el.practice, el.hint);
   } else {
     el.stage.prepend(el.puzzles);      // back ahead of the scramble
     el.shell.append(el.panel);         // back beside the stage
+    el.panel.prepend(el.practice);
     el.panel.prepend(el.statsButton);  // back at the head of it
     if (el.scrambleSheet.open) el.scrambleSheet.close();
     if (el.solvesSheet.open) el.solvesSheet.close();
@@ -385,6 +406,96 @@ function renderSolves() {
     el.solves.append(item);
   }
 }
+
+/* ---------- practice ---------- */
+
+/** The goal as the practice module wants it, in its own units. */
+const currentGoal = () => ({
+  kind: settings.goalKind,
+  ms: settings.goalMinutes * 60000,
+  solves: settings.goalSolves
+});
+
+const goalText = () => settings.goalKind === 'solves'
+  ? `${settings.goalSolves} solves`
+  : `${settings.goalMinutes} minuten`;
+
+/** The strip under the averages: today so far, and how long the run is. */
+function renderPractice() {
+  el.practice.hidden = !settings.practice;
+  if (!settings.practice) return;
+
+  const days = practiceByDay(saveFile.sessions);
+  const goal = currentGoal();
+  const now = days.get(today());
+  const { current } = streaks(days, goal);
+
+  el.practice.dataset.done = String(meetsGoal(now, goal));
+  el.practiceFlame.textContent = current > 0 ? '\u{1f525}' : '\u{1f56f}\ufe0f';
+  el.practiceToday.textContent = now
+    ? `${formatDuration(now.ms)} · ${now.count} ${now.count === 1 ? 'solve' : 'solves'}`
+    : 'nog niets vandaag';
+  el.practiceGoal.textContent = current > 0
+    ? `${current} ${current === 1 ? 'dag' : 'dagen'}`
+    : goalText();
+  el.practiceFill.style.width = `${Math.round(progress(now, goal) * 100)}%`;
+}
+
+function openPractice() {
+  const days = practiceByDay(saveFile.sessions);
+  const goal = currentGoal();
+  const { current, longest } = streaks(days, goal);
+  const all = [...days.values()].reduce((sum, day) => sum + day.ms, 0);
+
+  el.practiceStreak.textContent = String(current);
+  el.practiceLongest.textContent = String(longest);
+  el.practiceSumToday.textContent = formatDuration(days.get(today())?.ms || 0);
+  el.practiceSumAll.textContent = formatDuration(all);
+  el.practiceNote.textContent = `Een dag telt mee vanaf ${goalText()}. `
+    + 'De tijd is je solves bij elkaar opgeteld, niet hoe lang de app openstond.';
+
+  el.practiceDays.innerHTML = '';
+  const ordered = [...days.keys()].sort((a, b) => b - a).slice(0, 60);
+
+  for (const day of ordered) {
+    const entry = days.get(day);
+    const item = document.createElement('li');
+    item.className = 'practice-day';
+    item.dataset.done = String(meetsGoal(entry, goal));
+
+    const name = document.createElement('span');
+    name.className = 'practice-day-name';
+    name.textContent = dayName(day);
+
+    const time = document.createElement('span');
+    time.className = 'practice-day-time';
+    time.textContent = formatDuration(entry.ms);
+
+    const count = document.createElement('span');
+    count.className = 'practice-day-count';
+    count.textContent = `${entry.count}\u00d7`;
+
+    item.append(name, time, count);
+    el.practiceDays.append(item);
+  }
+
+  if (!ordered.length) {
+    const empty = document.createElement('li');
+    empty.className = 'practice-empty';
+    empty.textContent = 'Nog geen dag met solves erin.';
+    el.practiceDays.append(empty);
+  }
+
+  el.practiceSheet.showModal();
+  el.practiceSheet.focus();
+}
+
+el.practice.addEventListener('click', () => {
+  el.practice.blur();
+  openPractice();
+});
+
+el.practiceClose.addEventListener('click', () => el.practiceSheet.close());
 
 /* ---------- insight line ---------- */
 
@@ -839,6 +950,7 @@ function render() {
   renderSessions();
   renderPuzzles();
   renderInsight();
+  renderPractice();
 }
 
 function setHint(text) {
@@ -1769,7 +1881,9 @@ const groups = {
   theme: bindGroup('set-theme', (v) => { settings.theme = v; }),
   decimals: bindGroup('set-decimals', (v) => { settings.decimals = Number(v); }),
   hold: bindGroup('set-hold', (v) => { settings.holdMs = Number(v); }),
-  font: bindGroup('set-font', (v) => { settings.font = v; })
+  font: bindGroup('set-font', (v) => { settings.font = v; }),
+  // the one box follows the kind, so it has to be redrawn with it
+  goalKind: bindGroup('set-goalKind', (v) => { settings.goalKind = v; syncGoalValue(); })
 };
 
 const switches = [
@@ -1782,8 +1896,37 @@ const switches = [
   bindSwitch('set-sound', 'sound'),
   bindSwitch('set-haptics', 'haptics'),
   bindSwitch('set-celebrate', 'celebrate'),
-  bindSwitch('set-highlight', 'highlight')
+  bindSwitch('set-highlight', 'highlight'),
+  bindSwitch('set-practice', 'practice')
 ];
+
+/**
+ * One box for two goals: whichever kind is chosen is the one it edits, so
+ * switching back and forth does not lose the other number.
+ */
+function syncGoalValue() {
+  const solves = settings.goalKind === 'solves';
+  el.goalValue.value = String(solves ? settings.goalSolves : settings.goalMinutes);
+  el.goalValue.max = String(solves ? 500 : 600);
+  el.goalNote.textContent = solves
+    ? 'Zoveel solves op een dag houdt de vlam brandend'
+    : 'Zoveel minuten solven op een dag houdt de vlam brandend';
+}
+
+el.goalValue.addEventListener('change', () => {
+  const solves = settings.goalKind === 'solves';
+  const number = Math.round(Number(el.goalValue.value));
+  const clamped = Number.isFinite(number)
+    ? Math.min(Math.max(number, 1), solves ? 500 : 600)
+    : (solves ? settings.goalSolves : settings.goalMinutes);
+
+  if (solves) settings.goalSolves = clamped;
+  else settings.goalMinutes = clamped;
+
+  storeSettings();
+  syncGoalValue();
+  renderPractice();
+});
 
 function syncSettingsUi() {
   el.targetValue.value = (settings.targetMs / 1000).toFixed(2).replace(/\.?0+$/, '');
@@ -1791,6 +1934,8 @@ function syncSettingsUi() {
   markGroup(groups.decimals, settings.decimals);
   markGroup(groups.hold, settings.holdMs);
   markGroup(groups.font, settings.font);
+  markGroup(groups.goalKind, settings.goalKind);
+  syncGoalValue();
   markGroup(el.exportFormat, exportFormat);
   markGroup(el.ledColors, settings.led);
   syncColorSlots();

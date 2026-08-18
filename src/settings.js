@@ -38,6 +38,10 @@ const DEFAULTS = {
   countUp: true,
   wakeLock: true,
   font: 'rounded',
+  practice: true,
+  goalKind: 'time',   // 'time' counts the solving up, 'solves' counts the solves
+  goalMinutes: 15,
+  goalSolves: 25,
   puzzle: '333'
 };
 
@@ -45,7 +49,12 @@ const DEFAULTS = {
     works offline cannot go and fetch a font. */
 export const FONTS = ['rounded', 'system', 'mono'];
 
-const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'highlight', 'preview', 'countUp', 'wakeLock'];
+const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'highlight', 'preview', 'countUp', 'wakeLock', 'practice'];
+
+function clampNumber(value, low, high, fallback) {
+  const number = Math.round(Number(value));
+  return Number.isFinite(number) ? Math.min(Math.max(number, low), high) : fallback;
+}
 
 const isColor = (value) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 
@@ -61,6 +70,9 @@ export function loadSettings() {
     if (![250, 400, 550].includes(settings.holdMs)) settings.holdMs = DEFAULTS.holdMs;
     if (!['light', 'dark', 'auto'].includes(settings.theme)) settings.theme = DEFAULTS.theme;
     if (!FONTS.includes(settings.font)) settings.font = DEFAULTS.font;
+    if (!['time', 'solves'].includes(settings.goalKind)) settings.goalKind = DEFAULTS.goalKind;
+    settings.goalMinutes = clampNumber(settings.goalMinutes, 1, 600, DEFAULTS.goalMinutes);
+    settings.goalSolves = clampNumber(settings.goalSolves, 1, 500, DEFAULTS.goalSolves);
     for (const key of SWITCHES) settings[key] = settings[key] !== false;
     settings.targetOn = settings.targetOn === true;
     const target = Number(settings.targetMs);

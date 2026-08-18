@@ -1497,3 +1497,133 @@ body[data-miss] .halo {
 }
 
 .toast-action:hover { background: color-mix(in srgb, var(--led) 26%, transparent); }
+
+/* ---------- practice: how much cubing, and how many days on the trot ---------- */
+
+.practice {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  padding: .5rem .75rem;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft), var(--edge);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  text-align: left;
+  transition: border-color .18s ease;
+}
+
+.practice:hover { border-color: color-mix(in srgb, var(--led) 45%, transparent); }
+
+.practice-flame { font-size: 1.15rem; line-height: 1; filter: grayscale(1); opacity: .5; transition: filter .3s, opacity .3s; }
+
+/* The flame only lights once the day is actually earned. */
+.practice[data-done="true"] .practice-flame { filter: none; opacity: 1; }
+
+.practice-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .3rem; }
+
+.practice-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  font-size: .76rem;
+  color: var(--ink-soft);
+}
+
+.practice-goal {
+  flex: none;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+
+.practice[data-done="true"] .practice-goal { color: var(--record); }
+
+.practice-track {
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 25%, transparent);
+  overflow: hidden;
+}
+
+.practice-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--led) 70%, #fff), var(--led));
+  transition: width .35s ease;
+}
+
+.practice[data-done="true"] .practice-fill {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--record) 70%, #fff), var(--record));
+}
+
+/* ---------- the practice sheet ---------- */
+
+.practice-totals {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--sunken);
+  overflow: hidden;
+  margin-bottom: .6rem;
+}
+
+.practice-total {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .15rem;
+  padding: .6rem .2rem;
+  border-left: 1px solid var(--line);
+}
+
+.practice-total:first-child { border-left: 0; }
+
+/* The sheet grows to what is in it and scrolls as a whole, so the list does
+   not need a scroller of its own. */
+.practice-days {
+  flex: none;
+  list-style: none;
+  margin: .4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+
+.practice-days > li { flex: none; }
+
+.practice-day {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: .8rem;
+  padding: .5rem .75rem;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--card-solid);
+  box-shadow: var(--shadow-soft);
+  font-size: .84rem;
+}
+
+/* A day that cleared the bar is marked down the side, not shouted about. */
+.practice-day[data-done="true"] {
+  border-left: 3px solid var(--record);
+  padding-left: calc(.75rem - 2px);
+}
+
+.practice-day-name { color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.practice-day-time { font-family: var(--digits); font-weight: 500; }
+.practice-day-count { color: var(--muted); font-size: .74rem; min-width: 3.5ch; text-align: right; }
+
+.practice-empty { padding: 1rem; text-align: center; color: var(--muted); font-size: .82rem; }
