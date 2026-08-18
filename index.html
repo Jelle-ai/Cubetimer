@@ -117,6 +117,47 @@
   </aside>
 </main>
 
+<dialog id="paste-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Tijden plakken</h2>
+      <button type="button" id="paste-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <p class="detail-meta">Een tijd per regel. <code>12.34</code>, <code>1:23.45</code>,
+      <code>12.34+</code> en <code>DNF(12.34)</code> worden allemaal herkend; staat er een
+      scramble achter, dan gaat die mee.</p>
+
+    <textarea id="paste-input" class="paste-input" rows="8" spellcheck="false"
+      placeholder="1. 12.34   R U R' U' F2&#10;2. DNF(13.02)&#10;3. 11.87+"></textarea>
+
+    <p id="paste-note" class="import-note"></p>
+
+    <div class="detail-actions">
+      <button type="button" id="paste-add">Toevoegen</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Press and hold a time, or right-click it. -->
+<dialog id="quick-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="quick-title">Solve</h2>
+      <button type="button" id="quick-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <p id="quick-meta" class="detail-meta"></p>
+
+    <div class="quick-actions">
+      <button type="button" id="quick-plus2">+2</button>
+      <button type="button" id="quick-dnf">DNF</button>
+      <button type="button" id="quick-detail">Details</button>
+      <button type="button" id="quick-remove" class="danger">Wissen</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- On a phone the times are not on the timer screen at all; the whole panel
      -- averages, session picker, list -- moves in here. Moved, not copied. -->
 <dialog id="solves-sheet" class="sheet sheet-tall" tabindex="-1">
@@ -186,6 +227,11 @@
       <h2 id="stats-title">Statistieken</h2>
       <button value="close" class="icon-button" aria-label="Sluiten">✕</button>
     </header>
+    <label class="field">
+      <span>Vergelijk met</span>
+      <select id="stats-compare" class="field-select"></select>
+    </label>
+
     <dl id="stats-list" class="stats-list"></dl>
   </form>
 </dialog>
@@ -243,6 +289,18 @@
         <button type="button" data-value="light">licht</button>
         <button type="button" data-value="dark">donker</button>
         <button type="button" data-value="auto">auto</button>
+      </div>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Cijfers</span>
+        <small>Het lettertype van de timer en je tijden</small>
+      </div>
+      <div class="segmented" id="set-font" role="group">
+        <button type="button" data-value="rounded">rond</button>
+        <button type="button" data-value="system">strak</button>
+        <button type="button" data-value="mono">mono</button>
       </div>
     </section>
 
@@ -352,12 +410,25 @@
       <button type="button" class="switch" id="set-highlight" role="switch" aria-checked="true" aria-label="Beste en slechtste"><span></span></button>
     </section>
 
-    <section class="setting">
+    <section class="setting stacked">
       <div class="setting-label">
         <span>Tijden exporteren</span>
-        <small>Sessie naar je klembord</small>
+        <small>Deze sessie naar je klembord, in het formaat dat je nodig hebt</small>
+      </div>
+      <div class="segmented" id="export-format" role="group">
+        <button type="button" data-value="text">tekst</button>
+        <button type="button" data-value="csv">csv</button>
+        <button type="button" data-value="cstimer">cstimer</button>
       </div>
       <button type="button" id="export" class="text-button">kopieer</button>
+    </section>
+
+    <section class="setting stacked">
+      <div class="setting-label">
+        <span>Tijden invoeren</span>
+        <small>Plak een lijst uit cstimer, Twisty Timer of gewoon een kladblok</small>
+      </div>
+      <button type="button" id="paste-open" class="text-button">plakken</button>
     </section>
 
     <section class="setting stacked">

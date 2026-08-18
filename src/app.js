@@ -66,6 +66,14 @@ const el = {
   targetSwitch: document.getElementById('set-target'),
   targetValue: document.getElementById('set-target-value'),
   export: document.getElementById('export'),
+  exportFormat: document.getElementById('export-format'),
+  pasteOpen: document.getElementById('paste-open'),
+  pasteSheet: document.getElementById('paste-sheet'),
+  pasteInput: document.getElementById('paste-input'),
+  pasteNote: document.getElementById('paste-note'),
+  pasteAdd: document.getElementById('paste-add'),
+  pasteClose: document.getElementById('paste-close'),
+  statsCompare: document.getElementById('stats-compare'),
   detail: document.getElementById('solve-detail'),
   detailTitle: document.getElementById('detail-title'),
   detailTime: document.getElementById('detail-time'),
@@ -92,6 +100,14 @@ const el = {
   solvesOpen: document.getElementById('solves-open'),
   solvesClose: document.getElementById('solves-close'),
   solvesSheetTitle: document.getElementById('solves-sheet-title'),
+  quickSheet: document.getElementById('quick-sheet'),
+  quickTitle: document.getElementById('quick-title'),
+  quickMeta: document.getElementById('quick-meta'),
+  quickPlus2: document.getElementById('quick-plus2'),
+  quickDnf: document.getElementById('quick-dnf'),
+  quickDetail: document.getElementById('quick-detail'),
+  quickRemove: document.getElementById('quick-remove'),
+  quickClose: document.getElementById('quick-close'),
   stats: {
     single: document.getElementById('st-single'),
     singleBest: document.getElementById('st-single-best'),
@@ -261,6 +277,29 @@ function renderStats() {
   el.stats.ao12Best.textContent = formatTime(bestAverageOf(solves, 12));
 }
 
+const MONTHS = ['januari', 'februari', 'maart', 'april', 'mei', 'juni',
+  'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
+
+/** Which day a solve belongs to, as a number that sorts and compares cleanly. */
+function dayOf(solve) {
+  if (!Number.isFinite(solve.at)) return null;
+  const date = new Date(solve.at);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+function dayLabel(day) {
+  if (day === null) return 'zonder datum';
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const days = Math.round((today - day) / 86400000);
+  if (days === 0) return 'vandaag';
+  if (days === 1) return 'gisteren';
+
+  const date = new Date(day);
+  const stamp = `${date.getDate()} ${MONTHS[date.getMonth()]}`;
+  return date.getFullYear() === now.getFullYear() ? stamp : `${stamp} ${date.getFullYear()}`;
+}
+
 function renderSolves() {
   el.solves.innerHTML = '';
   el.empty.hidden = solves.length > 0;
@@ -269,8 +308,22 @@ function renderSolves() {
   const fastest = settings.highlight && times.length > 1 ? Math.min(...times) : null;
   const slowest = settings.highlight && times.length > 1 ? Math.max(...times) : null;
 
-  solves.forEach((solve, index) => {
+  // Walked newest first, which is the order it is read in, so a day heading can
+  // be dropped in the moment the date changes.
+  let openDay;
+  for (let index = solves.length - 1; index >= 0; index--) {
+    const solve = solves[index];
+    const day = dayOf(solve);
+    if (day !== openDay) {
+      openDay = day;
+      const heading = document.createElement('li');
+      heading.className = 'day-head';
+      heading.textContent = dayLabel(day);
+      el.solves.append(heading);
+    }
+
     const item = document.createElement('li');
+    item.className = 'solve-row';
 
     // The whole row is one button that opens the details of that solve.
     const row = document.createElement('button');
@@ -325,8 +378,9 @@ function renderSolves() {
     row.append(chevron);
 
     item.append(row);
-    el.solves.prepend(item);
-  });
+    attachRowGestures(item, row, solve, index);
+    el.solves.append(item);
+  }
 }
 
 /* ---------- insight line ---------- */
@@ -501,7 +555,8 @@ el.sessionDelete.addEventListener('click', () => {
 
 /* ---------- all statistics ---------- */
 
-function statRows() {
+function statRows(list = solves) {
+  const solves = list; // every measure below reads this, and this one only
   const dnfs = solves.filter((solve) => solve.penalty === 'DNF').length;
   const plusTwos = solves.filter((solve) => solve.penalty === '+2').length;
   const rows = [
@@ -533,19 +588,82 @@ function statRows() {
   return rows;
 }
 
-function openStats() {
-  el.statsTitle.textContent = currentSession().name;
+let compareWith = null; // index of a second session to set beside this one
+
+/** Every session except the one being looked at, as options to compare with. */
+function renderCompareOptions() {
+  el.statsCompare.closest('.field').hidden = saveFile.sessions.length < 2;
+  el.statsCompare.innerHTML = '';
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = 'niets — alleen deze sessie';
+  el.statsCompare.append(none);
+
+  saveFile.sessions.forEach((session, index) => {
+    if (index === saveFile.active) return;
+    const option = document.createElement('option');
+    option.value = String(index);
+    option.textContent = `${session.name} (${session.solves.length})`;
+    el.statsCompare.append(option);
+  });
+
+  // A session may have been renamed or removed since the last look.
+  if (compareWith !== null && !saveFile.sessions[compareWith]) compareWith = null;
+  if (compareWith === saveFile.active) compareWith = null;
+  el.statsCompare.value = compareWith === null ? '' : String(compareWith);
+}
+
+function renderStatsList() {
+  const other = compareWith === null ? null : saveFile.sessions[compareWith];
+  const mine = statRows();
+  const theirs = other ? statRows(other.solves) : null;
+
+  el.statsList.dataset.columns = theirs ? '2' : '1';
   el.statsList.innerHTML = '';
-  for (const [label, value] of statRows()) {
+
+  if (theirs) {
+    const spacer = document.createElement('dt');
+    spacer.className = 'stats-corner';
+    const a = document.createElement('dd');
+    a.className = 'stats-column';
+    a.textContent = currentSession().name;
+    const b = document.createElement('dd');
+    b.className = 'stats-column';
+    b.textContent = other.name;
+    el.statsList.append(spacer, a, b);
+  }
+
+  mine.forEach(([label, value], row) => {
     const term = document.createElement('dt');
     term.textContent = label;
+    el.statsList.append(term);
+
     const definition = document.createElement('dd');
     definition.textContent = value;
-    el.statsList.append(term, definition);
-  }
+    el.statsList.append(definition);
+
+    if (theirs) {
+      const second = document.createElement('dd');
+      second.className = 'stats-other';
+      second.textContent = theirs[row] ? theirs[row][1] : '–';
+      el.statsList.append(second);
+    }
+  });
+}
+
+function openStats() {
+  el.statsTitle.textContent = compareWith === null ? currentSession().name : 'Statistieken';
+  renderCompareOptions();
+  renderStatsList();
   el.statsSheet.showModal();
   el.statsSheet.focus();
 }
+
+el.statsCompare.addEventListener('change', () => {
+  compareWith = el.statsCompare.value === '' ? null : Number(el.statsCompare.value);
+  el.statsTitle.textContent = compareWith === null ? currentSession().name : 'Statistieken';
+  renderStatsList();
+});
 
 el.statsButton.addEventListener('click', () => {
   el.statsButton.blur();
@@ -654,6 +772,30 @@ function fillDetail() {
   el.detailDnf.dataset.active = String(solve.penalty === 'DNF');
 }
 
+el.quickClose.addEventListener('click', () => el.quickSheet.close());
+
+el.quickPlus2.addEventListener('click', () => {
+  togglePenalty(quickIndex, '+2');
+  el.quickSheet.close();
+});
+
+el.quickDnf.addEventListener('click', () => {
+  togglePenalty(quickIndex, 'DNF');
+  el.quickSheet.close();
+});
+
+el.quickDetail.addEventListener('click', () => {
+  const index = quickIndex;
+  el.quickSheet.close();
+  openDetail(index);
+});
+
+el.quickRemove.addEventListener('click', () => {
+  const index = quickIndex;
+  el.quickSheet.close();
+  removeSolveWithUndo(index);
+});
+
 function openDetail(index) {
   detailIndex = index;
   fillDetail();
@@ -700,11 +842,37 @@ function setHint(text) {
   el.hint.innerHTML = text;
 }
 
-function toast(message) {
+/**
+ * @param {string} message
+ * @param {{label: string, run: () => void}} [action] an offer to take it back,
+ * which is what makes a gesture that deletes something safe to have at all.
+ */
+function toast(message, action) {
+  // A modal dialog paints above everything else on the page, so a toast raised
+  // from inside one -- the times sheet on a phone, say -- would sit behind it,
+  // and its undo button could not be reached at all. Anything in an open
+  // dialog's subtree joins it in the top layer, so that is where it goes.
+  const host = [...document.querySelectorAll('dialog[open]')].pop() || document.body;
+  if (el.toast.parentElement !== host) host.append(el.toast);
+
   el.toast.textContent = message;
+
+  if (action) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'toast-action';
+    button.textContent = action.label;
+    button.addEventListener('click', () => {
+      clearTimeout(toastTimer);
+      el.toast.hidden = true;
+      action.run();
+    });
+    el.toast.append(button);
+  }
+
   el.toast.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.toast.hidden = true; }, 3000);
+  toastTimer = setTimeout(() => { el.toast.hidden = true; }, action ? 6000 : 3000);
 }
 
 /* ---------- session ---------- */
@@ -767,6 +935,149 @@ function removeSolve(index) {
   solves.splice(index, 1);
   persist();
   render();
+}
+
+/**
+ * Delete, but offer to put it back. A swipe is easy to make by accident in a
+ * way that tapping through a sheet is not, so the gesture only earns its place
+ * alongside a way to undo it.
+ */
+function removeSolveWithUndo(index) {
+  const [removed] = solves.splice(index, 1);
+  if (!removed) return;
+  persist();
+  render();
+  toast(`${formatSolve(removed)} gewist.`, {
+    label: 'ongedaan maken',
+    run: () => {
+      solves.splice(Math.min(index, solves.length), 0, removed);
+      persist();
+      render();
+      toast(`${formatSolve(removed)} staat er weer.`);
+    }
+  });
+}
+
+/* ---------- gestures on a row ---------- */
+
+const SWIPE_TRIGGER = 72;   // how far a row must travel before it acts
+const SWIPE_CLAIM = 10;     // beyond this the swipe owns the touch, not the scroller
+const HOLD_MS = 500;
+
+let quickIndex = null;      // the solve the quick-action sheet is about
+
+/**
+ * Two gestures per row, on top of the tap that opens the details:
+ * swipe left to delete, swipe right for +2, press and hold for the rest.
+ * Right-clicking does the same as holding, so a mouse is not left out.
+ */
+function attachRowGestures(item, row, solve, index) {
+  let startX = 0;
+  let startY = 0;
+  let offset = 0;
+  let axis = null;          // null until the first move says which way this is going
+  let holdTimer = null;
+  let acted = false;        // a gesture fired, so the click that follows is not a tap
+
+  const cancelHold = () => { clearTimeout(holdTimer); holdTimer = null; };
+
+  const settle = (to) => {
+    row.style.transition = 'transform .2s ease';
+    row.style.transform = to;
+    setTimeout(() => { row.style.transition = ''; row.style.transform = ''; }, 200);
+  };
+
+  row.addEventListener('touchstart', (event) => {
+    if (selecting || event.touches.length !== 1) return;
+    startX = event.touches[0].clientX;
+    startY = event.touches[0].clientY;
+    offset = 0;
+    axis = null;
+    acted = false;
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      acted = true;
+      axis = 'hold';
+      openQuickActions(index);
+    }, HOLD_MS);
+  }, { passive: true });
+
+  row.addEventListener('touchmove', (event) => {
+    if (axis === 'hold' || selecting) return;
+    const dx = event.touches[0].clientX - startX;
+    const dy = event.touches[0].clientY - startY;
+
+    if (axis === null) {
+      if (Math.abs(dx) < SWIPE_CLAIM && Math.abs(dy) < SWIPE_CLAIM) return;
+      axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (axis !== 'x') { cancelHold(); return; } // a scroll, leave it alone
+      cancelHold();
+    }
+    if (axis !== 'x') return;
+
+    event.preventDefault(); // the list scroller may not also have this touch
+    offset = dx;
+    item.dataset.swipe = dx < 0 ? 'delete' : 'plus2';
+    item.dataset.armed = String(Math.abs(dx) >= SWIPE_TRIGGER);
+    row.style.transform = `translateX(${dx}px)`;
+  }, { passive: false });
+
+  const finish = () => {
+    cancelHold();
+    if (axis !== 'x') { delete item.dataset.swipe; delete item.dataset.armed; return; }
+
+    const far = Math.abs(offset) >= SWIPE_TRIGGER;
+    const left = offset < 0;
+    axis = null;
+    acted = far;
+
+    if (!far) {
+      settle('');
+      delete item.dataset.swipe;
+      delete item.dataset.armed;
+      return;
+    }
+
+    // Off the edge it went, and then the list redraws without it.
+    settle(`translateX(${left ? '-110%' : '110%'})`);
+    setTimeout(() => {
+      if (left) removeSolveWithUndo(index);
+      else togglePenalty(index, '+2');
+    }, 160);
+  };
+
+  row.addEventListener('touchend', finish);
+  row.addEventListener('touchcancel', finish);
+
+  // A tap that was really the tail of a gesture must not also open the details.
+  row.addEventListener('click', (event) => {
+    if (!acted) return;
+    acted = false;
+    event.stopImmediatePropagation();
+    event.preventDefault();
+  }, true);
+
+  row.addEventListener('contextmenu', (event) => {
+    if (selecting) return;
+    event.preventDefault();
+    openQuickActions(index);
+  });
+}
+
+function openQuickActions(index) {
+  const solve = solves[index];
+  if (!solve) return;
+  quickIndex = index;
+  vibrate(12);
+
+  el.quickTitle.textContent = formatSolve(solve);
+  el.quickMeta.textContent = solve.at
+    ? new Date(solve.at).toLocaleString('nl-BE', { dateStyle: 'medium', timeStyle: 'short' })
+    : `solve ${index + 1}`;
+  el.quickPlus2.dataset.active = String(solve.penalty === '+2');
+  el.quickDnf.dataset.active = String(solve.penalty === 'DNF');
+  el.quickSheet.showModal();
+  el.quickSheet.focus();
 }
 
 /**
@@ -968,6 +1279,16 @@ function endHold() {
 }
 
 /* ---------- manual input ---------- */
+
+/**
+ * Closing a sheet hands focus back to the button that opened it, and the space
+ * bar then belongs to that button rather than to the timer -- so after a look
+ * at the settings, space would quietly do nothing. Letting go of focus on close
+ * gives the key back to the solve it is meant for.
+ */
+for (const sheet of document.querySelectorAll('dialog')) {
+  sheet.addEventListener('close', () => document.activeElement?.blur?.());
+}
 
 function manualTimingAllowed(target) {
   if (device) return false; // the GAN timer is the source of truth while connected
@@ -1333,6 +1654,7 @@ darkQuery.addEventListener('change', () => {
 
 function applySettings() {
   applyTheme();
+  el.body.dataset.font = settings.font;
   for (const { key } of COLOR_SLOTS) {
     document.documentElement.style.setProperty(`--${key}`, settings.colors[key]);
   }
@@ -1443,7 +1765,8 @@ function bindGroup(id, apply) {
 const groups = {
   theme: bindGroup('set-theme', (v) => { settings.theme = v; }),
   decimals: bindGroup('set-decimals', (v) => { settings.decimals = Number(v); }),
-  hold: bindGroup('set-hold', (v) => { settings.holdMs = Number(v); })
+  hold: bindGroup('set-hold', (v) => { settings.holdMs = Number(v); }),
+  font: bindGroup('set-font', (v) => { settings.font = v; })
 };
 
 const switches = [
@@ -1464,6 +1787,8 @@ function syncSettingsUi() {
   markGroup(groups.theme, settings.theme);
   markGroup(groups.decimals, settings.decimals);
   markGroup(groups.hold, settings.holdMs);
+  markGroup(groups.font, settings.font);
+  markGroup(el.exportFormat, exportFormat);
   markGroup(el.ledColors, settings.led);
   syncColorSlots();
   for (const { control, key } of switches) control.setAttribute('aria-checked', String(settings[key]));
@@ -1488,18 +1813,157 @@ function sessionAsText() {
   return [header, ...lines].join('\n');
 }
 
+/** Quoted the way every spreadsheet expects: doubled quotes inside quotes. */
+const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+
+function sessionAsCsv() {
+  const rows = [['nummer', 'tijd', 'milliseconden', 'straf', 'datum', 'scramble', 'notitie']];
+  solves.forEach((solve, index) => rows.push([
+    index + 1,
+    formatSolve(solve),
+    solve.ms,
+    solve.penalty && solve.penalty !== 'none' ? solve.penalty : '',
+    Number.isFinite(solve.at) ? new Date(solve.at).toISOString() : '',
+    solve.scramble || '',
+    solve.note || ''
+  ]));
+  return rows.map((row) => row.map(csvCell).join(',')).join('\n');
+}
+
+/**
+ * cstimer's own export shape: every solve is [[penalty, ms], scramble, comment,
+ * unix seconds], where the penalty is 0, 2000 for a +2, or -1 for a DNF. The
+ * session names live in a JSON string inside the properties, which is cstimer's
+ * doing rather than ours.
+ */
+function sessionAsCstimer() {
+  const name = currentSession().name;
+  const rows = solves.map((solve) => [
+    [solve.penalty === 'DNF' ? -1 : solve.penalty === '+2' ? 2000 : 0, solve.ms],
+    solve.scramble || '',
+    solve.note || '',
+    Number.isFinite(solve.at) ? Math.round(solve.at / 1000) : 0
+  ]);
+
+  return JSON.stringify({
+    session1: rows,
+    properties: {
+      sessionN: 1,
+      sessionData: JSON.stringify({ 1: { name, opt: {}, rank: 1 } })
+    }
+  });
+}
+
+let exportFormat = 'text';
+
+const EXPORTS = {
+  text: { build: sessionAsText, label: 'als tekst' },
+  csv: { build: sessionAsCsv, label: 'als csv' },
+  cstimer: { build: sessionAsCstimer, label: 'voor cstimer' }
+};
+
+el.exportFormat.addEventListener('click', (event) => {
+  const button = event.target.closest('button');
+  if (!button) return;
+  exportFormat = button.dataset.value;
+  markGroup(el.exportFormat, exportFormat);
+});
+
 el.export.addEventListener('click', async () => {
   el.export.blur();
   if (!solves.length) {
     toast('Nog geen tijden om te kopiëren.');
     return;
   }
+  const { build, label } = EXPORTS[exportFormat] || EXPORTS.text;
   try {
-    await navigator.clipboard.writeText(sessionAsText());
-    toast(`${solves.length} tijden gekopieerd.`);
+    await navigator.clipboard.writeText(build());
+    toast(`${solves.length} tijden gekopieerd ${label}.`);
   } catch {
     toast('Kopiëren lukte niet in deze browser.');
   }
+});
+
+/* ---------- 11: times from somewhere else ---------- */
+
+/**
+ * One line, one time. Anything a timer app is likely to put around it -- a
+ * leading number, a trailing scramble, brackets, a comma for a decimal point --
+ * is allowed for, and a line with no time in it is skipped rather than guessed
+ * at.
+ *
+ * @returns {{ms: number, penalty: string, scramble?: string}|null}
+ */
+function parseTimeLine(raw) {
+  let line = raw.trim();
+  if (!line) return null;
+
+  line = line.replace(/^\s*\d{1,4}\s*[.)\]:-]\s+/, ''); // "12. " or "12) "
+
+  let penalty = 'none';
+  const dnf = line.match(/^DNF\s*\(([^)]+)\)/i);
+  if (dnf) {
+    penalty = 'DNF';
+    line = dnf[1];
+  } else if (/^DNS\b|^DNF\b/i.test(line)) {
+    return null; // a DNF with no time behind it is not a time
+  }
+
+  const match = line.match(/(\d{1,2}:)?(\d{1,3})[.,](\d{1,3})/);
+  if (!match) return null;
+
+  const minutes = match[1] ? Number(match[1].slice(0, -1)) : 0;
+  const seconds = Number(match[2]);
+  const fraction = Number(match[3].padEnd(3, '0'));
+  const ms = minutes * 60000 + seconds * 1000 + fraction;
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+
+  const rest = line.slice(match.index + match[0].length);
+  const plusTwo = /^\s*(\(\+2\)|\+2|\+)(?!\w)/;
+  if (penalty === 'none' && plusTwo.test(rest)) penalty = '+2';
+
+  // Whatever follows that is not the penalty marker is taken to be the scramble.
+  const scramble = rest.replace(plusTwo, '').trim();
+  return scramble ? { ms, penalty, scramble } : { ms, penalty };
+}
+
+const parseTimes = (text) => text.split(/\r?\n/).map(parseTimeLine).filter(Boolean);
+
+function describePaste() {
+  const found = parseTimes(el.pasteInput.value);
+  const lines = el.pasteInput.value.split(/\r?\n/).filter((line) => line.trim()).length;
+  el.pasteAdd.disabled = found.length === 0;
+
+  if (!lines) { el.pasteNote.textContent = ''; return; }
+  const skipped = lines - found.length;
+  el.pasteNote.textContent = found.length
+    ? `${found.length} ${found.length === 1 ? 'tijd' : 'tijden'} herkend${skipped ? `, ${skipped} ${skipped === 1 ? 'regel' : 'regels'} overgeslagen` : ''}.`
+    : 'Geen tijden herkend in wat er staat.';
+}
+
+el.pasteOpen.addEventListener('click', () => {
+  el.pasteOpen.blur();
+  el.pasteInput.value = '';
+  describePaste();
+  el.pasteSheet.showModal();
+});
+
+el.pasteClose.addEventListener('click', () => el.pasteSheet.close());
+el.pasteInput.addEventListener('input', describePaste);
+
+el.pasteAdd.addEventListener('click', () => {
+  const found = parseTimes(el.pasteInput.value);
+  if (!found.length) return;
+
+  // No timestamp is invented for them: they were not solved here, and the list
+  // says so by grouping them under "zonder datum". They go in ahead of what is
+  // already there, so that heading lands at the foot of the list rather than
+  // above today's solves.
+  solves.unshift(...found.map((time) => ({ ...time, puzzle: currentSession().puzzle })));
+  persist();
+  render();
+  el.pasteSheet.close();
+  toast(`${found.length} ${found.length === 1 ? 'tijd' : 'tijden'} toegevoegd.`);
 });
 
 /**

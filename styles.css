@@ -53,6 +53,24 @@
   --edge: inset 0 1px 0 rgba(255, 255, 255, .07);
 }
 
+/* ---------- the face the digits are set in ----------
+
+   All three ship with the system: a page that works offline cannot go and
+   fetch a font. Rounded is the default because the one it reaches on Apple
+   hardware -- SF Pro Rounded -- is the closest thing to the soft, wide digits
+   on the timer's own display. */
+:root { --digits: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Quicksand, ui-sans-serif, system-ui, sans-serif; }
+
+body[data-font="system"] { --digits: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body[data-font="mono"] { --digits: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+/* Monospace digits are the widest of the three, so the readout gives back a
+   little size rather than pushing against the ring. */
+body[data-font="mono"] .time { font-size: clamp(2rem, 6.6vh, 3.2rem); letter-spacing: -.04em; }
+
+.time, .solve-time, .stat-value, .stat-best, .detail-time, .stats-list dd {
+  font-family: var(--digits);
+}
+
 * { box-sizing: border-box; }
 
 html, body { margin: 0; height: 100%; }
@@ -381,6 +399,7 @@ body[data-inspection="over"] .halo-progress-arc { stroke: var(--hold); }
 
 .time {
   font-size: clamp(2.6rem, 8vh, 4rem);
+  max-width: 92%;
   font-weight: 300;
   letter-spacing: -.02em;
   line-height: 1;
@@ -720,6 +739,10 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
   transition: background .15s, color .15s;
 }
 
+/* In a stacked row the group has the width to itself, so the choices share it. */
+.setting.stacked .segmented { width: 100%; }
+.setting.stacked .segmented button { flex: 1; }
+
 .segmented button[data-active="true"] {
   background: var(--led);
   color: #fff;
@@ -866,6 +889,59 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
   grid-template-columns: 1fr auto;
   gap: .1rem .8rem;
   margin: 0;
+}
+
+/* With a second session beside it, a third column and a heading row. */
+.stats-list[data-columns="2"] { grid-template-columns: 1fr auto auto; }
+
+.stats-column {
+  padding: 0 0 .35rem !important;
+  border-top: 0 !important;
+  font-size: .62rem !important;
+  font-weight: 700 !important;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  max-width: 8ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-corner { border-top: 0 !important; padding: 0 !important; }
+.stats-other { color: var(--muted); }
+
+.field-select {
+  padding: .55rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--sunken);
+  color: var(--ink);
+  font: inherit;
+  font-size: .9rem;
+  cursor: pointer;
+}
+
+.paste-input {
+  width: 100%;
+  padding: .7rem .8rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--sunken);
+  color: var(--ink);
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .82rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.detail-meta code {
+  padding: .05em .3em;
+  border-radius: 4px;
+  background: var(--sunken);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .92em;
 }
 
 .stats-list dt { padding: .45rem 0; color: var(--muted); font-size: .82rem; border-top: 1px solid var(--line); }
@@ -1188,6 +1264,21 @@ body[data-miss] .halo {
      whichever way the phone is held. */
   body[data-compact="true"] .shell { grid-template-columns: minmax(0, 1fr); }
 
+  /* The bar goes to the bottom, where a thumb reaches without regripping.
+     column-reverse rather than a second element: the same header, drawn last.
+     Only the header and the shell are in the flow -- sheets are modal and the
+     toast is fixed -- so nothing else is turned upside down by it. */
+  body { flex-direction: column-reverse; }
+
+  .bar {
+    border-bottom: 0;
+    border-top: 1px solid var(--bar-line);
+    padding-bottom: calc(.7rem + env(safe-area-inset-bottom));
+  }
+
+  /* and the toast moves up out of the bar's way */
+  .toast { bottom: calc(5.2rem + env(safe-area-inset-bottom)); }
+
   /* Three buttons and the connect pill: the wordmark gives up its place to
      them and leaves the lit ring it is drawn from. */
   .brand { font-size: 0; gap: 0; }
@@ -1247,3 +1338,103 @@ body[data-miss] .halo {
 .solves-slot .solve { min-height: 46px; padding: .4rem .35rem .4rem .6rem; }
 .solves-slot .solve-time { font-size: 1.05rem; }
 .solves-slot .solve-index { font-size: .72rem; }
+
+/* ---------- day headings in the list ---------- */
+
+.day-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: .5rem 0 .1rem;
+  padding: .2rem .1rem .3rem;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  /* the rows scroll under it, so it needs something to hide them behind */
+  background: linear-gradient(var(--card-solid) 70%, transparent);
+}
+
+.day-head:first-child { margin-top: 0; }
+
+/* ---------- swiping a row ---------- */
+
+.solve-row {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+/* What shows up behind a row on its way out. */
+.solve-row::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  padding: 0 1rem;
+  border-radius: 12px;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.solve-row[data-swipe] .solve { position: relative; z-index: 1; }
+.solve-row[data-swipe]::before { display: flex; }
+
+.solve-row[data-swipe="delete"]::before {
+  content: "wissen";
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--hold) 55%, transparent);
+}
+
+.solve-row[data-swipe="plus2"]::before {
+  content: "+2";
+  justify-content: flex-start;
+  background: color-mix(in srgb, var(--record) 55%, transparent);
+}
+
+/* Past the point of no return it goes solid, so you can feel it commit. */
+.solve-row[data-armed="true"][data-swipe="delete"]::before { background: var(--hold); }
+.solve-row[data-armed="true"][data-swipe="plus2"]::before { background: var(--record); }
+
+/* ---------- quick actions ---------- */
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .4rem;
+  margin-top: .6rem;
+}
+
+.quick-actions button {
+  min-height: 52px;
+  border-radius: 12px;
+  background: var(--sunken);
+  font-size: .9rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  transition: background .15s, color .15s;
+}
+
+.quick-actions button:hover { background: var(--hover); color: var(--ink); }
+.quick-actions button[data-active="true"] { background: var(--led); color: #fff; }
+.quick-actions button.danger { color: var(--hold); }
+.quick-actions button.danger:hover { background: color-mix(in srgb, var(--hold) 12%, transparent); }
+
+/* ---------- an offer to take it back ---------- */
+
+.toast-action {
+  margin-left: .7rem;
+  padding: .15rem .5rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--led) 16%, transparent);
+  color: var(--led);
+  font-size: .78rem;
+  font-weight: 600;
+}
+
+.toast-action:hover { background: color-mix(in srgb, var(--led) 26%, transparent); }

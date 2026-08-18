@@ -37,8 +37,13 @@ const DEFAULTS = {
   targetMs: 20000,
   countUp: true,
   wakeLock: true,
+  font: 'rounded',
   puzzle: '333'
 };
+
+/** Faces for the timer digits. All of them ship with the system: a page that
+    works offline cannot go and fetch a font. */
+export const FONTS = ['rounded', 'system', 'mono'];
 
 const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'highlight', 'preview', 'countUp', 'wakeLock'];
 
@@ -55,6 +60,7 @@ export function loadSettings() {
     if (settings.decimals !== 2 && settings.decimals !== 3) settings.decimals = DEFAULTS.decimals;
     if (![250, 400, 550].includes(settings.holdMs)) settings.holdMs = DEFAULTS.holdMs;
     if (!['light', 'dark', 'auto'].includes(settings.theme)) settings.theme = DEFAULTS.theme;
+    if (!FONTS.includes(settings.font)) settings.font = DEFAULTS.font;
     for (const key of SWITCHES) settings[key] = settings[key] !== false;
     settings.targetOn = settings.targetOn === true;
     const target = Number(settings.targetMs);

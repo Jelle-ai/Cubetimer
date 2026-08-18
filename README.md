@@ -137,6 +137,9 @@ Zonder timer erbij (spatiebalk, of tikken op het scherm op mobiel):
 | Volledig scherm | `F` |
 | Details van een tijd | klik op de tijd in de sessielijst |
 | +2 / DNF / verwijderen | knoppen in dat detailvenster |
+| Sneller dan dat | Veeg een rij naar links om te wissen, naar rechts voor +2 |
+| Alles in één keer | Houd een rij vast (of klik met rechts) voor +2, DNF, details en wissen |
+| Per ongeluk gewist | De melding onderaan biedt zes seconden lang `ongedaan maken` |
 | Meerdere tijden tegelijk | `selecteer` boven de lijst, tik ze aan, dan +2, DNF of wis |
 
 Inspectie is optioneel: vanuit stilstand meteen vasthouden en loslaten start gewoon een
@@ -150,6 +153,7 @@ Via het tandwiel rechtsboven:
 | --- | --- |
 | Kleuren | Zes snelkeuzes voor de ring, plus een kiezer voor elke kleur apart: ring, klaar, vasthouden en records |
 | Thema | Licht, donker of volg je toestel |
+| Cijfers | Het lettertype van de timer: rond, strak of mono |
 | Inspectie | Aan (15 seconden, met +2 en DNF) of uit |
 | Tijd tijdens solve | Verbergen achter drie bolletjes, of gewoon laten lopen |
 | Decimalen | `0.00` of `0.000`, net als het display van je timer |
@@ -162,7 +166,8 @@ Via het tandwiel rechtsboven:
 | Trillen | Korte trilling bij groen, start en stop (mobiel) |
 | Vieren | Confetti onder je doeltijd, een korte rode puls erboven, en een feest over het hele scherm bij een record |
 | Beste en slechtste | Groen en rood in de lijst |
-| Tijden exporteren | Hele sessie met scrambles naar je klembord |
+| Tijden exporteren | Hele sessie naar je klembord: als tekst, als csv of als cstimer-JSON |
+| Tijden invoeren | Plak een lijst; `12.34`, `1:23.45`, `12.34+` en `DNF(12.34)` worden herkend |
 
 Alles wordt lokaal bewaard, net als de tijden.
 
@@ -171,6 +176,9 @@ Alles wordt lokaal bewaard, net als de tijden.
 Boven de lijst staat een keuzelijst met je sessies. Via **beheer** hernoem je de huidige
 sessie, start je een nieuwe, of gooi je er een weg. Elke sessie houdt zijn eigen tijden
 en statistieken bij; de laatst gekozen sessie staat er bij het openen weer.
+
+Tik de kaart met gemiddelden aan voor alle statistieken. Daar staat bovenaan **vergelijk
+met**: kies een tweede sessie en alles komt in twee kolommen naast elkaar te staan.
 
 Tijden uit een oudere versie van de app worden bij het eerste bezoek automatisch als
 "Sessie 1" overgenomen.
