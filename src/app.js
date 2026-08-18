@@ -8,7 +8,7 @@ import { load, save } from './store.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
-import { CERTAIN, guideFor, guidePath, guideSeams, inspectFrame, openCamera } from './vision.js';
+import { CERTAIN, coarse, foundPath, inspectFrame, openCamera, reference } from './vision.js';
 import {
   dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
 } from './practice.js';
@@ -84,17 +84,6 @@ const el = {
   pickedNote: document.getElementById('picked-note'),
   pickedList: document.getElementById('picked-list'),
   pickedClose: document.getElementById('picked-close'),
-  cameraSheet: document.getElementById('camera-sheet'),
-  cameraFrame: document.getElementById('camera-frame'),
-  cameraVideo: document.getElementById('camera-video'),
-  cameraOutline: document.getElementById('camera-outline'),
-  cameraSeams: document.getElementById('camera-seams'),
-  cameraStatus: document.getElementById('camera-status'),
-  cameraSize: document.getElementById('camera-size'),
-  cameraDone: document.getElementById('camera-done'),
-  cameraClose: document.getElementById('camera-close'),
-  cameraAim: document.getElementById('camera-aim'),
-  cameraNote: document.getElementById('camera-note'),
   cameraPeek: document.getElementById('camera-peek'),
   peekVideo: document.getElementById('peek-video'),
   peekOutline: document.getElementById('peek-outline'),
@@ -2024,16 +2013,18 @@ el.connectAny.addEventListener('click', () => connect(true));
 
 /* ---------- checking the cube with the camera ----------
 
-   The camera is not something to be operated. It opens when a solve starts,
-   looks at the mat once the cube has landed and the time has stopped, and puts
-   itself away. The only thing ever asked of anyone is where on the mat to look,
-   once, because a phone propped beside it does not move between solves. */
+   Nothing is aimed and nothing is asked for. The camera opens when a solve
+   starts, finds the cube on the mat once the time has stopped, says only what
+   that view can prove, and puts itself away. */
 
 const FRAME_SIZE = 480;      // the square the camera frame is cropped to
 const LOOK_EVERY_MS = 200;
 const SETTLE_MS = 800;       // let the cube stop rolling before looking at it
-const GIVE_UP_MS = 3500;     // and do not stare at it forever
+const GIVE_UP_MS = 4000;     // and do not stare at it forever
 const AGREEMENTS = 2;        // readings in a row before anything is allowed to change
+
+const EMPTY_EVERY_MS = 400;  // how often the mat is photographed during a solve
+const EMPTY_FRAMES = 12;
 
 let camera = null;
 let cameraTimer = null;
@@ -2041,15 +2032,13 @@ let cameraDeadline = 0;
 let cameraSubject = null;    // the solve being judged
 let lastReading = null;
 let agreed = 0;
-let aiming = false;
 
-function drawGuides() {
-  el.cameraOutline.setAttribute('d', guidePath(settings.aim));
-  el.cameraSeams.setAttribute('d', guideSeams(settings.aim));
-  el.peekOutline.setAttribute('d', guidePath(settings.aim));
-}
+// While a solve runs the cube is in your hands, so these are pictures of the
+// mat with nothing on it. Their middle value is what the cube is compared to.
+let emptyTimer = null;
+let emptyFrames = [];
+let emptyMat = null;
 
-/** One camera, handed to whichever video element wants to show it. */
 async function useCamera(video) {
   if (camera) {
     video.srcObject = camera.stream;
@@ -2062,7 +2051,10 @@ async function useCamera(video) {
 
 function releaseCamera() {
   clearInterval(cameraTimer);
+  clearInterval(emptyTimer);
   cameraTimer = null;
+  emptyTimer = null;
+  emptyFrames = [];
   camera?.stream.getTracks().forEach((track) => track.stop());
   camera = null;
   cameraSubject = null;
@@ -2070,86 +2062,51 @@ function releaseCamera() {
   agreed = 0;
   el.cameraPeek.hidden = true;
   el.peekVideo.srcObject = null;
-  el.cameraVideo.srcObject = null;
 }
-
-/* ---------- aiming ---------- */
-
-el.cameraAim.addEventListener('click', async () => {
-  el.cameraAim.blur();
-  aiming = true;
-  drawGuides();
-  el.cameraSize.value = String(Math.round(settings.aim.radius * 100));
-  el.cameraStatus.textContent = 'Camera starten…';
-  el.cameraSheet.showModal();
-
-  try {
-    await useCamera(el.cameraVideo);
-    el.cameraStatus.textContent = 'Sleep de zeshoek over de kubus';
-  } catch (error) {
-    el.cameraStatus.textContent = error?.name === 'NotAllowedError'
-      ? 'Geen toegang tot de camera. Sta het toe in je browser.'
-      : `Camera lukt niet: ${error?.message || error}`;
-  }
-});
-
-/** Dragging anywhere in the picture moves the guide there. */
-function aimAt(event) {
-  const box = el.cameraFrame.getBoundingClientRect();
-  settings.aim = {
-    ...settings.aim,
-    x: Math.min(Math.max((event.clientX - box.left) / box.width, 0.15), 0.85),
-    y: Math.min(Math.max((event.clientY - box.top) / box.height, 0.15), 0.85)
-  };
-  drawGuides();
-}
-
-el.cameraFrame.addEventListener('pointerdown', (event) => {
-  el.cameraFrame.setPointerCapture(event.pointerId);
-  aimAt(event);
-});
-
-el.cameraFrame.addEventListener('pointermove', (event) => {
-  if (el.cameraFrame.hasPointerCapture(event.pointerId)) aimAt(event);
-});
-
-el.cameraSize.addEventListener('input', () => {
-  settings.aim = { ...settings.aim, radius: Number(el.cameraSize.value) / 100 };
-  drawGuides();
-});
-
-const closeAiming = () => { el.cameraSheet.close(); };
-
-el.cameraDone.addEventListener('click', closeAiming);
-el.cameraClose.addEventListener('click', closeAiming);
-
-el.cameraSheet.addEventListener('close', () => {
-  if (!aiming) return;
-  aiming = false;
-  storeSettings();
-  releaseCamera();
-});
-
-/* ---------- judging, without being asked ---------- */
 
 /** Started when a solve starts, so the camera is warm by the time it is over. */
 async function warmCamera() {
   if (!settings.camera || camera) return;
   try {
     await useCamera(el.peekVideo);
-  } catch {
-    // Nothing to say here: a solve is running, and a camera that will not open
-    // is not worth interrupting it for. It is reported when aiming instead.
+    emptyFrames = [];
+    clearInterval(emptyTimer);
+    emptyTimer = setInterval(() => {
+      const frame = camera?.grab(FRAME_SIZE);
+      if (!frame) return;
+      emptyFrames.push(coarse(frame));
+      if (emptyFrames.length > EMPTY_FRAMES) emptyFrames.shift();
+    }, EMPTY_EVERY_MS);
+  } catch (error) {
+    // A solve is running; a camera that will not open is not worth interrupting
+    // it for. It is said once, quietly, when the solve is over.
+    cameraTrouble = error?.name === 'NotAllowedError'
+      ? 'Geen toegang tot de camera. Sta het toe in je browser, of zet de controle uit.'
+      : `Camera lukt niet: ${error?.message || error}`;
   }
 }
 
+let cameraTrouble = null;
+
 function watchCube(solve) {
-  if (!settings.camera || !camera) return;
+  if (!settings.camera) return;
+  if (cameraTrouble) { toast(cameraTrouble); cameraTrouble = null; return; }
+  if (!camera) return;
+
+  clearInterval(emptyTimer);
+  emptyTimer = null;
+  emptyMat = reference(emptyFrames);
+  emptyFrames = [];
+
+  // Fewer than a handful of frames means the solve was over before the mat was
+  // ever seen empty, and there is nothing to compare against.
+  if (!emptyMat) { releaseCamera(); return; }
 
   cameraSubject = solve;
   lastReading = null;
   agreed = 0;
   el.cameraPeek.hidden = false;
+  el.cameraPeek.dataset.state = 'looking';
   cameraDeadline = performance.now() + SETTLE_MS + GIVE_UP_MS;
 
   clearInterval(cameraTimer);
@@ -2170,15 +2127,18 @@ function look() {
   const frame = camera.grab(FRAME_SIZE);
   if (!frame) return;
 
-  const reading = inspectFrame(frame, guideFor(FRAME_SIZE, settings.aim));
-  const sure = reading.confidence >= CERTAIN
-    && reading.state !== 'askew' && reading.state !== 'unreadable';
+  const reading = inspectFrame(frame, emptyMat);
+  el.peekOutline.setAttribute('d', foundPath(reading.found));
 
-  el.cameraPeek.dataset.state = sure ? reading.state : 'looking';
+  const decided = reading.verdict !== 'none' || reading.state === 'lijkt opgelost';
+  const sure = decided && reading.confidence >= CERTAIN;
+  el.cameraPeek.dataset.state = sure
+    ? (reading.verdict === 'DNF' ? 'scrambled' : reading.verdict === '+2' ? 'one-move' : 'solved')
+    : reading.found ? 'found' : 'looking';
 
   if (!sure) { lastReading = null; agreed = 0; return; }
-  agreed = reading.state === lastReading ? agreed + 1 : 1;
-  lastReading = reading.state;
+  agreed = reading.verdict === lastReading ? agreed + 1 : 1;
+  lastReading = reading.verdict;
   if (agreed < AGREEMENTS) return;
 
   applyVerdict(reading.verdict);
@@ -2205,8 +2165,6 @@ function applyVerdict(verdict) {
     }
   });
 }
-
-drawGuides();
 
 /* ---------- screen wake lock ---------- */
 

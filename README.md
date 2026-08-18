@@ -193,33 +193,44 @@ Alles telt over al je sessies samen — oefenen is oefenen, op welke puzzel dan 
 
 ## De kubus laten controleren
 
-Staat **kubus controleren** aan, dan gebeurt dit vanzelf: de camera gaat open zodra je
-solve begint, en zodra de tijd stopt kijkt hij naar het matje. Je hoeft niets te doen —
-geen knop, geen kubus omhoog houden. Linksonder verschijnt kort een klein venstertje zodat
-je ziet dat hij kijkt; de rand wordt groen, oranje of rood naargelang wat hij ziet.
+Staat **kubus controleren** aan, dan gebeurt alles vanzelf. De camera gaat open zodra je
+solve begint en zoekt de kubus zelf op het matje zodra de tijd stopt. Er valt niets te
+richten en niets te bedienen: linksonder verschijnt kort een venstertje zodat je ziet dat
+hij kijkt, en dat is het.
 
 Ziet hij één zet ernaast, dan wordt het een **+2**; ziet hij meer, een **DNF**. In beide
 gevallen staat er `toch niet` in de melding.
 
-**Eén keer richten.** Je telefoon staat stil naast je matje, dus waar de kubus belandt
-verandert niet. Ga naar **instellingen → camera richten**, leg een kubus waar hij normaal
-terechtkomt, en sleep de zeshoek eroverheen. Daarna nooit meer.
+### Hoe hij de kubus vindt
 
-**Twijfelt hij, dan blijft het een gewone solve** — en dat is geen bijzaak, het is de
-belangrijkste regel. Drie vlakken kunnen namelijk niet bewijzen dát een kubus opgelost is:
-de drie stukjes die je niet ziet kunnen onderling verwisseld zijn. Wat ze wél kunnen
-bewijzen is dat hij het níét is. De aflezing is daarom bewust scheef: rommel telt als
-bewijs, netheid niet. Ziet hij binnen een paar seconden niets waar hij zeker van is, dan
-zwijgt hij en ruimt hij zichzelf op.
+Terwijl je solvet ligt de kubus in je handen, dus het matje is leeg. De camera neemt
+tijdens de solve een reeks foto's van dat lege matje en neemt daar de middelste waarde
+van, zodat langsschietende handen wegvallen. Wat er daarna anders is, is de kubus. Geen
+kalibratie, geen aanwijzen, en het werkt op een blauw matje zonder te weten dat het blauw
+is.
 
-Kleuren worden niet benoemd maar gegroepeerd — de vraag is welke stickers bij elkaar
-horen, niet welke kleur ze hebben. Daardoor maakt een warme lamp, een koel raam of een
-donkere kamer niet uit. Hoeveel kleuren er voor de lens liggen wordt afgeleid uit waar het
-samenvoegen duur wordt: twee helften van één vlak samenvoegen kost bijna niets, rood aan
-oranje plakken kost veel.
+De drie vlakken worden er daarna overheen gedraaid tot ze het beste passen, want een kubus
+komt zelden recht op het matje terecht.
 
-Op 320 gerenderde kubussen onder wisselend licht en ruis kwam er geen enkele valse straf
-op een opgeloste kubus uit. Bij te veel ruis zwijgt hij liever dan te gokken.
+### Wat hij per zicht kan bewijzen
+
+Je ziet nooit een hele kubus: drie vlakken op een hoek, twee op een rib, soms één recht
+van voren. Uitgemeten op het echte kubusmodel — elke één-zet-stand door elke hoek, rib en
+vlak — geldt: één zet van opgelost toont hoogstens **5** kleuren vanaf drie vlakken, **4**
+vanaf twee, **2** vanaf één. Meer dan dat is dus bewijs van minstens twee zetten, wat de
+kant die je niet ziet ook doet.
+
+| zicht | DNF herkennen | +2 herkennen |
+| --- | --- | --- |
+| drie vlakken (hoek) | ja | ja |
+| twee vlakken (rib) | ja, op het kleurental | nee, te weinig zicht |
+| één vlak | ja, op het kleurental | nee |
+
+**Twijfelt hij, dan blijft het een gewone solve.** Dat is de belangrijkste regel. Op alle
+getekende scenario's — kubus overal op het matje, groot, klein, gedraaid, warm licht,
+ruis, rommel ernaast, een hand er half voor, half uit beeld, leeg matje — kwam er **geen
+enkele valse straf** uit. Wat er wel gebeurt is dat hij soms zwijgt terwijl hij iets had
+kunnen zeggen, en dat is de kant waarop je fouten wilt maken.
 
 ## Sessies
 
