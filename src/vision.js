@@ -557,7 +557,10 @@ export function inspectFrame(image, empty) {
 
   const side = Math.min(image.width, image.height);
   const across = found.radius * 2 * side;
-  if (across < 96) return { verdict: 'none', state: 'te klein in beeld', faces: 0, colours: 0, confidence: 0, found };
+  // Nine stickers need to come out about six pixels each to be worth reading.
+  // This used to ask for ten, which on a camera taking in a whole mat is a cube
+  // filling a fifth of the picture -- more than anyone's ever does.
+  if (across < 56) return { verdict: 'none', state: 'te klein in beeld', faces: 0, colours: 0, confidence: 0, found };
 
   const base = { found, faces: 0, colours: 0, confidence: 0 };
 
@@ -657,6 +660,17 @@ function describeStream(stream, wish) {
  * Ask for a camera and hand back a way to grab one square frame.
  * @returns {Promise<{stream: MediaStream, which: string, grab: (size: number) => ImageData}>}
  */
+/**
+ * The whole of the picture, or as much of it as is square.
+ *
+ * A crop is written in the coordinates of that square -- middle at (x, y),
+ * side `size`, all fractions of it -- and not of the raw frame. That is on
+ * purpose: the square is exactly what the preview shows, so a box dragged over
+ * the preview and the pixels actually read out are the same thing, on a wide
+ * camera as much as on a tall one.
+ */
+export const FULL_FRAME = { x: 0.5, y: 0.5, size: 1 };
+
 export async function openCamera(video) {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error('Deze browser geeft geen toegang tot de camera.');
 
@@ -689,15 +703,29 @@ export async function openCamera(video) {
   return {
     stream,
     which,
-    grab(size) {
+    /**
+     * One square of the picture, at whatever size is asked for.
+     * @param {{x: number, y: number, size: number}} [crop] middle and side of
+     * the square to take, in the coordinates of the biggest centred square of
+     * the frame. Left out, it takes that whole square.
+     */
+    grab(size, crop = FULL_FRAME) {
       const width = video.videoWidth;
       const height = video.videoHeight;
       if (!width || !height) return null;
 
-      const side = Math.min(width, height);
+      const shorter = Math.min(width, height);
+      const fromLeft = (width - shorter) / 2;   // the sides a wide camera loses
+      const fromTop = (height - shorter) / 2;
+
+      const side = Math.max(24, crop.size * shorter);
+      const room = shorter - side;
+      const left = fromLeft + Math.min(Math.max(crop.x * shorter - side / 2, 0), room);
+      const top = fromTop + Math.min(Math.max(crop.y * shorter - side / 2, 0), room);
+
       canvas.width = size;
       canvas.height = size;
-      context.drawImage(video, (width - side) / 2, (height - side) / 2, side, side, 0, 0, size, size);
+      context.drawImage(video, left, top, side, side, 0, 0, size, size);
       return context.getImageData(0, 0, size, size);
     }
   };

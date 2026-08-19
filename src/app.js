@@ -94,6 +94,12 @@ const el = {
   lookDetail: document.getElementById('look-detail'),
   lookRelearn: document.getElementById('look-relearn'),
   lookClose: document.getElementById('look-close'),
+  lookFrame: document.querySelector('.look-frame'),
+  cropBox: document.getElementById('crop-box'),
+  cropGrip: document.querySelector('#crop-box .crop-grip'),
+  cropSize: document.getElementById('crop-size'),
+  cropSizeOut: document.getElementById('crop-size-out'),
+  cropReset: document.getElementById('crop-reset'),
   cameraPeek: document.getElementById('camera-peek'),
   peekVideo: document.getElementById('peek-video'),
   peekOutline: document.getElementById('peek-outline'),
@@ -2023,9 +2029,10 @@ el.connectAny.addEventListener('click', () => connect(true));
 
 /* ---------- checking the cube with the camera ----------
 
-   Nothing is aimed and nothing is asked for. The camera opens when a solve
-   starts, finds the cube on the mat once the time has stopped, says only what
-   that view can prove, and puts itself away. */
+   The camera opens when a solve starts, finds the cube on the mat once the
+   time has stopped, says only what that view can prove, and puts itself away.
+   The one thing it is told is which square of the picture to bother with --
+   see the uitsnede further down. */
 
 const FRAME_SIZE = 480;      // the square the camera frame is cropped to
 const LOOK_EVERY_MS = 200;
@@ -2095,7 +2102,7 @@ async function warmCamera() {
     emptyFrames = [];
     clearInterval(emptyTimer);
     emptyTimer = setInterval(() => {
-      const frame = camera?.grab(FRAME_SIZE);
+      const frame = camera?.grab(FRAME_SIZE, settings.crop);
       if (!frame) return;
       emptyFrames.push(coarse(frame));
       if (emptyFrames.length > EMPTY_FRAMES) emptyFrames.shift();
@@ -2145,17 +2152,16 @@ function look() {
     return;
   }
 
-  const frame = camera.grab(FRAME_SIZE);
+  const frame = camera.grab(FRAME_SIZE, settings.crop);
   if (!frame) return;
 
   const reading = inspectFrame(frame, emptyMat);
   el.peekOutline.setAttribute('d', foundPath(reading.found));
 
-  const decided = reading.verdict !== 'none' || reading.state === 'lijkt opgelost';
-  const sure = decided && reading.confidence >= CERTAIN;
-  el.cameraPeek.dataset.state = sure
-    ? (reading.verdict === 'DNF' ? 'scrambled' : reading.verdict === '+2' ? 'one-move' : 'solved')
-    : reading.found ? 'found' : 'looking';
+  const sure = reading.verdict !== 'none' && reading.confidence >= CERTAIN;
+  // Only a DNF is ever concluded, so the border has three things to say: still
+  // looking, found something, and found something it wants to ask about.
+  el.cameraPeek.dataset.state = sure ? 'scrambled' : reading.found ? 'found' : 'looking';
 
   if (!sure) { lastReading = null; agreed = 0; return; }
   agreed = reading.verdict === lastReading ? agreed + 1 : 1;
@@ -2206,6 +2212,9 @@ const LEARN_MS = 2600;
 
 let lookTimer = null;
 let lookLearning = false;
+// Nudging the crop twice in a row starts two learns, and the older one landing
+// after the newer had begun used to wipe what the newer had collected.
+let learning = 0;
 
 /** Plain words for what the reading came back with. */
 const LOOK_WORDS = {
@@ -2213,18 +2222,16 @@ const LOOK_WORDS = {
   'geen kubusvorm': ['Dat heeft geen kubusvorm', 'Te langwerpig of te rafelig — een hand erbij?'],
   'niet volledig in beeld': ['Valt buiten beeld', 'Zet de telefoon verder weg of schuif de kubus naar het midden.'],
   'te klein in beeld': ['Te klein in beeld', 'Zet de telefoon dichterbij; negen stickers moeten breed genoeg uitkomen.'],
-  'raster zit scheef': ['Vlakken niet goed te vinden', 'De monsters vallen op de naden.'],
   'niet leesbaar': ['Niet te lezen', 'Te donker, of te weinig van de kubus in zicht.'],
   'niet zeker genoeg': ['Niet zeker genoeg', 'Hier zou hij zwijgen en je solve met rust laten.'],
   'te weinig zicht': ['Te weinig zicht', 'Genoeg om te zien dat er iets ligt, te weinig om iets te bewijzen.'],
-  'lijkt opgelost': ['Ziet er opgelost uit', 'Geen straf — en let op: drie vlakken kunnen dat niet bewijzen, alleen niet tegenspreken.'],
-  'een zet ernaast': ['Eén zet ernaast', 'Dit zou een +2 worden.'],
-  'meer dan een zet': ['Meer dan één zet ernaast', 'Dit zou een DNF worden.']
+  'niets te bewijzen': ['Niets aan te merken', 'Te weinig kleuren voor een straf — hier laat hij je solve met rust. Let op: drie vlakken kunnen opgelost niet bewijzen, alleen niet tegenspreken.'],
+  'meer dan een zet': ['Meer dan één zet ernaast', 'Dit zou een DNF voorstellen.']
 };
 
 function lookOnce() {
   if (!camera) return;
-  const frame = camera.grab(FRAME_SIZE);
+  const frame = camera.grab(FRAME_SIZE, settings.crop);
   if (!frame) return;
 
   if (lookLearning) {
@@ -2238,13 +2245,14 @@ function lookOnce() {
 
   const [headline, detail] = LOOK_WORDS[reading.state] || [reading.state, ''];
   el.lookStatus.textContent = headline;
-  el.lookStatus.dataset.sure = String(reading.verdict !== 'none' || reading.state === 'lijkt opgelost');
+  el.lookStatus.dataset.sure = String(reading.verdict !== 'none');
   el.lookDetail.textContent = reading.colours
     ? `${detail} · ${reading.faces === 3 ? 'drie vlakken' : 'geen hoekzicht'}, ${reading.colours} kleuren, zekerheid ${Math.round(reading.confidence * 100)}%`
     : detail;
 }
 
 function learnMat() {
+  const round = ++learning;
   lookLearning = true;
   emptyFrames = [];
   emptyMat = null;
@@ -2254,7 +2262,7 @@ function learnMat() {
   el.lookDetail.textContent = `Haal de kubus even weg. Dit is wat er tijdens je solve ook gebeurt. · ${camera?.which || 'camera'}`;
 
   setTimeout(() => {
-    if (!lookTimer) return;
+    if (!lookTimer || round !== learning) return;
     emptyMat = reference(emptyFrames);
     emptyFrames = [];
     lookLearning = false;
@@ -2264,6 +2272,121 @@ function learnMat() {
     }
   }, LEARN_MS);
 }
+
+/* ---------- the square that gets read ----------
+
+   A camera set up so a whole desk fits spends most of its pixels on the desk.
+   Drawing a box around the mat is the difference between nine stickers coming
+   out six pixels across and coming out two, and it is the reason the reading
+   kept coming back "te klein in beeld". The box is stored in the camera's own
+   coordinates, so it survives the preview being mirrored. */
+
+const MIN_CROP = 0.2;
+
+/** Puts the box, the slider and the corner window where the crop says. */
+function showCrop() {
+  const { x, y, size } = settings.crop;
+  const box = el.cropBox.style;
+  box.left = `${(x - size / 2) * 100}%`;
+  box.top = `${(y - size / 2) * 100}%`;
+  box.width = `${size * 100}%`;
+  box.height = `${size * 100}%`;
+
+  const percent = Math.round(size * 100);
+  el.cropSize.value = String(percent);
+  el.cropSizeOut.textContent = `${percent}%`;
+
+  // The little corner window shows that same square blown up to fill it: it is
+  // there to show what is being read, not what happens to be next to it.
+  el.peekVideo.style.transform =
+    `scale(${1 / size}) translate(${(0.5 - x) * 100}%, ${(0.5 - y) * 100}%)`;
+}
+
+/** Keeps the box a workable size and wholly inside the picture. */
+function setCrop(next) {
+  const size = Math.min(Math.max(next.size ?? settings.crop.size, MIN_CROP), 1);
+  const edge = size / 2;
+  const hold = (value, fallback) => Math.min(Math.max(value ?? fallback, edge), 1 - edge);
+  settings.crop = { size, x: hold(next.x, settings.crop.x), y: hold(next.y, settings.crop.y) };
+  showCrop();
+}
+
+/**
+ * Where a finger is, in the camera's coordinates. The preview is mirrored, so
+ * left on the screen is right in the picture; that flip happens here and
+ * nowhere else.
+ */
+function atPointer(event) {
+  const rect = el.lookFrame.getBoundingClientRect();
+  const within = (value, size) => Math.min(Math.max(value / size, 0), 1);
+  return {
+    x: 1 - within(event.clientX - rect.left, rect.width),
+    y: within(event.clientY - rect.top, rect.height)
+  };
+}
+
+let cropDrag = null;
+
+/** How far out from the middle of the box a point is, along its worst axis. */
+const reachOf = (at) =>
+  Math.max(Math.abs(at.x - settings.crop.x), Math.abs(at.y - settings.crop.y));
+
+function startCropDrag(event, kind) {
+  event.preventDefault();
+  const at = atPointer(event);
+  // Both drags keep hold of the spot you grabbed rather than snapping to it,
+  // so nothing jumps out from under your finger on the first pixel of movement.
+  cropDrag = kind === 'move'
+    ? { kind, dx: settings.crop.x - at.x, dy: settings.crop.y - at.y }
+    : { kind, dr: settings.crop.size / 2 - reachOf(at) };
+  el.cropBox.dataset.dragging = 'true';
+}
+
+function dragCrop(event) {
+  if (!cropDrag) return;
+  event.preventDefault();
+  const at = atPointer(event);
+  if (cropDrag.kind === 'move') {
+    setCrop({ x: at.x + cropDrag.dx, y: at.y + cropDrag.dy });
+    return;
+  }
+  // The corner follows your finger: the box grows around the middle it has
+  // until it reaches you.
+  setCrop({ size: (reachOf(at) + cropDrag.dr) * 2 });
+}
+
+/** A different box means the mat was learned through the wrong window. */
+function cropSettled() {
+  storeSettings();
+  if (lookTimer) learnMat();
+}
+
+function endCropDrag() {
+  if (!cropDrag) return;
+  cropDrag = null;
+  delete el.cropBox.dataset.dragging;
+  cropSettled();
+}
+
+el.cropBox.addEventListener('pointerdown', (event) => startCropDrag(event, 'move'));
+el.cropGrip.addEventListener('pointerdown', (event) => {
+  event.stopPropagation();
+  startCropDrag(event, 'size');
+});
+window.addEventListener('pointermove', dragCrop, { passive: false });
+window.addEventListener('pointerup', endCropDrag);
+window.addEventListener('pointercancel', endCropDrag);
+
+el.cropSize.addEventListener('input', () => setCrop({ size: Number(el.cropSize.value) / 100 }));
+el.cropSize.addEventListener('change', cropSettled);
+
+el.cropReset.addEventListener('click', () => {
+  el.cropReset.blur();
+  setCrop({ x: 0.5, y: 0.5, size: 1 });
+  cropSettled();
+});
+
+setCrop({}); // and clamp whatever came out of storage
 
 /** Opening a sheet from inside another one has been known to throw on Safari. */
 function openSheet(sheet) {

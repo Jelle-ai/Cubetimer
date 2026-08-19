@@ -234,6 +234,22 @@ seconden het lege matje, daarna leg je er een kubus op en zie je live wat hij er
 Dat is het eerlijkste stuk van de hele functie — je ziet zelf of je hem in jouw kamer,
 met jouw licht en jouw camerahoek, wilt geloven.
 
+### Het beeld bijsnijden
+
+Een camera die de hele kamer ziet, besteedt de meeste pixels aan de kamer. Stond er
+telkens *te klein in beeld*, dan is dat het probleem: negen stickers moeten er samen zo'n
+zesenvijftig pixels breed uitkomen, en een kubus in de hoek van een wijd beeld haalt dat
+niet.
+
+In **wat de camera ziet** staat daarom een kader. Sleep het over je matje, trek het aan
+het rondje in de hoek kleiner of groter, of schuif de balk **uitsnede**. Alleen wat erin
+valt wordt bekeken — en omdat die uitsnede weer op volle grootte wordt uitgelezen, komt de
+kubus er evenredig groter uit. De keuze wordt bewaard, geldt ook tijdens je solves, en het
+venstertje in de hoek toont voortaan precies die uitsnede en niet meer de kamer eromheen.
+
+Verzet je het kader, dan leert hij het lege matje meteen opnieuw: door een ander raampje
+gekeken zegt het oude beeld van het matje niets meer.
+
 ### Hoe hij de kubus vindt
 
 Terwijl je solvet ligt de kubus in je handen, dus het matje is leeg. De camera neemt

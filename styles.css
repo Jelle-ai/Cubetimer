@@ -1770,9 +1770,13 @@ body[data-miss] .halo {
 
 .camera-frame {
   position: relative;
-  width: 100%;
+  /* Square, and never taller than the room there is: in landscape a sheet is
+     shorter than it is wide, and a flex column will happily squash a picture
+     down to a sliver rather than let it stick out. */
+  flex: none;
+  width: min(100%, 52dvh);
   aspect-ratio: 1;
-  margin: .2rem 0 .6rem;
+  margin: .2rem auto .6rem;
   border-radius: 16px;
   overflow: hidden;
   background: #10181d;
@@ -1818,11 +1822,87 @@ body[data-miss] .halo {
   accent-color: var(--led);
 }
 
-/* A front camera reads backwards to the person in front of it, here too. */
-.look-frame video,
-.look-frame .camera-guide { transform: scaleX(-1); }
+/* A front camera hands the picture over as the lens sees it, which reads
+   backwards to the person sitting in front of it. Flipping the whole inside of
+   the frame once makes it a mirror -- and keeps everything within it, the crop
+   box included, in the camera's own coordinates, which is what the crop is
+   stored in. Only pointer input has to be turned back round. */
+.camera-mirror {
+  position: absolute;
+  inset: 0;
+  transform: scaleX(-1);
+}
+
+.camera-mirror > video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .look-frame path { stroke: rgba(255, 255, 255, .92); stroke-width: .008; fill: none; }
+
+/* ---------- choosing the square that gets read ---------- */
+
+/* Everything outside the box is dimmed by the box's own shadow, spread wide
+   enough to reach every edge -- one shadow instead of four dimmed panes. */
+.crop-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid rgba(255, 255, 255, .95);
+  border-radius: 10px;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .42);
+  cursor: grab;
+  touch-action: none;
+  transition: box-shadow .2s;
+}
+
+.crop-box[data-dragging="true"] { cursor: grabbing; border-color: var(--led); }
+
+/* The corner to pull on, big enough for a thumb, and sitting just inside the
+   box so a box filling the whole picture does not have half its grip clipped
+   away. Placed on the box's left because the frame around it is mirrored,
+   which puts it under the bottom right corner on screen. */
+.crop-grip {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .95);
+  border: 2px solid rgba(0, 0, 0, .25);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.crop-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin: .2rem 0 .1rem;
+  font-size: .86rem;
+  color: var(--muted);
+}
+
+.crop-row .camera-size { flex: 1; }
+.crop-row output { min-width: 3.2rem; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* On a phone held sideways the sheet is wider than it is tall, so the picture
+   goes beside the controls rather than pushing them off the bottom. */
+@media (min-width: 620px) and (max-height: 560px) {
+  #look-sheet { width: min(760px, 92vw); }
+
+  #look-sheet .sheet-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 56dvh) minmax(0, 1fr);
+    align-content: start;
+    column-gap: 1.1rem;
+  }
+
+  #look-sheet .sheet-head { grid-column: 1 / -1; }
+  #look-sheet .camera-frame { grid-column: 1; grid-row: 2 / span 5; width: 100%; margin: 0; }
+  #look-sheet .camera-status,
+  #look-sheet .import-note,
+  #look-sheet .crop-row,
+  #look-sheet .detail-actions { grid-column: 2; }
+  #look-sheet .detail-actions { margin-top: .6rem; }
+}
 
 /* ---------- what the camera sees while it judges ----------
 
@@ -1844,19 +1924,9 @@ body[data-miss] .halo {
   animation: peekIn .25s ease both;
 }
 
-.camera-peek video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .camera-peek path { stroke: rgba(255, 255, 255, .85); stroke-width: .012; fill: none; }
 
-/* A front camera hands over the picture as the lens sees it, which reads
-   backwards to the person in front of it. The preview is flipped so it behaves
-   like a mirror -- and the outline is flipped with it, or it would sit on the
-   wrong side of what it is drawn around. What the code measures is the
-   unflipped frame, which none of this touches. */
-.camera-peek video,
-.camera-peek .camera-guide { transform: scaleX(-1); }
-
-.camera-peek[data-state="solved"] { border-color: var(--ready); }
-.camera-peek[data-state="one-move"] { border-color: var(--record); }
+.camera-peek[data-state="found"] { border-color: var(--ready); }
 .camera-peek[data-state="scrambled"] { border-color: var(--hold); }
 
 @keyframes peekIn {

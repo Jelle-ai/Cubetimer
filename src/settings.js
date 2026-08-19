@@ -36,7 +36,7 @@ const DEFAULTS = {
   countUp: true,
   wakeLock: true,
   camera: false,
-  aim: { x: 0.5, y: 0.5, radius: 0.3 },
+  crop: { x: 0.5, y: 0.5, size: 1 },
   font: 'rounded',
   practice: true,
   goalKind: 'time',   // 'time' counts the solving up, 'solves' counts the solves
@@ -80,15 +80,15 @@ export function loadSettings() {
     for (const key of SWITCHES) settings[key] = settings[key] !== false;
     for (const key of OPT_IN) settings[key] = settings[key] === true;
 
-    // Where the camera looks for the cube, kept inside the frame whatever is
-    // in storage.
-    const aim = { ...DEFAULTS.aim, ...(settings.aim || {}) };
+    // The square of the picture the camera pays attention to, kept sane
+    // whatever is in storage.
+    const crop = { ...DEFAULTS.crop, ...(settings.crop || {}) };
     const clamp = (value, low, high, fallback) =>
       Number.isFinite(Number(value)) ? Math.min(Math.max(Number(value), low), high) : fallback;
-    settings.aim = {
-      radius: clamp(aim.radius, 0.12, 0.48, DEFAULTS.aim.radius),
-      x: clamp(aim.x, 0.15, 0.85, DEFAULTS.aim.x),
-      y: clamp(aim.y, 0.15, 0.85, DEFAULTS.aim.y)
+    settings.crop = {
+      size: clamp(crop.size, 0.2, 1, DEFAULTS.crop.size),
+      x: clamp(crop.x, 0, 1, DEFAULTS.crop.x),
+      y: clamp(crop.y, 0, 1, DEFAULTS.crop.y)
     };
 
     const colors = { ...DEFAULTS.colors, ...(settings.colors || {}) };

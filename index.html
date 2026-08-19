@@ -194,16 +194,32 @@
     </header>
 
     <div class="camera-frame look-frame">
-      <video id="look-video" playsinline muted></video>
-      <svg class="camera-guide" viewBox="0 0 1 1" aria-hidden="true">
-        <path id="look-outline" fill="none" />
-      </svg>
+      <!-- Everything the camera hands over sits in here, mirrored once so the
+           preview behaves like a mirror. Inside it, positions are the camera's
+           own, which is what the crop is stored in. -->
+      <div class="camera-mirror">
+        <video id="look-video" playsinline muted></video>
+        <div id="crop-box" class="crop-box">
+          <svg class="camera-guide" viewBox="0 0 1 1" aria-hidden="true">
+            <path id="look-outline" fill="none" />
+          </svg>
+          <span class="crop-grip"></span>
+        </div>
+      </div>
     </div>
 
     <p id="look-status" class="camera-status">Camera starten…</p>
     <p id="look-detail" class="import-note"></p>
 
+    <label class="crop-row">
+      <span>Uitsnede</span>
+      <input type="range" id="crop-size" class="camera-size" min="20" max="100" step="1" value="100" aria-label="Grootte van de uitsnede">
+      <output id="crop-size-out">100%</output>
+    </label>
+    <p class="import-note">Sleep het kader over je matje. Alleen wat erin valt wordt bekeken — kleiner maken laat de kubus groter uitkomen.</p>
+
     <div class="detail-actions">
+      <button type="button" id="crop-reset">Hele beeld</button>
       <button type="button" id="look-relearn">Matje opnieuw leren</button>
     </div>
   </div>
@@ -211,10 +227,14 @@
 
 <!-- What the camera sees while it is judging a solve, small and out of the way. -->
 <div id="camera-peek" class="camera-peek" hidden>
-  <video id="peek-video" playsinline muted></video>
-  <svg class="camera-guide" viewBox="0 0 1 1" aria-hidden="true">
-    <path id="peek-outline" fill="none" />
-  </svg>
+  <div class="camera-mirror">
+    <!-- Zoomed to the chosen uitsnede, so this little window shows the pixels
+         that are actually being read and not a wider view of the room. -->
+    <video id="peek-video" playsinline muted></video>
+    <svg class="camera-guide" viewBox="0 0 1 1" aria-hidden="true">
+      <path id="peek-outline" fill="none" />
+    </svg>
+  </div>
 </div>
 
 <!-- The solves a number in the statistics was made of. -->
