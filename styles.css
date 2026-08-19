@@ -1841,6 +1841,14 @@ body[data-miss] .halo {
 .camera-peek video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .camera-peek path { stroke: rgba(255, 255, 255, .85); stroke-width: .012; fill: none; }
 
+/* A front camera hands over the picture as the lens sees it, which reads
+   backwards to the person in front of it. The preview is flipped so it behaves
+   like a mirror -- and the outline is flipped with it, or it would sit on the
+   wrong side of what it is drawn around. What the code measures is the
+   unflipped frame, which none of this touches. */
+.camera-peek video,
+.camera-peek .camera-guide { transform: scaleX(-1); }
+
 .camera-peek[data-state="solved"] { border-color: var(--ready); }
 .camera-peek[data-state="one-move"] { border-color: var(--record); }
 .camera-peek[data-state="scrambled"] { border-color: var(--hold); }

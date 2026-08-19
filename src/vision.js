@@ -598,14 +598,23 @@ export function foundPath(found) {
 }
 
 /**
- * Ask for the back camera and hand back a way to grab one square frame.
+ * Ask for the front camera and hand back a way to grab one square frame.
+ *
+ * The front one, because the phone stands facing you with the mat in front of
+ * it -- that way the screen is readable while it films. "ideal" rather than
+ * "exact" so a machine with only one camera still gets one.
+ *
+ * Which way round the picture comes is of no consequence to anything below:
+ * a mirrored cube has the same colours in the same numbers, and the shape a
+ * single turn leaves is a strip along an edge either way round.
+ *
  * @returns {Promise<{stream: MediaStream, grab: (size: number) => ImageData}>}
  */
 export async function openCamera(video) {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error('Deze browser geeft geen toegang tot de camera.');
 
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 1280 } },
+    video: { facingMode: { ideal: 'user' }, width: { ideal: 1280 }, height: { ideal: 1280 } },
     audio: false
   });
 

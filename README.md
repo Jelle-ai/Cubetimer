@@ -193,8 +193,10 @@ Alles telt over al je sessies samen — oefenen is oefenen, op welke puzzel dan 
 
 ## De kubus laten controleren
 
-Staat **kubus controleren** aan, dan gebeurt alles vanzelf. De camera gaat open zodra je
-solve begint en zoekt de kubus zelf op het matje zodra de tijd stopt. Er valt niets te
+Staat **kubus controleren** aan, dan gebeurt alles vanzelf. De **selfiecamera** gaat open
+zodra je solve begint en zoekt de kubus zelf op het matje zodra de tijd stopt — de
+voorkant, zodat je scherm naar je toe staat en je de timer gewoon kunt lezen terwijl hij
+filmt. Er valt niets te
 richten en niets te bedienen: linksonder verschijnt kort een venstertje zodat je ziet dat
 hij kijkt, en dat is het.
 
@@ -211,6 +213,11 @@ is.
 
 De drie vlakken worden er daarna overheen gedraaid tot ze het beste passen, want een kubus
 komt zelden recht op het matje terecht.
+
+Het venstertje toont het beeld gespiegeld, zoals een selfiecamera hoort te doen. Voor de
+beoordeling maakt dat niets uit: een gespiegelde kubus heeft dezelfde kleuren in dezelfde
+aantallen, en de streep die één zet achterlaat ligt langs een rand — welke kant je hem ook
+op houdt. Gemeten wordt het ongespiegelde beeld.
 
 ### Wat hij per zicht kan bewijzen
 
