@@ -640,12 +640,17 @@ export function inspectFrame(image, empty, shape = null) {
     return { verdict: 'none', state: 'niet volledig in beeld', faces: 0, colours: 0, confidence: 0, found };
   }
 
+  // Pixels the camera really saw: a grab is never blown up past the source, so
+  // this is a count and not an estimate.
   const side = Math.min(image.width, image.height);
   const across = found.radius * 2 * side;
+
   // Nine stickers need to come out about six pixels each to be worth reading.
   // This used to ask for ten, which on a camera taking in a whole mat is a cube
   // filling a fifth of the picture -- more than anyone's ever does.
-  if (across < READ_AT) return { verdict: 'none', state: 'te klein in beeld', faces: 0, colours: 0, confidence: 0, found };
+  if (across < READ_AT) {
+    return { verdict: 'none', state: 'te klein in beeld', faces: 0, colours: 0, confidence: 0, found };
+  }
 
   const base = { found, faces: 0, colours: 0, confidence: 0 };
 
@@ -838,12 +843,25 @@ export async function openCamera(video) {
     stream,
     which,
     /**
-     * One square of the picture, at whatever size is asked for: the smallest
-     * square holding the crop's four corners. What falls inside those corners
-     * is decided later, by whoever reads the picture.
+     * The smallest square of the picture holding the crop's four corners, at
+     * the size asked for or the size the camera actually has, whichever is
+     * smaller. What falls inside those corners is decided later, by whoever
+     * reads the picture.
+     *
+     * Never bigger than the source, because every rule about how wide a cube
+     * has to be is a rule about pixels the camera saw. Blowing a small patch
+     * up to fill this picture would let a cube measure a comfortable 250
+     * across while standing on 40 real ones, and every one of those rules
+     * would then be reading invented detail.
+     *
      * @param {{corners: [number, number][]}} [crop] in the coordinates of the
      * biggest centred square of the frame. Left out, it takes that whole square.
      */
+    /** What the camera is handing over, as "1280x720". Changes when a tablet
+        is turned round, which moves everything the crop was drawn against. */
+    shape() {
+      return `${video.videoWidth || 0}x${video.videoHeight || 0}`;
+    },
     grab(size, crop = FULL_FRAME) {
       const width = video.videoWidth;
       const height = video.videoHeight;
@@ -859,10 +877,11 @@ export async function openCamera(video) {
       const left = fromLeft + Math.min(Math.max(box.x * shorter - side / 2, 0), room);
       const top = fromTop + Math.min(Math.max(box.y * shorter - side / 2, 0), room);
 
-      canvas.width = size;
-      canvas.height = size;
-      context.drawImage(video, left, top, side, side, 0, 0, size, size);
-      return context.getImageData(0, 0, size, size);
+      const out = Math.max(64, Math.round(Math.min(size, side)));
+      canvas.width = out;
+      canvas.height = out;
+      context.drawImage(video, left, top, side, side, 0, 0, out, out);
+      return context.getImageData(0, 0, out, out);
     }
   };
 }

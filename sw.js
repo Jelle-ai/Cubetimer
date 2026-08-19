@@ -1,5 +1,5 @@
 // Offline shell. Bump CACHE when the files below change.
-const CACHE = 'cubetimer-v28';
+const CACHE = 'cubetimer-v31';
 
 // The scrambler is vendored, so it has to be cached too or offline use falls
 // back to random-move scrambles.
@@ -66,18 +66,78 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Network first so a deploy lands immediately, falling back to the cache offline.
+/**
+ * How long the network gets before the cache answers instead. Being offline is
+ * the easy case -- a request fails at once. The hard case is one bar of signal
+ * or a hotel wifi that accepts the connection and then says nothing.
+ */
+const PATIENCE_MS = 2000;
+
+/** Everything the install step already put in the cache, by full address. */
+const CACHED = new Set(SHELL.map((path) => new URL(path, self.registration.scope).href));
+
+/** The network, but not for longer than we are willing to wait. */
+function fromNetwork(request) {
+  return new Promise((resolve, reject) => {
+    const giveUp = setTimeout(() => reject(new Error('traag netwerk')), PATIENCE_MS);
+    fetch(request).then(
+      (response) => { clearTimeout(giveUp); resolve(response); },
+      (error) => { clearTimeout(giveUp); reject(error); }
+    );
+  });
+}
+
+/** Only a real answer is worth keeping: a 404 from a half-finished deploy,
+    cached, outlives the deploy that caused it. */
+function keep(request, response) {
+  if (!response.ok) return response;
+  const copy = response.clone();
+  caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+  return response;
+}
+
+/**
+ * The shell is answered from the cache and refreshed behind your back.
+ *
+ * Waiting on the network for these was costing far more than it looked. The
+ * files import each other, so the waits do not overlap: index.html waits, then
+ * the script it names waits, then the scripts that one imports wait. Measured
+ * against a server that accepts the connection and then says nothing, a two
+ * second patience turned into a sixteen second load. Freshness does not have to
+ * come from here anyway -- the browser checks the worker itself on every visit,
+ * and a new worker fetches the whole shell again on install.
+ */
+function fromCacheFirst(request) {
+  return caches.match(request).then((cached) => {
+    if (cached) {
+      fetch(request).then((response) => keep(request, response)).catch(() => {});
+      return cached;
+    }
+    return fetch(request).then((response) => keep(request, response));
+  });
+}
+
+/** Everything else, and the page itself: the network, or the cache if it stalls. */
+function fromNetworkFirst(request) {
+  return fromNetwork(request)
+    .then((response) => keep(request, response))
+    .catch(() => caches.match(request).then((cached) => {
+      if (cached) return cached;
+      // The page can stand in for a page that was never cached. It cannot
+      // stand in for a script: handing HTML to a module import turns a missing
+      // file into a syntax error, which reads as the app being broken rather
+      // than the file being absent.
+      if (request.mode === 'navigate') return caches.match('./index.html');
+      return new Response('', { status: 504, statusText: 'Niet beschikbaar zonder netwerk' });
+    }));
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
 
-  event.respondWith(
-    fetch(request)
-      .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
-        return response;
-      })
-      .catch(() => caches.match(request).then((cached) => cached || caches.match('./index.html')))
-  );
+  // The page itself stays network first, so a deploy lands on the very next
+  // visit rather than the one after it.
+  const shell = CACHED.has(request.url) && request.mode !== 'navigate';
+  event.respondWith(shell ? fromCacheFirst(request) : fromNetworkFirst(request));
 });

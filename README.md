@@ -261,6 +261,12 @@ zat hij zes keer op de zevenentwintig mis over een opgeloste kubus, op 200 geen 
 keer. Daartussenin zegt hij dus wat hij ziet en houdt hij zijn mening voor zich — met de
 raad het beeld bij te snijden, want dat is precies wat de kubus groter maakt.
 
+Die pixels zijn er echte. Een uitsnede wordt nooit groter uitgelezen dan de camera hem
+geeft: snijd je een klein stukje uit een camera die maar 640 pixels aanlevert, dan zou
+opblazen tot volle grootte een kubus van 40 pixels als een comfortabele 250 laten meten,
+en dan gaat elke regel hierboven over verzonnen detail. Levert je camera te weinig, dan
+zegt hij dat ook met zoveel woorden in plaats van je nóg strakker te laten bijsnijden.
+
 ### Het beeld bijsnijden
 
 Een camera die de hele kamer ziet, besteedt de meeste pixels aan de kamer. Stond er
@@ -294,6 +300,48 @@ van, zodat langsschietende handen wegvallen. Wat er daarna anders is, is de kubu
 kalibratie, en het werkt op een blauw matje zonder te weten dat het blauw is. Dat deel
 werkt wel goed: lege matjes, rommel, een hand ervoor en een kubus half uit beeld worden
 allemaal netjes herkend en overgeslagen.
+
+## Wat er in een echte kamer misgaat
+
+Een paar dingen die je pas tegenkomt als de app op een tafel staat en niet in een test.
+
+**De app twee keer open.** Een tabblad én de geïnstalleerde app zijn twee kopieën van
+dezelfde tijden. Het tweede venster las het bestand toen het openging en houdt die kopie
+vast; de eerste keer dat het iets opslaat, gaat alles wat je in het andere venster hebt
+gesolved eraan. Nagemeten: drie solves in venster A, één in venster B, en er bleef er
+**één** over. De browser meldt wél dat een ander venster geschreven heeft, dus dit venster
+neemt dat nieuwere bestand nu over in plaats van eroverheen te schrijven. Diezelfde test
+houdt nu alle vier de tijden.
+
+**De camera bleef aanstaan.** Ging je tijdens een solve naar een andere app, dan bleef de
+lens draaien op een pagina die de browser niet eens meer tekent. Nu gaat hij uit zodra je
+weg bent, en ook als iOS de pagina wegzet zonder het te melden.
+
+**Elke tweede solve werd overgeslagen.** Startte je een nieuwe solve terwijl hij de vorige
+nog bekeek, dan zag hij de camera al openstaan en dacht dat er niets te doen was — waarmee
+hij die solve zonder foto's van het lege matje inging, en er dus niets mee kon. Zonder één
+woord.
+
+**De camera werd afgepakt.** Neemt een andere app hem over, of trek je de toestemming in,
+dan stopt de stroom beelden zonder fout: hij bleef het laatste beeld bestuderen dat hij
+ooit kreeg. Dat wordt nu opgemerkt en gezegd.
+
+**Je draaide je iPad.** De vier hoeken staan in de coördinaten van het beeld, en dat beeld
+kantelt mee. Wat hij van het matje geleerd had, sloeg dan nergens meer op. Hij merkt de
+verandering nu op, leert het matje opnieuw en vraagt je de hoeken na te kijken.
+
+**De timer viel weg tijdens je solve.** Buiten bereik of een lege batterij, en de klok op
+het scherm liep gewoon door zonder uitleg. Er staat nu bij dat hij op de klok van de app
+verder telt en hoe je hem stopt.
+
+**Eén streepje bereik.** De service worker ging eerst naar het netwerk. Offline is dat
+geen probleem — dat mislukt meteen — maar een hotelwifi die de verbinding aanneemt en dan
+zwijgt, is dat wél: de bestanden importeren elkaar, dus de wachttijden stapelen op.
+Gemeten tegen zo'n server duurde laden **15,7 seconden**. De schil komt nu uit de cache en
+wordt daarachter ververst; dezelfde meting: **2,7 seconden**. Een uitrol landt nog steeds
+op de eerstvolgende keer dat je herlaadt. En een bestand dat er niet is krijgt geen
+HTML-pagina meer als antwoord — dat maakte van een ontbrekend bestand een syntaxfout,
+wat eruitziet alsof de hele app stuk is.
 
 ## Sessies
 

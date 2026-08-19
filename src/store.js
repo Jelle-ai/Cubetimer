@@ -1,7 +1,8 @@
 // Session persistence in localStorage. A save file holds several named
 // sessions; version 1 stored a single flat list and is migrated on read.
 
-const KEY = 'cubetimer.sessions.v2';
+/** Exported so a page can tell its own writes from another tab's. */
+export const KEY = 'cubetimer.sessions.v2';
 const LEGACY_KEY = 'cubetimer.session.v1';
 
 const isSolve = (solve) => typeof solve?.ms === 'number';

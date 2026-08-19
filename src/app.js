@@ -4,7 +4,7 @@ import {
   averageOf, best, bestAverageAt, bestAverageOf, bestMeanAt, bestMeanOf, effective,
   formatSolve, formatTime, meanOf, sessionMean, setDecimals, worst
 } from './stats.js';
-import { load, save } from './store.js';
+import { KEY as SAVE_KEY, load, save } from './store.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
@@ -1249,6 +1249,38 @@ function toast(message, action) {
 
 /* ---------- session ---------- */
 
+/* ---------- the same save file in two windows ----------
+
+   The app open twice over -- a tab and the installed one, say -- is two copies
+   of the same times. The second window read the file when it opened and has
+   held that copy ever since, so the first thing it saves wipes whatever was
+   solved in the other one. Nothing warns you; the times are simply gone.
+
+   The browser does say when another window writes. So this one takes the newer
+   file over rather than writing across it. */
+
+let writtenElsewhere = false;
+
+window.addEventListener('storage', (event) => {
+  if (event.key !== SAVE_KEY || event.newValue === null) return;
+  writtenElsewhere = true;
+  adoptElsewhere();
+});
+
+/** Only between solves: nobody wants the list rearranged mid-solve. */
+function adoptElsewhere() {
+  if (!writtenElsewhere || phase !== 'idle' || deleteArmed) return;
+  writtenElsewhere = false;
+
+  saveFile = load();
+  solves = currentSession().solves;
+  selecting = false;
+  selected.clear();
+  syncTargetUi();
+  render();
+  toast('Er is in een ander venster gesolved; deze lijst is nu bijgewerkt.');
+}
+
 /** Save, and say so once if this browser refuses to store anything. */
 function persist() {
   if (save(saveFile) || storageWarned) return;
@@ -1899,6 +1931,8 @@ function onDeviceDisconnect() {
   device = null;
   clearPendingTap();
   disarmDelete();
+
+  const midSolve = phase === 'running';
   el.connect.textContent = 'Verbind timer';
   el.deviceStatus.hidden = true;
   setHint(currentHint());
@@ -1906,7 +1940,12 @@ function onDeviceDisconnect() {
   el.deviceDetails.hidden = true;
   el.importTimes.hidden = true;
   showManualPick(true);
-  toast('Timer losgekoppeld.');
+  // Out of range, or a flat battery, in the middle of a solve. The clock on
+  // screen is the app's own from here, and it keeps counting until someone
+  // stops it -- so say that rather than let a good solve turn into a mystery.
+  toast(midSolve
+    ? 'Timer losgekoppeld tijdens je solve — de tijd loopt nu op de klok van de app. Druk op spatie of tik om te stoppen.'
+    : 'Timer losgekoppeld.');
 }
 
 /** Squeeze a name and a description out of whatever was thrown. */
@@ -2059,6 +2098,10 @@ let agreed = 0;
 let emptyTimer = null;
 let emptyFrames = [];
 let emptyMat = null;
+// What the camera was handing over when the mat was learned. Turning a tablet
+// round changes it, and with it every coordinate the picture of the mat and
+// the four corners were written in.
+let matShape = null;
 
 async function useCamera(video) {
   if (camera) {
@@ -2067,8 +2110,28 @@ async function useCamera(video) {
     return camera;
   }
   camera = await openCamera(video);
+  // A camera can be taken away again -- another app claims it, permission is
+  // withdrawn, a webcam is unplugged. The stream does not throw when that
+  // happens, it simply stops moving, and without this the reading would go on
+  // studying the last frame it ever got.
+  camera.stream.getVideoTracks().forEach((track) => track.addEventListener('ended', cameraLost));
   el.cameraState.textContent = `Camera werkt — ${camera.which}.`;
   return camera;
+}
+
+function cameraLost() {
+  const open = el.lookSheet.open;
+  clearInterval(lookTimer);
+  lookTimer = null;
+  lookLearning = false;
+  releaseCamera();
+  el.cameraState.textContent = 'De camera werd afgebroken. Een andere app heeft hem misschien overgenomen.';
+  if (open) {
+    el.lookStatus.textContent = 'Camera afgebroken';
+    el.lookDetail.textContent = 'Een andere app heeft hem overgenomen, of de toestemming is ingetrokken.';
+  } else {
+    cameraTrouble = 'De camera werd afgebroken, dus deze solve is niet bekeken.';
+  }
 }
 
 /** Plain words for a camera that will not open, in the settings and in a toast. */
@@ -2095,22 +2158,44 @@ function releaseCamera() {
   lastReading = null;
   agreed = 0;
   el.cameraPeek.hidden = true;
+  // Both windows let go of it, not just the corner one: a video element still
+  // holding a stopped stream is a camera this page has not finished with.
   el.peekVideo.srcObject = null;
+  el.lookVideo.srcObject = null;
+}
+
+/** Photographs of the empty mat, taken while the cube is in your hands. */
+function collectEmpty() {
+  emptyFrames = [];
+  clearInterval(emptyTimer);
+  emptyTimer = setInterval(() => {
+    const frame = camera?.grab(FRAME_SIZE, settings.crop);
+    if (!frame) return;
+    emptyFrames.push(coarse(frame));
+    if (emptyFrames.length > EMPTY_FRAMES) emptyFrames.shift();
+  }, EMPTY_EVERY_MS);
 }
 
 /** Started when a solve starts, so the camera is warm by the time it is over. */
 async function warmCamera() {
-  if (!settings.camera || camera) return;
+  if (!settings.camera) return;
+
+  // Starting a solve calls off whatever the last one was still being judged
+  // for -- that cube is off the mat now, and the picture of it is worthless.
+  cameraSubject = null;
+  clearInterval(cameraTimer);
+  cameraTimer = null;
+  el.cameraPeek.hidden = true;
+
+  // An open camera used to mean there was nothing to do, which quietly skipped
+  // the next solve: the frames of the empty mat were never collected, so there
+  // was nothing to compare the cube against and the check was dropped without
+  // a word.
+  if (camera) { collectEmpty(); return; }
+
   try {
     await useCamera(el.peekVideo);
-    emptyFrames = [];
-    clearInterval(emptyTimer);
-    emptyTimer = setInterval(() => {
-      const frame = camera?.grab(FRAME_SIZE, settings.crop);
-      if (!frame) return;
-      emptyFrames.push(coarse(frame));
-      if (emptyFrames.length > EMPTY_FRAMES) emptyFrames.shift();
-    }, EMPTY_EVERY_MS);
+    collectEmpty();
   } catch (error) {
     // A solve is running; a camera that will not open is not worth interrupting
     // it for. It is said once, quietly, when the solve is over.
@@ -2119,6 +2204,7 @@ async function warmCamera() {
 }
 
 let cameraTrouble = null;
+let silenceExplained = false; // said once, not after every solve
 
 function watchCube(solve) {
   if (!settings.camera) return;
@@ -2130,10 +2216,22 @@ function watchCube(solve) {
   emptyMat = reference(emptyFrames);
   emptyFrames = [];
 
-  // Fewer than a handful of frames means the solve was over before the mat was
-  // ever seen empty, and there is nothing to compare against.
-  if (!emptyMat) { releaseCamera(); return; }
+  // Not one photograph of the empty mat: either the solve was over within the
+  // blink it takes to take one, or the camera opened but never handed a frame
+  // over -- a page that was not allowed to start playing video, most likely.
+  // It used to give up here without a word, which is what "soms rekent hij
+  // niets aan" looked like from the outside.
+  if (!emptyMat) {
+    const blink = performance.now() - startedAt < EMPTY_EVERY_MS * 2;
+    releaseCamera();
+    if (!blink && !silenceExplained) {
+      silenceExplained = true;
+      toast('De camera ging open maar gaf geen beeld, dus deze solve is niet bekeken. Kijk eens bij instellingen → wat de camera ziet.');
+    }
+    return;
+  }
 
+  matShape = camera.shape();
   cameraSubject = solve;
   lastReading = null;
   agreed = 0;
@@ -2155,6 +2253,10 @@ function look() {
     releaseCamera();
     return;
   }
+
+  // The picture turned under it mid-solve; the mat it learned is of somewhere
+  // else now. Better to say nothing than to say something about that.
+  if (camera.shape() !== matShape) { releaseCamera(); return; }
 
   const frame = camera.grab(FRAME_SIZE, settings.crop);
   if (!frame) return;
@@ -2225,11 +2327,11 @@ const LOOK_WORDS = {
   'geen kubus': ['Niets nieuws op het matje', 'Leg er een kubus op.'],
   'geen kubusvorm': ['Dat heeft geen kubusvorm', 'Te langwerpig of te rafelig — een hand erbij?'],
   'niet volledig in beeld': ['Valt buiten beeld', 'Zet de telefoon verder weg of schuif de kubus naar het midden.'],
-  'te klein in beeld': ['Te klein in beeld', 'Zet de telefoon dichterbij; negen stickers moeten breed genoeg uitkomen.'],
+  'te klein in beeld': ['Te klein in beeld', 'Zet de camera dichterbij, of trek de vier hoeken strakker om je matje.'],
   'niet leesbaar': ['Niet te lezen', 'Te donker, of te weinig van de kubus in zicht.'],
   'niet zeker genoeg': ['Niet zeker genoeg', 'Hier zou hij zwijgen en je solve met rust laten.'],
   'te weinig zicht': ['Te weinig zicht', 'Genoeg om te zien dat er iets ligt, te weinig om iets te bewijzen.'],
-  'te klein om te oordelen': ['Te klein om iets te durven zeggen', 'Hij leest hem wel, maar zo klein in beeld splitst hij drie kleuren net zo makkelijk in zes. Snijd het beeld bij tot je matje.'],
+  'te klein om te oordelen': ['Te klein om iets te durven zeggen', 'Hij leest hem wel, maar zo klein in beeld splitst hij drie kleuren net zo makkelijk in zes. Trek de hoeken strakker om je matje.'],
   'niets te bewijzen': ['Niets aan te merken', 'Te weinig kleuren voor een straf — hier laat hij je solve met rust. Let op: drie vlakken kunnen opgelost niet bewijzen, alleen niet tegenspreken.'],
   'meer dan een zet': ['Meer dan één zet ernaast', 'Dit zou een DNF voorstellen.']
 };
@@ -2238,6 +2340,14 @@ function lookOnce() {
   if (!camera) return;
   const frame = camera.grab(FRAME_SIZE, settings.crop);
   if (!frame) return;
+
+  // Turned the tablet round: what was learned was of the picture as it stood,
+  // and the corners were drawn on it. Both have to be looked at again.
+  if (!lookLearning && matShape && camera.shape() !== matShape) {
+    learnMat();
+    el.lookDetail.textContent = 'Het beeld is gedraaid — kijk of de vier hoeken nog op je matje staan.';
+    return;
+  }
 
   if (lookLearning) {
     emptyFrames.push(coarse(frame));
@@ -2248,7 +2358,13 @@ function lookOnce() {
   const reading = inspectFrame(frame, emptyMat, cropShape(settings.crop));
   el.lookOutline.setAttribute('d', foundPath(reading.found));
 
-  const [headline, detail] = LOOK_WORDS[reading.state] || [reading.state, ''];
+  let [headline, detail] = LOOK_WORDS[reading.state] || [reading.state, ''];
+  // Advice to crop harder is no use to someone who has already cropped as hard
+  // as their camera can stand -- past a point the picture stops gaining detail
+  // and only loses room.
+  if (reading.state === 'te klein in beeld' && frame.width < FRAME_SIZE) {
+    detail = `Je camera geeft hier maar ${frame.width} pixels; strakker bijsnijden levert niets meer op. Zet de camera dichterbij.`;
+  }
   el.lookStatus.textContent = headline;
   el.lookStatus.dataset.sure = String(reading.verdict !== 'none');
   el.lookDetail.textContent = reading.colours
@@ -2271,6 +2387,7 @@ function learnMat() {
     emptyMat = reference(emptyFrames);
     emptyFrames = [];
     lookLearning = false;
+    matShape = camera?.shape() ?? null;
     if (!emptyMat) {
       el.lookStatus.textContent = 'Geen beeld van het matje';
       el.lookDetail.textContent = '';
@@ -2527,8 +2644,20 @@ function letSleep() {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') keepAwake();
+  if (document.visibilityState === 'visible') {
+    keepAwake();
+    adoptElsewhere(); // it may have been the other window you were away in
+    return;
+  }
+  // Away from the page, the camera goes off. Nobody wants a lens still live
+  // behind another app, and the frames it would keep grabbing are of a page
+  // the browser has stopped painting anyway.
+  if (el.lookSheet.open) el.lookSheet.close();
+  else releaseCamera();
 });
+
+// Safari on iOS can put a page away without ever calling it hidden.
+window.addEventListener('pagehide', () => releaseCamera());
 
 /* ---------- settings ---------- */
 
