@@ -9,8 +9,8 @@ import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
 import {
-  CERTAIN, FULL_FRAME, askForCamera, coarse, cropBox, cropShape, foundPath, inspectFrame,
-  openCamera, reference
+  ALL_SIX, CERTAIN, FULL_FRAME, askForCamera, coarse, cropBox, cropShape, findCube, foundPath,
+  inspectFrame, learnColours, openCamera, reference
 } from './vision.js';
 import {
   dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
@@ -104,6 +104,10 @@ const el = {
   cropShade: document.getElementById('crop-shade'),
   cropHandles: [...document.querySelectorAll('.crop-handle')],
   cropReset: document.getElementById('crop-reset'),
+  learnColours: document.getElementById('learn-colours'),
+  colourSwatches: document.getElementById('colour-swatches'),
+  colourCount: document.getElementById('colour-count'),
+  cameraBlurb: document.getElementById('camera-blurb'),
   cameraPeek: document.getElementById('camera-peek'),
   peekVideo: document.getElementById('peek-video'),
   peekOutline: document.getElementById('peek-outline'),
@@ -2261,13 +2265,13 @@ function look() {
   const frame = camera.grab(FRAME_SIZE, settings.crop);
   if (!frame) return;
 
-  const reading = inspectFrame(frame, emptyMat, cropShape(settings.crop));
+  const reading = inspectFrame(frame, emptyMat, cropShape(settings.crop), settings.cubeColours);
   el.peekOutline.setAttribute('d', foundPath(reading.found));
 
   const sure = reading.verdict !== 'none' && reading.confidence >= CERTAIN;
-  // Only a DNF is ever concluded, so the border has three things to say: still
-  // looking, found something, and found something it wants to ask about.
-  el.cameraPeek.dataset.state = sure ? 'scrambled' : reading.found ? 'found' : 'looking';
+  el.cameraPeek.dataset.state = sure
+    ? (reading.verdict === '+2' ? 'one-move' : 'scrambled')
+    : reading.found ? 'found' : 'looking';
 
   if (!sure) { lastReading = null; agreed = 0; return; }
   agreed = reading.verdict === lastReading ? agreed + 1 : 1;
@@ -2278,30 +2282,58 @@ function look() {
 }
 
 /**
- * Offered, not applied.
+ * Applied when it can prove it, offered when it can only guess.
  *
- * It was applied at first, and it should not have been. Swept over 162 camera
- * positions the reading is wrong about a solved cube roughly as often as it is
- * right about a scrambled one -- three false alarms against six catches, and
- * raising the bar only trades one for the other. A tool about as likely to
- * penalise a good solve as to catch a bad one is worse than no tool, so it asks
- * instead. Nothing changes unless the button is pressed.
+ * Guessing is what it does with no colours to go on: which stickers match which
+ * has to come out of the picture alone, and swept over 972 setups that is wrong
+ * about a solved cube roughly as often as it is right about a scrambled one --
+ * nine false alarms against forty-three catches, and raising the bar only
+ * trades one for the other. So without a taught cube it asks, and nothing
+ * changes unless the button is pressed.
+ *
+ * Taught this cube's six colours, it is not guessing any more. Every cell goes
+ * to the nearest known colour and the patches those make are counted: three, one
+ * per visible face, is a solved cube. Over 108 setups across four different
+ * lights that is wrong once, and catches every single one-move and scrambled
+ * cube -- including the +2, which counting colours could never see at all. That
+ * is worth acting on, with an undo for the once.
  */
 function offerVerdict(verdict) {
   const solve = cameraSubject;
   const index = solves.indexOf(solve);
+  const taught = settings.cubeColours.length >= ALL_SIX;
   releaseCamera();
   if (index < 0 || verdict === 'none') return;
 
-  toast('Camera denkt: meer dan één zet ernaast.', {
-    label: 'DNF zetten',
+  const apply = () => {
+    if (solves.indexOf(solve) < 0) return false;
+    solve.penalty = verdict;
+    persist();
+    render();
+    cue('miss');
+    return true;
+  };
+
+  if (!taught) {
+    toast('Camera denkt: meer dan één zet ernaast.', {
+      label: 'DNF zetten',
+      run: () => { if (apply()) toast(`DNF gezet op ${formatSolve(solve)}.`); }
+    });
+    return;
+  }
+
+  const was = solve.penalty || 'none';
+  if (!apply()) return;
+  toast(verdict === '+2'
+    ? `Eén zet ernaast — +2 op ${formatSolve(solve)}.`
+    : `Meer dan één zet ernaast — DNF op ${formatSolve(solve)}.`, {
+    label: 'Toch niet',
     run: () => {
       if (solves.indexOf(solve) < 0) return;
-      solve.penalty = 'DNF';
+      solve.penalty = was;
       persist();
       render();
-      cue('miss');
-      toast(`DNF gezet op ${formatSolve(solve)}.`);
+      toast(`Straf weer weg bij ${formatSolve(solve)}.`);
     }
   });
 }
@@ -2332,6 +2364,9 @@ const LOOK_WORDS = {
   'niet zeker genoeg': ['Niet zeker genoeg', 'Hier zou hij zwijgen en je solve met rust laten.'],
   'te weinig zicht': ['Te weinig zicht', 'Genoeg om te zien dat er iets ligt, te weinig om iets te bewijzen.'],
   'te klein om te oordelen': ['Te klein om iets te durven zeggen', 'Hij leest hem wel, maar zo klein in beeld splitst hij drie kleuren net zo makkelijk in zes. Trek de hoeken strakker om je matje.'],
+  'niets te zien': ['Niets aan te merken', 'Eén vlek per zichtbaar vlak — zo ziet een opgeloste kubus eruit.'],
+  'een zet ernaast': ['Eén zet ernaast', 'Een streep van een andere kleur over twee vlakken. Dit wordt een +2.'],
+  'kleuren kloppen niet': ['Kleuren kloppen niet', 'Veel hiervan lijkt op geen van de geleerde kleuren. Ander licht? Leer de kleuren opnieuw.'],
   'niets te bewijzen': ['Niets aan te merken', 'Te weinig kleuren voor een straf — hier laat hij je solve met rust. Let op: drie vlakken kunnen opgelost niet bewijzen, alleen niet tegenspreken.'],
   'meer dan een zet': ['Meer dan één zet ernaast', 'Dit zou een DNF voorstellen.']
 };
@@ -2355,7 +2390,7 @@ function lookOnce() {
     return;
   }
 
-  const reading = inspectFrame(frame, emptyMat, cropShape(settings.crop));
+  const reading = inspectFrame(frame, emptyMat, cropShape(settings.crop), settings.cubeColours);
   el.lookOutline.setAttribute('d', foundPath(reading.found));
 
   let [headline, detail] = LOOK_WORDS[reading.state] || [reading.state, ''];
@@ -2367,9 +2402,11 @@ function lookOnce() {
   }
   el.lookStatus.textContent = headline;
   el.lookStatus.dataset.sure = String(reading.verdict !== 'none');
-  el.lookDetail.textContent = reading.colours
-    ? `${detail} · ${reading.faces === 3 ? 'drie vlakken' : 'geen hoekzicht'}, ${reading.colours} kleuren, zekerheid ${Math.round(reading.confidence * 100)}%`
-    : detail;
+  el.lookDetail.textContent = reading.patches !== undefined
+    ? `${detail} · ${reading.patches} vlek${reading.patches === 1 ? '' : 'ken'}, ${reading.colours} kleuren, zekerheid ${Math.round(reading.confidence * 100)}%`
+    : reading.colours
+      ? `${detail} · ${reading.colours} kleuren, zekerheid ${Math.round(reading.confidence * 100)}%`
+      : detail;
 }
 
 function learnMat() {
@@ -2581,6 +2618,92 @@ el.cameraLook.addEventListener('click', async () => {
   lookTimer = setInterval(lookOnce, LOOK_EVERY_MS);
   learnMat();
 });
+
+/* ---------- teaching it this cube's colours ----------
+
+   The reading was unsupervised: work out from the picture alone which stickers
+   match which. That is the part that kept going wrong, because under noise it
+   would split one face into two tidy groups and nothing in the arithmetic knew
+   better. Shown the six colours of the cube once, it no longer has to guess:
+   every cell goes to the nearest of six known colours, the patches those make
+   are counted, and a solved cube is three patches -- one per visible face.
+
+   Two goes are needed, because a cube on a mat only ever shows three of its six
+   faces. Put it down, teach, turn it over, teach again. */
+
+/** Near enough to be the same sticker colour, so a second go does not add
+    six more of what it already has. */
+const SAME_COLOUR = 0.03;
+
+function showColours() {
+  const learned = settings.cubeColours;
+  el.colourSwatches.replaceChildren(...learned.map(([x, y]) => {
+    const swatch = document.createElement('i');
+    // Chromaticity back to something to look at: the proportions are what was
+    // kept, so pick the brightest colour with those proportions.
+    const parts = [x, y, Math.max(0, 1 - x - y)];
+    const scale = 255 / Math.max(...parts);
+    swatch.style.background = `rgb(${parts.map((p) => Math.round(p * scale)).join(' ')})`;
+    return swatch;
+  }));
+  el.colourCount.textContent = learned.length
+    ? `${learned.length} van ${ALL_SIX} kleuren${learned.length >= ALL_SIX ? ' — compleet' : ''}`
+    : 'nog geen kleuren';
+  el.learnColours.dataset.done = String(learned.length >= ALL_SIX);
+  el.learnColours.textContent = learned.length
+    ? (learned.length >= ALL_SIX ? 'Opnieuw leren' : 'Draai hem om en leer de rest')
+    : 'Kleuren van deze kubus leren';
+
+  el.cameraBlurb.textContent = learned.length >= ALL_SIX
+    ? 'Zodra de tijd stopt zoekt de camera de kubus op het matje, telt de vlekken en zet zelf een +2 of een DNF — met een knop om het terug te draaien. Hij kent de kleuren van je kubus.'
+    : 'Zodra de tijd stopt zoekt de camera de kubus op het matje. Leer hem eerst de kleuren van je kubus bij "wat de camera ziet" — dan ziet hij een +2 en een DNF zelf. Zonder dat kan hij alleen gokken, en dan vraagt hij het.';
+}
+
+el.learnColours.addEventListener('click', () => {
+  el.learnColours.blur();
+  if (!camera || !emptyMat) {
+    el.lookStatus.textContent = 'Eerst het matje leren';
+    el.lookDetail.textContent = 'Haal de kubus even weg, wacht tot hij het matje kent, en leg hem er dan op.';
+    return;
+  }
+
+  // Six already means this is a fresh start under a different light.
+  if (settings.cubeColours.length >= ALL_SIX) settings.cubeColours = [];
+
+  const frame = camera.grab(FRAME_SIZE, settings.crop);
+  const found = frame && findCube(frame, emptyMat, cropShape(settings.crop));
+  if (!found || found.rejected) {
+    el.lookStatus.textContent = 'Geen kubus gezien';
+    el.lookDetail.textContent = 'Leg je opgeloste kubus midden op het matje, binnen de vier hoeken.';
+    return;
+  }
+
+  const learned = learnColours(found);
+  if (!learned) {
+    el.lookStatus.textContent = 'Kleuren niet af te lezen';
+    el.lookDetail.textContent = 'Te donker, of de kubus komt te klein uit.';
+    return;
+  }
+
+  const before = settings.cubeColours.length;
+  const kept = settings.cubeColours.slice();
+  for (const colour of learned.colours) {
+    if (!kept.some((known) => Math.hypot(known[0] - colour[0], known[1] - colour[1]) < SAME_COLOUR)) {
+      kept.push(colour);
+    }
+  }
+  settings.cubeColours = kept.slice(0, ALL_SIX);
+  storeSettings();
+  showColours();
+
+  const added = settings.cubeColours.length - before;
+  el.lookStatus.textContent = added ? `${added} kleur${added === 1 ? '' : 'en'} erbij` : 'Deze kende hij al';
+  el.lookDetail.textContent = settings.cubeColours.length >= ALL_SIX
+    ? 'Alle zes binnen. Vanaf nu leest hij de vlakken in plaats van kleuren te tellen — een +2 ziet hij nu ook.'
+    : 'Draai de kubus zodat er drie andere vlakken boven liggen, leg hem terug en druk nog eens.';
+});
+
+showColours();
 
 el.lookRelearn.addEventListener('click', () => { if (lookTimer) learnMat(); });
 el.lookClose.addEventListener('click', () => el.lookSheet.close());

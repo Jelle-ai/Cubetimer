@@ -222,6 +222,15 @@
 
     <p class="import-note">Sleep de vier hoeken op de hoeken van je matje — het mag scheef, want zo zie je het matje ook. Alleen wat binnen die vorm ligt wordt bekeken, en hoe strakker eromheen, hoe groter je kubus uitkomt. Sleep ernaast om de hele vorm te verschuiven.</p>
 
+    <div class="colour-teach">
+      <div class="colour-row">
+        <span id="colour-swatches" class="colour-swatches"></span>
+        <span id="colour-count" class="colour-count">nog geen kleuren</span>
+      </div>
+      <button type="button" id="learn-colours" class="wide">Kleuren van deze kubus leren</button>
+      <p id="colour-note" class="import-note">Leg je <em>opgeloste</em> kubus op het matje en druk hierop. Draai hem daarna om en druk nog eens, tot alle zes de kleuren binnen zijn. Daarmee ziet hij een +2 en een DNF zelf, in plaats van te gokken.</p>
+    </div>
+
     <div class="detail-actions">
       <button type="button" id="crop-reset">Hele beeld</button>
       <button type="button" id="look-relearn">Matje opnieuw leren</button>
@@ -541,9 +550,9 @@
     <section class="setting">
       <div class="setting-label">
         <span>Kubus controleren</span>
-        <small>Zodra de tijd stopt zoekt de camera de kubus op het matje. Denkt hij een DNF
-          te zien, dan vraagt hij het — hij zet zelf nooit iets. Zie "wat de camera ziet"
-          om te beoordelen of je hem in jouw opstelling wilt geloven</small>
+        <small id="camera-blurb">Zodra de tijd stopt zoekt de camera de kubus op het matje. Leer hem
+          eerst de kleuren van je kubus bij "wat de camera ziet" — dan ziet hij een +2 en een
+          DNF zelf. Zonder dat kan hij alleen gokken, en dan vraagt hij het</small>
       </div>
       <button type="button" class="switch" id="set-camera" role="switch" aria-checked="false" aria-label="Kubus controleren"><span></span></button>
     </section>
@@ -551,7 +560,7 @@
     <section class="setting">
       <div class="setting-label">
         <span>Wat de camera ziet</span>
-        <small>Kijk live mee en zie wat hij van je kubus maakt</small>
+        <small>Kijk live mee, snijd het beeld bij op je matje, en leer hem je kleuren</small>
       </div>
       <button type="button" id="camera-look" class="text-button">bekijken</button>
     </section>

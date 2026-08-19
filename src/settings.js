@@ -41,6 +41,9 @@ const DEFAULTS = {
   // mat sees a square; every other angle sees a trapezium, so the corners move
   // independently.
   crop: { corners: [[0, 0], [1, 0], [1, 1], [0, 1]] },
+  // The chromaticity of this cube's own six stickers, under this room's light,
+  // learned from the cube itself. Empty until you teach it.
+  cubeColours: [],
   font: 'rounded',
   practice: true,
   goalKind: 'time',   // 'time' counts the solving up, 'solves' counts the solves
@@ -115,6 +118,12 @@ export function loadSettings() {
     for (const key of OPT_IN) settings[key] = settings[key] === true;
 
     settings.crop = { corners: cleanCorners(settings.crop) };
+    settings.cubeColours = Array.isArray(settings.cubeColours)
+      ? settings.cubeColours
+        .filter((c) => Array.isArray(c) && c.length === 2 && c.every((v) => Number.isFinite(Number(v))))
+        .slice(0, 6)
+        .map(([x, y]) => [Number(x), Number(y)])
+      : [];
 
     const colors = { ...DEFAULTS.colors, ...(settings.colors || {}) };
     for (const { key, fallback } of COLOR_SLOTS) {

@@ -103,13 +103,12 @@ function spread(members) {
  *
  * @returns {{labels: number[], colours: number, clarity: number, separation: number}|null}
  */
-export function classify(samples, mostColours = 6) {
-  const brightness = samples.map(([r, g, b]) => (r + g + b) / 3).sort((a, b) => a - b);
-  if (samples.length < 6 || brightness[brightness.length >> 1] < 46) return null;
-
-  const points = samples.map(chroma);
-  if (points.some((p) => p === null)) return null;
-
+/**
+ * Join the closest two groups over and over, and keep what every count along
+ * the way looked like. Cheapest pair first, so two halves of one face join for
+ * almost nothing while red and orange cost a great deal.
+ */
+function merge(points) {
   let groups = points.map((_, index) => [index]);
   const steps = [];
 
@@ -125,6 +124,17 @@ export function classify(samples, mostColours = 6) {
       .concat([[...groups[best.i], ...groups[best.j]]]);
     steps[groups.length] = { groups: groups.map((g) => g.slice()), cost: best.width };
   }
+  return steps;
+}
+
+export function classify(samples, mostColours = 6) {
+  const brightness = samples.map(([r, g, b]) => (r + g + b) / 3).sort((a, b) => a - b);
+  if (samples.length < 6 || brightness[brightness.length >> 1] < 46) return null;
+
+  const points = samples.map(chroma);
+  if (points.some((p) => p === null)) return null;
+
+  const steps = merge(points);
 
   let choice = null;
   for (let k = 1; k <= mostColours; k++) {
@@ -364,7 +374,8 @@ function differs(cells, other, at) {
  * @param {Float32Array|null} empty the mat with nothing on it
  */
 export function findCube(image, empty, shape = null) {
-  const cells = coarse(image);
+  const grid = coarse(image);
+  const cells = grid;
   if (!empty) return null; // without a picture of the empty mat there is nothing to compare to
 
   const change = new Float32Array(GRID * GRID);
@@ -417,6 +428,7 @@ export function findCube(image, empty, shape = null) {
 
   return {
     cells: blob,
+    grid,
     mask: filled,
     left,
     top,
@@ -587,6 +599,17 @@ export function faceShape(face) {
  */
 export const CERTAIN = 0.6;
 
+/**
+ * How far in from the silhouette's edge a cell has to be. Two for reading the
+ * patches, three for the older colour count -- which samples far fewer places
+ * and so cannot afford a single one of them landing on the rim.
+ */
+const PATCH_MARGIN = 2;
+const SAMPLE_MARGIN = 3;
+
+/** A cube has six colours, and the patch reading wants all of them. */
+export const ALL_SIX = 6;
+
 /** Wide enough, in pixels, for nine stickers to be worth reading at all. */
 const READ_AT = 56;
 
@@ -629,7 +652,28 @@ const JUDGE_AT = 180;
  * @returns {{verdict: 'none'|'DNF', state: string, faces: number, colours: number,
  *   confidence: number, found: object|null}}
  */
-export function inspectFrame(image, empty, shape = null) {
+/**
+ * How many patches mean what. A solved cube shows one unbroken patch per
+ * visible face, so three at a corner and fewer edge-on. One quarter turn lays a
+ * stripe of another colour across two of them, which is four or five. Anything
+ * beyond that is more than one move.
+ *
+ * Reading it this way round is deliberately deaf rather than wrong: a cube
+ * showing only two faces can hide a turn and come back as three patches, and a
+ * missed penalty is a far better mistake than one invented out of a bad angle.
+ */
+function fromPatches(count) {
+  if (count <= 3) return { verdict: 'none', state: 'niets te zien' };
+  if (count <= 5) return { verdict: '+2', state: 'een zet ernaast' };
+  return { verdict: 'DNF', state: 'meer dan een zet' };
+}
+
+/**
+ * @param {[number, number][]} [references] the colours of this cube's own
+ * stickers, learned from it once. With them the reading is about where the
+ * colours lie; without them it can only count how many there are.
+ */
+export function inspectFrame(image, empty, shape = null, references = null) {
   const found = findCube(image, empty, shape);
   if (!found) return { verdict: 'none', state: 'geen kubus', faces: 0, colours: 0, confidence: 0, found: null };
   if (found.rejected) {
@@ -659,10 +703,9 @@ export function inspectFrame(image, empty, shape = null) {
   // a sticker is a whole extra colour -- which on a solved cube is the
   // difference between three and four.
   const inner = [];
-  const MARGIN = 3;
   const clear = (x, y) => {
-    for (let dy = -MARGIN; dy <= MARGIN; dy++) {
-      for (let dx = -MARGIN; dx <= MARGIN; dx++) {
+    for (let dy = -SAMPLE_MARGIN; dy <= SAMPLE_MARGIN; dy++) {
+      for (let dx = -SAMPLE_MARGIN; dx <= SAMPLE_MARGIN; dx++) {
         const ny = y + dy;
         const nx = x + dx;
         if (ny < 0 || nx < 0 || ny >= GRID || nx >= GRID || !found.mask[ny * GRID + nx]) return false;
@@ -691,6 +734,28 @@ export function inspectFrame(image, empty, shape = null) {
   const lit = colours.filter((_, i) => brightness[i] >= middleBright * 0.55);
   if (lit.length < 18) return { verdict: 'none', state: 'niet leesbaar', ...base };
 
+  // With this cube's own colours in hand, the patches say it outright. All six
+  // of them, though: taught only half, a face it has never seen snaps to
+  // whichever taught colour is least unlike it, and a solved cube comes apart
+  // into patches that were never there.
+  if (references?.length >= ALL_SIX) {
+    const spread = patches(found, references, { margin: PATCH_MARGIN });
+    if (!spread) return { verdict: 'none', state: 'niet leesbaar', ...base };
+    if (spread.read < 0.55) return { verdict: 'none', state: 'kleuren kloppen niet', ...base, colours: spread.colours };
+
+    const called = fromPatches(spread.patches);
+    return {
+      ...called,
+      found,
+      faces: 3,
+      colours: spread.colours,
+      patches: spread.patches,
+      // How much of the cube every cell could be placed on a known colour. A
+      // cube read cleanly leaves almost nothing over.
+      confidence: Math.max(0, Math.min(1, (spread.read - 0.55) / 0.35))
+    };
+  }
+
   const grouped = classify(lit);
   if (!grouped) return { verdict: 'none', state: 'niet leesbaar', ...base };
 
@@ -711,6 +776,179 @@ export function inspectFrame(image, empty, shape = null) {
   // says what it sees, and keeps its opinion to itself.
   if (across < JUDGE_AT) return { verdict: 'none', state: 'te klein om te oordelen', ...now };
   return { verdict: 'DNF', state: 'meer dan een zet', ...now };
+}
+
+/* ---------- how the colours lie, not just how many ----------
+
+   Counting colours throws away the thing that actually distinguishes a solved
+   cube: not that there are three, but that each one is a single unbroken patch
+   filling its own face. One quarter turn puts a stripe of another colour across
+   two faces, so a cube one move out has five patches even when it still only
+   shows five colours -- and a scrambled one has twenty.
+
+   Counting patches instead of colours also survives the failure that has cost
+   the most: noise splitting one face into two well-separated groups. Split it
+   how you like, the cells are still where they were, and two halves of one face
+   that touch are one patch. */
+
+/**
+ * The colours of the faces in front of the lens right now, as chromaticity.
+ *
+ * Meant for a solved cube on the mat: what comes back is up to three of the six
+ * colours of this particular cube, under this particular light. Turn it over
+ * and ask again for the other three.
+ *
+ * @returns {{colours: [number, number][], spread: number}|null}
+ */
+export function learnColours(found, { faces = 3, margin = 2 } = {}) {
+  if (!found?.grid) return null;
+
+  const inside = interior(found, margin);
+  const points = [];
+  for (let at = 0; at < inside.length; at++) {
+    if (!inside[at]) continue;
+    const point = chroma([found.grid[at * 3], found.grid[at * 3 + 1], found.grid[at * 3 + 2]]);
+    if (point) points.push(point);
+  }
+  if (points.length < 60) return null;
+
+  // A few hundred is plenty and the merging is quadratic in what it is given.
+  const step = Math.ceil(points.length / 160);
+  const taken = points.filter((_, index) => index % step === 0);
+
+  const steps = merge(taken);
+  const chosen = steps[faces] || steps[2];
+  if (!chosen) return null;
+
+  return {
+    colours: chosen.groups.map((group) => centreOf(group.map((k) => taken[k]))),
+    // How tight the tightest group is: a solved cube's faces should be tight,
+    // and anything loose means this was not a solved cube.
+    spread: Math.max(...chosen.groups.map((group) => spread(group.map((k) => taken[k]))))
+  };
+}
+
+/** Cells of the silhouette that are well clear of its edge. */
+function interior(found, margin) {
+  const inside = new Uint8Array(GRID * GRID);
+  for (let y = found.top; y <= found.bottom; y++) {
+    for (let x = found.left; x <= found.right; x++) {
+      let clear = true;
+      for (let dy = -margin; dy <= margin && clear; dy++) {
+        for (let dx = -margin; dx <= margin && clear; dx++) {
+          const ny = y + dy;
+          const nx = x + dx;
+          if (ny < 0 || nx < 0 || ny >= GRID || nx >= GRID || !found.mask[ny * GRID + nx]) clear = false;
+        }
+      }
+      if (clear) inside[y * GRID + x] = 1;
+    }
+  }
+  return inside;
+}
+
+/**
+ * Every cell of the cube given the label of the reference colour nearest to it,
+ * and then the patches those labels make.
+ *
+ * @param {[number, number][]} references chromaticities of this cube's own
+ * stickers, learned once from the cube itself.
+ * @param {number} tolerance how far a cell may sit from every reference before
+ * it is treated as a seam or a shadow and left out.
+ */
+export function patches(found, references, { margin = 2, tolerance = 0.055, part = 1 / 20 } = {}) {
+  if (!found?.grid || !references?.length) return null;
+
+  const inside = interior(found, margin);
+  const label = new Int8Array(GRID * GRID).fill(-1);
+  let counted = 0;
+  let stray = 0;
+
+  for (let at = 0; at < inside.length; at++) {
+    if (!inside[at]) continue;
+    const point = chroma([found.grid[at * 3], found.grid[at * 3 + 1], found.grid[at * 3 + 2]]);
+    if (!point) { stray++; continue; }
+
+    let best = -1;
+    let closest = Infinity;
+    references.forEach((reference, index) => {
+      const distance = gap(point, reference);
+      if (distance < closest) { closest = distance; best = index; }
+    });
+    if (closest > tolerance) { stray++; continue; }
+    label[at] = best;
+    counted++;
+  }
+
+  if (counted < 40) return null;
+
+  // The black seams between stickers match no colour, so they are left out --
+  // and they run right between the nine stickers of a face, which turns one
+  // patch into nine. Nothing has changed colour there, so the gaps are closed
+  // by handing each one the label most of its neighbours carry. A face becomes
+  // one patch again; two different faces meeting do not, because the seam
+  // between them has a different colour on either side.
+  for (let round = 0; round < 3; round++) {
+    const filled = [];
+    for (let at = 0; at < label.length; at++) {
+      if (label[at] >= 0 || !inside[at]) continue;
+      const votes = new Map();
+      const y = Math.floor(at / GRID);
+      const x = at % GRID;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) continue;
+        const near = label[ny * GRID + nx];
+        if (near >= 0) votes.set(near, (votes.get(near) || 0) + 1);
+      }
+      if (!votes.size) continue;
+      let winner = -1;
+      let most = 0;
+      for (const [value, count] of votes) if (count > most) { most = count; winner = value; }
+      filled.push([at, winner]);
+    }
+    if (!filled.length) break;
+    for (const [at, value] of filled) label[at] = value;
+  }
+
+  // Patches: runs of touching cells carrying the same label. Anything smaller
+  // than a fraction of a sticker is a seam caught between two of them.
+  const floor = Math.max(6, Math.round(counted * part));
+  const seen = new Uint8Array(label.length);
+  const sizes = [];
+
+  for (let start = 0; start < label.length; start++) {
+    if (label[start] < 0 || seen[start]) continue;
+    const mine = label[start];
+    const queue = [start];
+    seen[start] = 1;
+    let size = 0;
+
+    while (queue.length) {
+      const at = queue.pop();
+      size++;
+      const y = Math.floor(at / GRID);
+      const x = at % GRID;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) continue;
+        const next = ny * GRID + nx;
+        if (!seen[next] && label[next] === mine) { seen[next] = 1; queue.push(next); }
+      }
+    }
+    sizes.push(size);
+  }
+
+  const big = sizes.filter((size) => size >= floor).sort((a, b) => b - a);
+  return {
+    patches: big.length,
+    colours: new Set([...label].filter((value) => value >= 0)).size,
+    sizes: big,
+    /** How much of the cube the labels actually covered. */
+    read: counted / (counted + stray)
+  };
 }
 
 /* ---------- the camera ---------- */

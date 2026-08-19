@@ -1911,9 +1911,49 @@ body[data-miss] .halo {
   #look-sheet .camera-frame { grid-column: 1; grid-row: 2 / span 5; width: 100%; margin: 0; }
   #look-sheet .camera-status,
   #look-sheet .import-note,
+  #look-sheet .colour-teach,
   #look-sheet .detail-actions { grid-column: 2; }
+
+  #look-sheet .camera-frame { grid-row: 2 / span 8; }
   #look-sheet .detail-actions { margin-top: .6rem; }
 }
+
+/* ---------- this cube's own colours ---------- */
+
+.colour-teach { margin-top: .5rem; }
+
+.colour-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: .45rem;
+}
+
+.colour-swatches { display: flex; gap: .3rem; }
+
+/* A dark rim rather than a light one: white is one of the six, and a white
+   swatch on a white sheet with a pale outline is nothing at all. */
+.colour-swatches i {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .35);
+}
+
+.colour-count { font-size: .82rem; color: var(--muted); }
+
+#learn-colours.wide {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 12px;
+  background: var(--sunken);
+  font-size: .85rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+#learn-colours.wide:hover { background: var(--hover); color: var(--ink); }
+#learn-colours.wide[data-done="true"] { background: color-mix(in srgb, var(--ready) 18%, transparent); color: var(--ink); }
 
 /* ---------- what the camera sees while it judges ----------
 
@@ -1938,6 +1978,7 @@ body[data-miss] .halo {
 .camera-peek path { stroke: rgba(255, 255, 255, .85); stroke-width: .012; fill: none; }
 
 .camera-peek[data-state="found"] { border-color: var(--ready); }
+.camera-peek[data-state="one-move"] { border-color: var(--record); }
 .camera-peek[data-state="scrambled"] { border-color: var(--hold); }
 
 @keyframes peekIn {

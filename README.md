@@ -194,10 +194,51 @@ Alles telt over al je sessies samen — oefenen is oefenen, op welke puzzel dan 
 ## De kubus laten controleren
 
 Staat **kubus controleren** aan, dan gaat de selfiecamera open zodra je solve begint en
-kijkt hij naar het matje zodra de tijd stopt. Denkt hij dat de kubus meer dan één zet van
-opgelost af is, dan **vraagt** hij of het een DNF moet worden. Hij zet zelf nooit iets.
+kijkt hij naar het matje zodra de tijd stopt.
 
-### Waarom vragen en niet zetten
+Wat er dan gebeurt hangt af van één ding: of je hem de kleuren van je kubus geleerd hebt.
+
+### Leer hem je kleuren, dan hoeft hij niet meer te gokken
+
+Ga naar **instellingen → wat de camera ziet**, leg je **opgeloste** kubus op het matje en
+druk op *kleuren van deze kubus leren*. Hij ziet drie vlakken, dus draai hem om en druk
+nog eens. Na twee keer heeft hij alle zes, en staan ze als kleurvlakjes in het venster.
+
+Dat verandert alles, want de moeilijkheid zat nooit in de regel maar in het aflezen. Zonder
+die kleuren moet hij uit het beeld alleen afleiden welke stickers bij elkaar horen, en juist
+dát ging mis: onder ruis splitste hij één vlak in twee nette, goed gescheiden groepjes en
+niets in de rekensom wist beter.
+
+Mét die kleuren gaat elk stukje kubus naar de dichtstbijzijnde van zes bekende kleuren, en
+dan telt hij **vlekken** in plaats van kleuren. Dat is de eigenlijke vorm van je regel: een
+opgeloste kubus is één ononderbroken vlek per zichtbaar vlak, dus drie op een hoekaanzicht.
+Eén kwartslag legt een streep van een andere kleur over twee vlakken — vier of vijf vlekken.
+Alles daarboven is meer dan één zet. Een gescrambelde kubus komt uit op een stuk of twintig.
+
+Uitgemeten over 324 opstellingen — vier verschillende lichten, drie kubusgroottes,
+zevenentwintig camerahoeken, met kleuren die één keer onder één licht geleerd zijn. Vier
+keer gedraaid, want er zit ruis in:
+
+| | telt kleuren (ongeleerd) | telt vlekken (geleerd) |
+|---|---|---|
+| valse straf op opgeloste kubussen | 9 op 324 | **2 tot 5 op 324** |
+| gescrambelde kubus betrapt | 43 op 648 | **324 op 324**, elke keer |
+| +2 herkend | onmogelijk | **293 op 324** |
+
+De eenendertig +2's die niet als +2 langskwamen zijn niet gemist — die kwamen als DNF
+binnen. Er is geen enkele opstelling waarin een kubus die niet opgelost was, ongemoeid
+bleef.
+
+Vandaar: **is hij geleerd, dan zet hij de straf zelf**, met een *toch niet* in de melding
+om het terug te draaien. Is hij niet geleerd, dan blijft hij bij vragen — de rest van deze
+paragraaf gaat over waarom.
+
+Twee eerlijke kanttekeningen. Die getallen komen uit een tekening van een kubus, niet uit
+jouw kamer; **wat de camera ziet** is er om te controleren of het bij jou ook zo gaat. En
+de kleuren zijn geleerd onder het licht van dat moment: verhuis je lamp, dan is het één
+druk op *opnieuw leren*.
+
+### Waarom vragen en niet zetten, als hij niets geleerd heeft
 
 Jouw regel klopt volledig: één vlak dat niet één kleur is maar zes-en-drie, dat is één zet
 ernaast; een vlak met kleuren door elkaar is verder weg. Nagerekend op het echte
@@ -211,7 +252,8 @@ schoof dat raster vaak genoeg mis om **31 straffen uit te delen op kubussen die 
 waren**. Eén op vijf.
 
 Zonder dat raster, door alleen de kleuren over de hele kubus te tellen, wordt het beter
-maar niet goed. Uitgemeten over 972 opstellingen — drie matjes, vier kubusgroottes,
+maar niet goed — en dit is precies wat je overhoudt als hij je kleuren niet kent.
+Uitgemeten over 972 opstellingen — drie matjes, vier kubusgroottes,
 zevenentwintig camerahoeken — deelt hij negen valse straffen uit op 324 opgeloste
 kubussen en betrapt hij er 43 van 648 gescrambelde. Ongeveer één misser tegenover vijf
 vangsten, en de drempel verhogen ruilt het ene tegen het andere. Beter dan het was, nog
