@@ -627,34 +627,68 @@ export function foundPath(found) {
 }
 
 /**
- * Ask for the front camera and hand back a way to grab one square frame.
+ * The front camera, asked for in the strongest terms first.
  *
- * The front one, because the phone stands facing you with the mat in front of
- * it -- that way the screen is readable while it films. "ideal" rather than
- * "exact" so a machine with only one camera still gets one.
- *
- * Which way round the picture comes is of no consequence to anything below:
- * a mirrored cube has the same colours in the same numbers, and the shape a
- * single turn leaves is a strip along an edge either way round.
- *
- * @returns {Promise<{stream: MediaStream, grab: (size: number) => ImageData}>}
+ * "ideal" is a wish, and Safari on an iPad grants it about as often as it feels
+ * like -- which is why this kept opening the back one. So the exact constraint
+ * goes first and the wish is only the fallback, with a bare request behind that
+ * for anything with a single camera.
+ */
+const WISHES = [
+  { label: 'voorcamera', video: { facingMode: { exact: 'user' }, width: { ideal: 1280 }, height: { ideal: 1280 } } },
+  { label: 'voorcamera', video: { facingMode: 'user', width: { ideal: 1280 } } },
+  { label: 'voorcamera', video: { facingMode: { ideal: 'user' } } },
+  { label: 'enige camera', video: true }
+];
+
+/** Which camera the stream turned out to be, as the browser labels it. */
+function describeStream(stream, wish) {
+  const track = stream.getVideoTracks()[0];
+  const facing = track?.getSettings?.().facingMode;
+  if (facing === 'user') return 'voorcamera';
+  if (facing === 'environment') return 'achtercamera';
+  const name = (track?.label || '').toLowerCase();
+  if (name.includes('front')) return 'voorcamera';
+  if (name.includes('back') || name.includes('rear')) return 'achtercamera';
+  return wish;
+}
+
+/**
+ * Ask for a camera and hand back a way to grab one square frame.
+ * @returns {Promise<{stream: MediaStream, which: string, grab: (size: number) => ImageData}>}
  */
 export async function openCamera(video) {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error('Deze browser geeft geen toegang tot de camera.');
 
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: 'user' }, width: { ideal: 1280 }, height: { ideal: 1280 } },
-    audio: false
-  });
+  let stream = null;
+  let which = '';
+  let last = null;
+  for (const wish of WISHES) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ ...wish, label: undefined, audio: false });
+      which = describeStream(stream, wish.label);
+      break;
+    } catch (error) {
+      last = error;
+      // A refusal is a refusal; only a constraint this device cannot meet is
+      // worth trying the next wish for.
+      if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') throw error;
+    }
+  }
+  if (!stream) throw last || new Error('Geen camera gevonden.');
 
   video.srcObject = stream;
-  await video.play();
+  // A refused autoplay is not a reason to give up: the frames still arrive, and
+  // whether the preview animates is a separate question from whether the cube
+  // can be read.
+  await video.play().catch(() => {});
 
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d', { willReadFrequently: true });
 
   return {
     stream,
+    which,
     grab(size) {
       const width = video.videoWidth;
       const height = video.videoHeight;
@@ -667,4 +701,20 @@ export async function openCamera(video) {
       return context.getImageData(0, 0, size, size);
     }
   };
+}
+
+/**
+ * Get the permission question over with, at the first touch of the page rather
+ * than in the middle of a solve. Nothing is kept: the stream is closed the
+ * moment it arrives, and all that is wanted is the browser's answer.
+ */
+export async function askForCamera() {
+  if (!navigator.mediaDevices?.getUserMedia) return 'geen camera in deze browser';
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'user' } }, audio: false });
+    stream.getTracks().forEach((track) => track.stop());
+    return 'toegestaan';
+  } catch (error) {
+    return error?.name === 'NotAllowedError' ? 'geweigerd' : `lukt niet: ${error?.name || error}`;
+  }
 }

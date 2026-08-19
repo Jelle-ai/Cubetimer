@@ -216,6 +216,17 @@ verhogen ruilt het ene simpelweg tegen het andere. Een hulpje dat ongeveer even 
 goede solve afkeurt als het een slechte betrapt, is slechter dan geen hulpje. Vandaar dat
 het bij een vraag blijft.
 
+### Toestemming en welke camera
+
+De toestemmingsvraag komt zodra je de pagina voor het eerst aanraakt, niet midden in een
+solve. Eerder kan niet: een browser stelt die vraag alleen naar aanleiding van iets wat je
+zelf doet. Onder **instellingen → toestemming** staat wat eruit kwam, en er staat ook bij
+**welke camera** hij daadwerkelijk kreeg — voorcamera of achtercamera. Lukt het niet, dan
+staat de reden er in plaats van een leeg scherm.
+
+De voorcamera wordt met `exact` gevraagd en pas daarna met een wens als reserve. Alleen
+een wens bleek niet genoeg: Safari op een iPad geeft je dan gewoon de achterkant.
+
 ### Live meekijken
 
 **Instellingen → wat de camera ziet** laat zien wat hij doet: eerst leert hij een paar

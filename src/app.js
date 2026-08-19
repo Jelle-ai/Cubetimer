@@ -8,7 +8,7 @@ import { load, save } from './store.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
-import { CERTAIN, coarse, foundPath, inspectFrame, openCamera, reference } from './vision.js';
+import { CERTAIN, askForCamera, coarse, foundPath, inspectFrame, openCamera, reference } from './vision.js';
 import {
   dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
 } from './practice.js';
@@ -85,6 +85,8 @@ const el = {
   pickedList: document.getElementById('picked-list'),
   pickedClose: document.getElementById('picked-close'),
   cameraLook: document.getElementById('camera-look'),
+  cameraAllow: document.getElementById('camera-allow'),
+  cameraState: document.getElementById('camera-state'),
   lookSheet: document.getElementById('look-sheet'),
   lookVideo: document.getElementById('look-video'),
   lookOutline: document.getElementById('look-outline'),
@@ -2054,7 +2056,20 @@ async function useCamera(video) {
     return camera;
   }
   camera = await openCamera(video);
+  el.cameraState.textContent = `Camera werkt — ${camera.which}.`;
   return camera;
+}
+
+/** Plain words for a camera that will not open, in the settings and in a toast. */
+function cameraFailed(error) {
+  console.error('Camera:', error);
+  const words = error?.name === 'NotAllowedError'
+    ? 'Geen toegang tot de camera. Sta het toe in je browser.'
+    : error?.name === 'NotFoundError'
+      ? 'Geen camera gevonden op dit toestel.'
+      : `Camera lukt niet — ${error?.name || ''} ${error?.message || error}`.trim();
+  el.cameraState.textContent = words;
+  return words;
 }
 
 function releaseCamera() {
@@ -2088,9 +2103,7 @@ async function warmCamera() {
   } catch (error) {
     // A solve is running; a camera that will not open is not worth interrupting
     // it for. It is said once, quietly, when the solve is over.
-    cameraTrouble = error?.name === 'NotAllowedError'
-      ? 'Geen toegang tot de camera. Sta het toe in je browser, of zet de controle uit.'
-      : `Camera lukt niet: ${error?.message || error}`;
+    cameraTrouble = cameraFailed(error);
   }
 }
 
@@ -2238,7 +2251,7 @@ function learnMat() {
   el.lookOutline.setAttribute('d', '');
   el.lookStatus.textContent = 'Het lege matje leren…';
   el.lookStatus.dataset.sure = 'false';
-  el.lookDetail.textContent = 'Haal de kubus even weg. Dit is wat er tijdens je solve ook gebeurt.';
+  el.lookDetail.textContent = `Haal de kubus even weg. Dit is wat er tijdens je solve ook gebeurt. · ${camera?.which || 'camera'}`;
 
   setTimeout(() => {
     if (!lookTimer) return;
@@ -2252,23 +2265,34 @@ function learnMat() {
   }, LEARN_MS);
 }
 
+/** Opening a sheet from inside another one has been known to throw on Safari. */
+function openSheet(sheet) {
+  try {
+    sheet.showModal();
+  } catch {
+    sheet.show();
+  }
+  return sheet.open;
+}
+
 el.cameraLook.addEventListener('click', async () => {
   el.cameraLook.blur();
   el.lookStatus.textContent = 'Camera starten…';
   el.lookStatus.dataset.sure = 'false';
   el.lookDetail.textContent = '';
   el.lookOutline.setAttribute('d', '');
-  el.lookSheet.showModal();
+
+  if (!openSheet(el.lookSheet)) {
+    toast('Dit venster gaat niet open in deze browser.');
+    return;
+  }
 
   try {
     await useCamera(el.lookVideo);
+    el.lookStatus.textContent = `Camera aan — ${camera.which}`;
   } catch (error) {
-    el.lookStatus.textContent = error?.name === 'NotAllowedError'
-      ? 'Geen toegang tot de camera'
-      : 'Camera lukt niet';
-    el.lookDetail.textContent = error?.name === 'NotAllowedError'
-      ? 'Sta het toe in je browser, of zet de controle uit.'
-      : String(error?.message || error);
+    el.lookStatus.textContent = 'Camera lukt niet';
+    el.lookDetail.textContent = cameraFailed(error);
     return;
   }
 
@@ -2288,6 +2312,35 @@ el.lookSheet.addEventListener('close', () => {
   // to put away.
   releaseCamera();
   el.lookVideo.srcObject = null;
+});
+
+/**
+ * The permission question, asked at the first touch of the page instead of in
+ * the middle of a solve. It cannot be asked on load: a browser will only put
+ * that question up in answer to something the user did, so the first thing the
+ * user does is what it waits for.
+ */
+let permissionAsked = false;
+
+async function askEarly() {
+  if (permissionAsked || !settings.camera) return;
+  permissionAsked = true;
+  el.cameraState.textContent = 'Toestemming vragen…';
+  const answer = await askForCamera();
+  el.cameraState.textContent = answer === 'toegestaan'
+    ? 'Camera toegestaan.'
+    : `Camera ${answer}.`;
+  if (answer !== 'toegestaan') toast(`Camera ${answer}. Zet de controle uit als je hem niet wilt.`);
+}
+
+for (const moment of ['pointerdown', 'keydown']) {
+  addEventListener(moment, askEarly, { once: true, passive: true });
+}
+
+el.cameraAllow.addEventListener('click', () => {
+  el.cameraAllow.blur();
+  permissionAsked = false;
+  askEarly();
 });
 
 /* ---------- screen wake lock ---------- */
