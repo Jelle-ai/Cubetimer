@@ -242,6 +242,81 @@ function close(mask, times = 2) {
   return current;
 }
 
+/**
+ * Two thresholds instead of one: cells well above `high` are the cube for
+ * certain, and anything above `low` that touches them joins in.
+ *
+ * One threshold is what broke a scrambled cube on a blue mat. A single white
+ * sticker sets the ceiling, the ceiling sets the threshold, and every blue
+ * sticker -- which on a blue mat barely differs from the mat at all -- falls
+ * under it. The silhouette then comes apart into pieces, and the biggest piece
+ * is a corner of a cube rather than a cube: too small to read, or too odd a
+ * shape to accept. A solved cube showing white, red and green has no such
+ * sticker and sailed through, which is exactly the difference that was being
+ * reported.
+ */
+function hysteresis(change, high, low) {
+  const mask = new Uint8Array(change.length);
+  const queue = [];
+  for (let at = 0; at < change.length; at++) {
+    if (change[at] > high) { mask[at] = 1; queue.push(at); }
+  }
+
+  while (queue.length) {
+    const at = queue.pop();
+    const y = Math.floor(at / GRID);
+    const x = at % GRID;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) continue;
+      const next = ny * GRID + nx;
+      if (!mask[next] && change[next] > low) { mask[next] = 1; queue.push(next); }
+    }
+  }
+  return mask;
+}
+
+/**
+ * Anything enclosed by the shape is part of it. A sticker the same colour as
+ * the mat leaves a hole no threshold can help with -- there is nothing there to
+ * find -- but a cube has no windows, so a hole in the middle of one is a
+ * sticker that went missing rather than a gap in the cube.
+ */
+function fillHoles(cells) {
+  const mask = new Uint8Array(GRID * GRID);
+  for (const at of cells) mask[at] = 1;
+
+  // Flood the outside in from the border; what the flood never reaches and is
+  // not already the shape is enclosed by it.
+  const outside = new Uint8Array(mask.length);
+  const queue = [];
+  for (let i = 0; i < GRID; i++) {
+    for (const at of [i, (GRID - 1) * GRID + i, i * GRID, i * GRID + GRID - 1]) {
+      if (!mask[at] && !outside[at]) { outside[at] = 1; queue.push(at); }
+    }
+  }
+
+  while (queue.length) {
+    const at = queue.pop();
+    const y = Math.floor(at / GRID);
+    const x = at % GRID;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) continue;
+      const next = ny * GRID + nx;
+      if (!mask[next] && !outside[next]) { outside[next] = 1; queue.push(next); }
+    }
+  }
+
+  const whole = [];
+  for (let at = 0; at < mask.length; at++) {
+    if (mask[at] || !outside[at]) whole.push(at);
+  }
+  return whole;
+}
+
 /** The biggest run of touching cells. */
 function largestBlob(mask) {
   const seen = new Uint8Array(mask.length);
@@ -300,11 +375,11 @@ export function findCube(image, empty) {
   }
   if (ceiling < 0.12) return null; // nothing arrived on the mat
 
-  const mask = new Uint8Array(change.length);
-  for (let at = 0; at < change.length; at++) mask[at] = change[at] > Math.max(0.09, ceiling * 0.35) ? 1 : 0;
+  const mask = hysteresis(change, Math.max(0.09, ceiling * 0.35), Math.max(0.05, ceiling * 0.12));
 
-  const blob = largestBlob(close(mask));
-  if (!blob || blob.length < 60) return null; // too small to read nine stickers off
+  const found = largestBlob(close(mask));
+  if (!found || found.length < 60) return null; // too small to read nine stickers off
+  const blob = fillHoles(found);
 
   const filled = new Uint8Array(change.length);
   for (const at of blob) filled[at] = 1;
@@ -508,6 +583,12 @@ export function faceShape(face) {
  */
 export const CERTAIN = 0.6;
 
+/** Wide enough, in pixels, for nine stickers to be worth reading at all. */
+const READ_AT = 56;
+
+/** And wide enough for what comes out to be worth acting on. */
+const JUDGE_AT = 180;
+
 
 /**
  * Look at one frame and say only what it can stand behind.
@@ -560,7 +641,7 @@ export function inspectFrame(image, empty) {
   // Nine stickers need to come out about six pixels each to be worth reading.
   // This used to ask for ten, which on a camera taking in a whole mat is a cube
   // filling a fifth of the picture -- more than anyone's ever does.
-  if (across < 56) return { verdict: 'none', state: 'te klein in beeld', faces: 0, colours: 0, confidence: 0, found };
+  if (across < READ_AT) return { verdict: 'none', state: 'te klein in beeld', faces: 0, colours: 0, confidence: 0, found };
 
   const base = { found, faces: 0, colours: 0, confidence: 0 };
 
@@ -569,9 +650,10 @@ export function inspectFrame(image, empty) {
   // a sticker is a whole extra colour -- which on a solved cube is the
   // difference between three and four.
   const inner = [];
+  const MARGIN = 3;
   const clear = (x, y) => {
-    for (let dy = -2; dy <= 2; dy++) {
-      for (let dx = -2; dx <= 2; dx++) {
+    for (let dy = -MARGIN; dy <= MARGIN; dy++) {
+      for (let dx = -MARGIN; dx <= MARGIN; dx++) {
         const ny = y + dy;
         const nx = x + dx;
         if (ny < 0 || nx < 0 || ny >= GRID || nx >= GRID || !found.mask[ny * GRID + nx]) return false;
@@ -609,8 +691,17 @@ export function inspectFrame(image, empty) {
   // groups to be right -- which is what clarity measures. Whether any one
   // sticker is in the right group does not come into it.
   if (grouped.clarity < 0.6) return { verdict: 'none', state: 'niet zeker genoeg', ...now };
-  if (grouped.colours > ONE_MOVE_AT_MOST[3]) return { verdict: 'DNF', state: 'meer dan een zet', ...now };
-  return { verdict: 'none', state: 'niets te bewijzen', ...now };
+  if (grouped.colours <= ONE_MOVE_AT_MOST[3]) return { verdict: 'none', state: 'niets te bewijzen', ...now };
+
+  // Big enough to read is not big enough to accuse. Swept over three mats,
+  // five cube sizes and nine camera angles, a cube 200 pixels across is never
+  // once wrong about a solved cube; at 140 it is wrong six times in
+  // twenty-seven. The signal is the same either way -- the samples are simply
+  // too few pixels each to hold their colour, and the grouping splits three
+  // colours into six with every appearance of confidence. So it reads, and
+  // says what it sees, and keeps its opinion to itself.
+  if (across < JUDGE_AT) return { verdict: 'none', state: 'te klein om te oordelen', ...now };
+  return { verdict: 'DNF', state: 'meer dan een zet', ...now };
 }
 
 /* ---------- the camera ---------- */

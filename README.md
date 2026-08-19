@@ -211,10 +211,11 @@ schoof dat raster vaak genoeg mis om **31 straffen uit te delen op kubussen die 
 waren**. Eén op vijf.
 
 Zonder dat raster, door alleen de kleuren over de hele kubus te tellen, wordt het beter
-maar niet goed: ongeveer drie valse alarmen tegenover zes terechte, en de drempel
-verhogen ruilt het ene simpelweg tegen het andere. Een hulpje dat ongeveer even vaak een
-goede solve afkeurt als het een slechte betrapt, is slechter dan geen hulpje. Vandaar dat
-het bij een vraag blijft.
+maar niet goed. Uitgemeten over 972 opstellingen — drie matjes, vier kubusgroottes,
+zevenentwintig camerahoeken — deelt hij negen valse straffen uit op 324 opgeloste
+kubussen en betrapt hij er 43 van 648 gescrambelde. Ongeveer één misser tegenover vijf
+vangsten, en de drempel verhogen ruilt het ene tegen het andere. Beter dan het was, nog
+altijd niet goed genoeg om zelf iets te zetten. Vandaar dat het bij een vraag blijft.
 
 ### Toestemming en welke camera
 
@@ -233,6 +234,32 @@ een wens bleek niet genoeg: Safari op een iPad geeft je dan gewoon de achterkant
 seconden het lege matje, daarna leg je er een kubus op en zie je live wat hij ervan maakt.
 Dat is het eerlijkste stuk van de hele functie — je ziet zelf of je hem in jouw kamer,
 met jouw licht en jouw camerahoek, wilt geloven.
+
+### Wat blauw op blauw kapotmaakte
+
+Een gescrambelde kubus kwam er steevast uit als *te klein in beeld* of *geen kubusvorm*,
+en een opgeloste niet. Dat verschil zat in de blauwe stickers. De kubus wordt gevonden
+door hem van het lege matje af te trekken, en waar er één drempel was, werd die gezet op
+een deel van het grootste verschil in beeld. Eén wit vlakje bepaalt dat verschil; elk
+blauw vlakje op een blauw matje valt er dan onder. De omtrek viel uit elkaar en het
+grootste overgebleven stuk was een hoek van een kubus in plaats van een kubus. Een
+opgeloste kubus met wit, rood en groen in beeld heeft dat ene lastige vlakje niet en ging
+gewoon door.
+
+Er staan nu twee drempels: wat er ruim boven zit is de kubus, en alles wat er nét boven
+zit en daaraan raakt hoort erbij. Een blauw vlakje midden tussen de andere haalt het zo
+alsnog, en wat volledig wegvalt wordt opgevuld — een kubus heeft geen ramen, dus een gat
+middenin is een sticker die zoek is, geen gat in de kubus. Over diezelfde 972 opstellingen
+ging het van **194 keer afgewezen als geen kubusvorm naar nul**.
+
+### Groot genoeg om te lezen, groot genoeg om iets te zeggen
+
+Dat zijn twee verschillende dingen. Onder de 56 pixels breed is er niets te lezen. Tussen
+56 en 180 leest hij hem wel, maar zijn de monsters te weinig pixels elk om hun kleur vast
+te houden, en splitst de indeling drie kleuren met veel vertrouwen in zes: op 140 pixels
+zat hij zes keer op de zevenentwintig mis over een opgeloste kubus, op 200 geen enkele
+keer. Daartussenin zegt hij dus wat hij ziet en houdt hij zijn mening voor zich — met de
+raad het beeld bij te snijden, want dat is precies wat de kubus groter maakt.
 
 ### Het beeld bijsnijden
 

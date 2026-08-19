@@ -2225,6 +2225,7 @@ const LOOK_WORDS = {
   'niet leesbaar': ['Niet te lezen', 'Te donker, of te weinig van de kubus in zicht.'],
   'niet zeker genoeg': ['Niet zeker genoeg', 'Hier zou hij zwijgen en je solve met rust laten.'],
   'te weinig zicht': ['Te weinig zicht', 'Genoeg om te zien dat er iets ligt, te weinig om iets te bewijzen.'],
+  'te klein om te oordelen': ['Te klein om iets te durven zeggen', 'Hij leest hem wel, maar zo klein in beeld splitst hij drie kleuren net zo makkelijk in zes. Snijd het beeld bij tot je matje.'],
   'niets te bewijzen': ['Niets aan te merken', 'Te weinig kleuren voor een straf — hier laat hij je solve met rust. Let op: drie vlakken kunnen opgelost niet bewijzen, alleen niet tegenspreken.'],
   'meer dan een zet': ['Meer dan één zet ernaast', 'Dit zou een DNF voorstellen.']
 };
