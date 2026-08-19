@@ -363,13 +363,17 @@ function differs(cells, other, at) {
  * @param {ImageData} image
  * @param {Float32Array|null} empty the mat with nothing on it
  */
-export function findCube(image, empty) {
+export function findCube(image, empty, shape = null) {
   const cells = coarse(image);
   if (!empty) return null; // without a picture of the empty mat there is nothing to compare to
 
   const change = new Float32Array(GRID * GRID);
   let ceiling = 0;
   for (let at = 0; at < change.length; at++) {
+    // Outside the mat nothing counts, however much it changed. A hand landing
+    // on the desk beside the mat is a change like any other, and without this
+    // it is a bigger and more convincing one than the cube.
+    if (shape && !within(shape, ((at % GRID) + 0.5) / GRID, (Math.floor(at / GRID) + 0.5) / GRID)) continue;
     change[at] = differs(cells, empty, at);
     ceiling = Math.max(ceiling, change[at]);
   }
@@ -625,8 +629,8 @@ const JUDGE_AT = 180;
  * @returns {{verdict: 'none'|'DNF', state: string, faces: number, colours: number,
  *   confidence: number, found: object|null}}
  */
-export function inspectFrame(image, empty) {
-  const found = findCube(image, empty);
+export function inspectFrame(image, empty, shape = null) {
+  const found = findCube(image, empty, shape);
   if (!found) return { verdict: 'none', state: 'geen kubus', faces: 0, colours: 0, confidence: 0, found: null };
   if (found.rejected) {
     return { verdict: 'none', state: 'geen kubusvorm', faces: 0, colours: 0, confidence: 0, found };
@@ -754,13 +758,52 @@ function describeStream(stream, wish) {
 /**
  * The whole of the picture, or as much of it as is square.
  *
- * A crop is written in the coordinates of that square -- middle at (x, y),
- * side `size`, all fractions of it -- and not of the raw frame. That is on
- * purpose: the square is exactly what the preview shows, so a box dragged over
- * the preview and the pixels actually read out are the same thing, on a wide
- * camera as much as on a tall one.
+ * A crop is four corners written in the coordinates of that square, and not of
+ * the raw frame. That is on purpose: the square is exactly what the preview
+ * shows, so the shape dragged over the preview and the pixels actually read
+ * out are the same thing, on a wide camera as much as on a tall one.
+ *
+ * Four corners rather than a box because a camera looking at a mat from a
+ * chair sees a trapezium. A box around that trapezium takes in the desk at two
+ * of its corners, and a hand or a phone landing on that desk is a change on
+ * the mat as far as anything downstream can tell.
  */
-export const FULL_FRAME = { x: 0.5, y: 0.5, size: 1 };
+export const FULL_FRAME = { corners: [[0, 0], [1, 0], [1, 1], [0, 1]] };
+
+/** The square of the frame a crop is taken from: the corners, boxed and squared. */
+export function cropBox(crop) {
+  const corners = crop?.corners || FULL_FRAME.corners;
+  const xs = corners.map(([x]) => x);
+  const ys = corners.map(([, y]) => y);
+  const left = Math.min(...xs);
+  const top = Math.min(...ys);
+  // Square, because everything downstream measures shapes on a square grid and
+  // would read a stretched one as a stretched cube.
+  const size = Math.min(1, Math.max(0.1, Math.max(Math.max(...xs) - left, Math.max(...ys) - top)));
+  return {
+    size,
+    x: Math.min(Math.max((left + Math.max(...xs)) / 2, size / 2), 1 - size / 2),
+    y: Math.min(Math.max((top + Math.max(...ys)) / 2, size / 2), 1 - size / 2)
+  };
+}
+
+/** Those same corners, in the coordinates of the square that was taken. */
+export function cropShape(crop) {
+  const corners = crop?.corners || FULL_FRAME.corners;
+  const { x, y, size } = cropBox(crop);
+  return corners.map(([cx, cy]) => [(cx - (x - size / 2)) / size, (cy - (y - size / 2)) / size]);
+}
+
+/** Whether a point falls within a polygon -- the usual ray cast. */
+function within(shape, x, y) {
+  let odd = false;
+  for (let i = 0, j = shape.length - 1; i < shape.length; j = i++) {
+    const [xi, yi] = shape[i];
+    const [xj, yj] = shape[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) odd = !odd;
+  }
+  return odd;
+}
 
 export async function openCamera(video) {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error('Deze browser geeft geen toegang tot de camera.');
@@ -795,24 +838,26 @@ export async function openCamera(video) {
     stream,
     which,
     /**
-     * One square of the picture, at whatever size is asked for.
-     * @param {{x: number, y: number, size: number}} [crop] middle and side of
-     * the square to take, in the coordinates of the biggest centred square of
-     * the frame. Left out, it takes that whole square.
+     * One square of the picture, at whatever size is asked for: the smallest
+     * square holding the crop's four corners. What falls inside those corners
+     * is decided later, by whoever reads the picture.
+     * @param {{corners: [number, number][]}} [crop] in the coordinates of the
+     * biggest centred square of the frame. Left out, it takes that whole square.
      */
     grab(size, crop = FULL_FRAME) {
       const width = video.videoWidth;
       const height = video.videoHeight;
       if (!width || !height) return null;
 
+      const box = cropBox(crop);
       const shorter = Math.min(width, height);
       const fromLeft = (width - shorter) / 2;   // the sides a wide camera loses
       const fromTop = (height - shorter) / 2;
 
-      const side = Math.max(24, crop.size * shorter);
+      const side = Math.max(24, box.size * shorter);
       const room = shorter - side;
-      const left = fromLeft + Math.min(Math.max(crop.x * shorter - side / 2, 0), room);
-      const top = fromTop + Math.min(Math.max(crop.y * shorter - side / 2, 0), room);
+      const left = fromLeft + Math.min(Math.max(box.x * shorter - side / 2, 0), room);
+      const top = fromTop + Math.min(Math.max(box.y * shorter - side / 2, 0), room);
 
       canvas.width = size;
       canvas.height = size;

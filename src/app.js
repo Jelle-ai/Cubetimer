@@ -8,7 +8,10 @@ import { load, save } from './store.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
-import { CERTAIN, askForCamera, coarse, foundPath, inspectFrame, openCamera, reference } from './vision.js';
+import {
+  CERTAIN, FULL_FRAME, askForCamera, coarse, cropBox, cropShape, foundPath, inspectFrame,
+  openCamera, reference
+} from './vision.js';
 import {
   dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
 } from './practice.js';
@@ -95,10 +98,11 @@ const el = {
   lookRelearn: document.getElementById('look-relearn'),
   lookClose: document.getElementById('look-close'),
   lookFrame: document.querySelector('.look-frame'),
-  cropBox: document.getElementById('crop-box'),
-  cropGrip: document.querySelector('#crop-box .crop-grip'),
-  cropSize: document.getElementById('crop-size'),
-  cropSizeOut: document.getElementById('crop-size-out'),
+  lookGuide: document.getElementById('look-guide'),
+  cropShape: document.getElementById('crop-shape'),
+  cropOutline: document.getElementById('crop-outline'),
+  cropShade: document.getElementById('crop-shade'),
+  cropHandles: [...document.querySelectorAll('.crop-handle')],
   cropReset: document.getElementById('crop-reset'),
   cameraPeek: document.getElementById('camera-peek'),
   peekVideo: document.getElementById('peek-video'),
@@ -2155,7 +2159,7 @@ function look() {
   const frame = camera.grab(FRAME_SIZE, settings.crop);
   if (!frame) return;
 
-  const reading = inspectFrame(frame, emptyMat);
+  const reading = inspectFrame(frame, emptyMat, cropShape(settings.crop));
   el.peekOutline.setAttribute('d', foundPath(reading.found));
 
   const sure = reading.verdict !== 'none' && reading.confidence >= CERTAIN;
@@ -2241,7 +2245,7 @@ function lookOnce() {
     return;
   }
 
-  const reading = inspectFrame(frame, emptyMat);
+  const reading = inspectFrame(frame, emptyMat, cropShape(settings.crop));
   el.lookOutline.setAttribute('d', foundPath(reading.found));
 
   const [headline, detail] = LOOK_WORDS[reading.state] || [reading.state, ''];
@@ -2274,41 +2278,69 @@ function learnMat() {
   }, LEARN_MS);
 }
 
-/* ---------- the square that gets read ----------
+/* ---------- the shape that gets read ----------
 
    A camera set up so a whole desk fits spends most of its pixels on the desk.
-   Drawing a box around the mat is the difference between nine stickers coming
-   out six pixels across and coming out two, and it is the reason the reading
-   kept coming back "te klein in beeld". The box is stored in the camera's own
-   coordinates, so it survives the preview being mirrored. */
+   Marking out the mat is the difference between nine stickers coming out six
+   pixels across and coming out two, and it is the reason the reading kept
+   coming back "te klein in beeld".
 
-const MIN_CROP = 0.2;
+   Four corners rather than a box, because a camera on a chair sees the mat as
+   a trapezium. A box drawn around that trapezium takes in the desk at two of
+   its corners, and a hand or a phone landing there reads as something arriving
+   on the mat. The corners are stored in the camera's own coordinates, so they
+   survive the preview being mirrored. */
 
-/** Puts the box, the slider and the corner window where the crop says. */
+/** No smaller than this across, or there is nothing left to look at. */
+const MIN_CROP = 0.12;
+
+const CORNER_NAMES = ['linksboven', 'rechtsboven', 'rechtsonder', 'linksonder'];
+
+/** Puts the handles, the outline and the corner window where the crop says. */
 function showCrop() {
-  const { x, y, size } = settings.crop;
-  const box = el.cropBox.style;
-  box.left = `${(x - size / 2) * 100}%`;
-  box.top = `${(y - size / 2) * 100}%`;
-  box.width = `${size * 100}%`;
-  box.height = `${size * 100}%`;
+  const corners = settings.crop.corners;
 
-  const percent = Math.round(size * 100);
-  el.cropSize.value = String(percent);
-  el.cropSizeOut.textContent = `${percent}%`;
+  el.cropHandles.forEach((handle, i) => {
+    handle.style.left = `${corners[i][0] * 100}%`;
+    handle.style.top = `${corners[i][1] * 100}%`;
+  });
 
-  // The little corner window shows that same square blown up to fill it: it is
-  // there to show what is being read, not what happens to be next to it.
+  const path = corners.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join(' ') + ' Z';
+  el.cropOutline.setAttribute('d', path);
+  // The frame's own outline first, then the mat's, filled even-odd: what is
+  // left dark is everything the camera is being told to ignore.
+  el.cropShade.setAttribute('d', `M0 0 H1 V1 H0 Z ${path}`);
+
+  // What the reading draws is drawn in the coordinates of the square that was
+  // grabbed, so the layer it is drawn on is put over exactly that square.
+  const box = cropBox(settings.crop);
+  const guide = el.lookGuide.style;
+  guide.left = `${(box.x - box.size / 2) * 100}%`;
+  guide.top = `${(box.y - box.size / 2) * 100}%`;
+  guide.width = `${box.size * 100}%`;
+  guide.height = `${box.size * 100}%`;
+
+  // The little window in the corner shows that same square, blown up to fill
+  // it, rather than the room around it.
   el.peekVideo.style.transform =
-    `scale(${1 / size}) translate(${(0.5 - x) * 100}%, ${(0.5 - y) * 100}%)`;
+    `scale(${1 / box.size}) translate(${(0.5 - box.x) * 100}%, ${(0.5 - box.y) * 100}%)`;
 }
 
-/** Keeps the box a workable size and wholly inside the picture. */
-function setCrop(next) {
-  const size = Math.min(Math.max(next.size ?? settings.crop.size, MIN_CROP), 1);
-  const edge = size / 2;
-  const hold = (value, fallback) => Math.min(Math.max(value ?? fallback, edge), 1 - edge);
-  settings.crop = { size, x: hold(next.x, settings.crop.x), y: hold(next.y, settings.crop.y) };
+/** How wide and tall the four corners reach. */
+function cropSpan(corners) {
+  const xs = corners.map(([x]) => x);
+  const ys = corners.map(([, y]) => y);
+  return Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+}
+
+/** Takes the corners if they leave anything worth looking at, and shows them. */
+function setCrop(corners) {
+  const held = corners.map(([x, y]) => [
+    Math.min(Math.max(x, 0), 1),
+    Math.min(Math.max(y, 0), 1)
+  ]);
+  if (cropSpan(held) < MIN_CROP) return;
+  settings.crop = { corners: held };
   showCrop();
 }
 
@@ -2320,43 +2352,49 @@ function setCrop(next) {
 function atPointer(event) {
   const rect = el.lookFrame.getBoundingClientRect();
   const within = (value, size) => Math.min(Math.max(value / size, 0), 1);
-  return {
-    x: 1 - within(event.clientX - rect.left, rect.width),
-    y: within(event.clientY - rect.top, rect.height)
-  };
+  return [
+    1 - within(event.clientX - rect.left, rect.width),
+    within(event.clientY - rect.top, rect.height)
+  ];
 }
 
 let cropDrag = null;
 
-/** How far out from the middle of the box a point is, along its worst axis. */
-const reachOf = (at) =>
-  Math.max(Math.abs(at.x - settings.crop.x), Math.abs(at.y - settings.crop.y));
-
-function startCropDrag(event, kind) {
+/**
+ * @param {number|null} corner which one is being pulled, or null to slide the
+ * whole shape about without changing it.
+ */
+function startCropDrag(event, corner) {
   event.preventDefault();
   const at = atPointer(event);
-  // Both drags keep hold of the spot you grabbed rather than snapping to it,
+  // Every drag keeps hold of the spot you grabbed rather than snapping to it,
   // so nothing jumps out from under your finger on the first pixel of movement.
-  cropDrag = kind === 'move'
-    ? { kind, dx: settings.crop.x - at.x, dy: settings.crop.y - at.y }
-    : { kind, dr: settings.crop.size / 2 - reachOf(at) };
-  el.cropBox.dataset.dragging = 'true';
+  cropDrag = {
+    corner,
+    from: settings.crop.corners.map((c) => c.slice()),
+    grabbed: at
+  };
+  el.cropShape.dataset.dragging = 'true';
 }
 
 function dragCrop(event) {
   if (!cropDrag) return;
   event.preventDefault();
-  const at = atPointer(event);
-  if (cropDrag.kind === 'move') {
-    setCrop({ x: at.x + cropDrag.dx, y: at.y + cropDrag.dy });
+  const [x, y] = atPointer(event);
+  const dx = x - cropDrag.grabbed[0];
+  const dy = y - cropDrag.grabbed[1];
+
+  if (cropDrag.corner === null) {
+    setCrop(cropDrag.from.map(([cx, cy]) => [cx + dx, cy + dy]));
     return;
   }
-  // The corner follows your finger: the box grows around the middle it has
-  // until it reaches you.
-  setCrop({ size: (reachOf(at) + cropDrag.dr) * 2 });
+  const moved = cropDrag.from.map((c) => c.slice());
+  const [cx, cy] = cropDrag.from[cropDrag.corner];
+  moved[cropDrag.corner] = [cx + dx, cy + dy];
+  setCrop(moved);
 }
 
-/** A different box means the mat was learned through the wrong window. */
+/** A different shape means the mat was learned through the wrong window. */
 function cropSettled() {
   storeSettings();
   if (lookTimer) learnMat();
@@ -2365,29 +2403,31 @@ function cropSettled() {
 function endCropDrag() {
   if (!cropDrag) return;
   cropDrag = null;
-  delete el.cropBox.dataset.dragging;
+  delete el.cropShape.dataset.dragging;
   cropSettled();
 }
 
-el.cropBox.addEventListener('pointerdown', (event) => startCropDrag(event, 'move'));
-el.cropGrip.addEventListener('pointerdown', (event) => {
-  event.stopPropagation();
-  startCropDrag(event, 'size');
+el.cropHandles.forEach((handle, i) => {
+  handle.title = `Hoek ${CORNER_NAMES[i]}`;
+  handle.setAttribute('aria-label', `Hoek ${CORNER_NAMES[i]}`);
+  handle.addEventListener('pointerdown', (event) => {
+    event.stopPropagation();
+    startCropDrag(event, i);
+  });
 });
+
+el.cropShape.addEventListener('pointerdown', (event) => startCropDrag(event, null));
 window.addEventListener('pointermove', dragCrop, { passive: false });
 window.addEventListener('pointerup', endCropDrag);
 window.addEventListener('pointercancel', endCropDrag);
 
-el.cropSize.addEventListener('input', () => setCrop({ size: Number(el.cropSize.value) / 100 }));
-el.cropSize.addEventListener('change', cropSettled);
-
 el.cropReset.addEventListener('click', () => {
   el.cropReset.blur();
-  setCrop({ x: 0.5, y: 0.5, size: 1 });
+  setCrop(FULL_FRAME.corners.map((corner) => corner.slice()));
   cropSettled();
 });
 
-setCrop({}); // and clamp whatever came out of storage
+showCrop(); // whatever came out of storage, already cleaned up on the way in
 
 /** Opening a sheet from inside another one has been known to throw on Safari. */
 function openSheet(sheet) {

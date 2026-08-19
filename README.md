@@ -268,13 +268,22 @@ telkens *te klein in beeld*, dan is dat het probleem: negen stickers moeten er s
 zesenvijftig pixels breed uitkomen, en een kubus in de hoek van een wijd beeld haalt dat
 niet.
 
-In **wat de camera ziet** staat daarom een kader. Sleep het over je matje, trek het aan
-het rondje in de hoek kleiner of groter, of schuif de balk **uitsnede**. Alleen wat erin
-valt wordt bekeken — en omdat die uitsnede weer op volle grootte wordt uitgelezen, komt de
-kubus er evenredig groter uit. De keuze wordt bewaard, geldt ook tijdens je solves, en het
-venstertje in de hoek toont voortaan precies die uitsnede en niet meer de kamer eromheen.
+In **wat de camera ziet** staan daarom vier hoeken. Sleep ze op de vier hoeken van je
+matje — het mag scheef, want een camera die op een stoel staat ziet je matje ook niet als
+een keurige rechthoek maar als een trapezium. Sleep ernaast om de hele vorm in één keer te
+verschuiven, en **hele beeld** zet alles terug.
 
-Verzet je het kader, dan leert hij het lege matje meteen opnieuw: door een ander raampje
+Vier hoeken en geen kader, omdat een kader om zo'n trapezium heen aan twee kanten het
+bureau meepakt. Alles wat buiten de vorm ligt telt niet meer mee: legt er iemand een
+telefoon naast, of komt er een hand langs, dan is dat geen verandering op het matje meer.
+Nagemeten met iets lichts naast het matje ging een kubus die zonder de vorm werd
+weggegooid als *geen kubusvorm*, met de vorm gewoon door.
+
+En omdat er alleen nog gekeken wordt naar het kleinste vierkant waar die hoeken in passen,
+komt de kubus er evenredig groter uit. De keuze wordt bewaard, geldt ook tijdens je solves,
+en het venstertje in de hoek toont voortaan precies dat stuk en niet meer de kamer eromheen.
+
+Verzet je de vorm, dan leert hij het lege matje meteen opnieuw: door een ander raampje
 gekeken zegt het oude beeld van het matje niets meer.
 
 ### Hoe hij de kubus vindt

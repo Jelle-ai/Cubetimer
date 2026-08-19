@@ -1817,10 +1817,6 @@ body[data-miss] .halo {
 
 .camera-status[data-sure="true"] { color: var(--ink); }
 
-.camera-size {
-  width: 100%;
-  accent-color: var(--led);
-}
 
 /* A front camera hands the picture over as the lens sees it, which reads
    backwards to the person sitting in front of it. Flipping the whole inside of
@@ -1833,55 +1829,71 @@ body[data-miss] .halo {
   transform: scaleX(-1);
 }
 
-.camera-mirror > video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.camera-mirror video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-.look-frame path { stroke: rgba(255, 255, 255, .92); stroke-width: .008; fill: none; }
-
-/* ---------- choosing the square that gets read ---------- */
-
-/* Everything outside the box is dimmed by the box's own shadow, spread wide
-   enough to reach every edge -- one shadow instead of four dimmed panes. */
-.crop-box {
+/* The picture, clipped to the frame. Only the look sheet needs it as a layer
+   of its own, so that the crop handles can hang over the edge. */
+.camera-clip {
   position: absolute;
-  box-sizing: border-box;
-  border: 2px solid rgba(255, 255, 255, .95);
-  border-radius: 10px;
-  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .42);
+  inset: 0;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+/* The frame lets the crop handles hang over its edge; the picture inside it
+   is clipped by .camera-clip instead. */
+.look-frame { overflow: visible; }
+
+.look-frame .camera-guide path { stroke: rgba(255, 255, 255, .92); stroke-width: .008; fill: none; }
+
+/* ---------- marking out the mat ----------
+
+   Four corners, dragged onto the corners of the mat. The shape they make is
+   drawn as one path and everything outside it is dimmed by a second path
+   filled even-odd, which is the only way to dim around a shape that is not a
+   rectangle. */
+
+.crop-shape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   cursor: grab;
   touch-action: none;
-  transition: box-shadow .2s;
 }
 
-.crop-box[data-dragging="true"] { cursor: grabbing; border-color: var(--led); }
+.crop-shape[data-dragging="true"] { cursor: grabbing; }
 
-/* The corner to pull on, big enough for a thumb, and sitting just inside the
-   box so a box filling the whole picture does not have half its grip clipped
-   away. Placed on the box's left because the frame around it is mirrored,
-   which puts it under the bottom right corner on screen. */
-.crop-grip {
+.crop-shade { fill: rgba(0, 0, 0, .5); }
+
+/* The box is one unit wide whatever size it is drawn at, so the stroke is
+   given in those units too -- non-scaling-stroke would read .006 as .006 of a
+   pixel and draw nothing at all. */
+.crop-outline {
+  stroke: rgba(255, 255, 255, .95);
+  stroke-width: .008;
+  stroke-linejoin: round;
+}
+
+.crop-shape[data-dragging="true"] .crop-outline { stroke: var(--led); }
+
+/* Big enough for a thumb, and centred on the corner rather than tucked inside
+   it, so the middle of the handle is the corner it stands for. */
+.crop-handle {
   position: absolute;
-  left: 4px;
-  bottom: 4px;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  padding: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, .95);
-  border: 2px solid rgba(0, 0, 0, .25);
-  cursor: nwse-resize;
+  background: rgba(255, 255, 255, .22);
+  border: 3px solid rgba(255, 255, 255, .95);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .45);
+  cursor: move;
   touch-action: none;
 }
 
-.crop-row {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-  margin: .2rem 0 .1rem;
-  font-size: .86rem;
-  color: var(--muted);
-}
-
-.crop-row .camera-size { flex: 1; }
-.crop-row output { min-width: 3.2rem; text-align: right; font-variant-numeric: tabular-nums; }
+.crop-handle:focus-visible { outline: 2px solid var(--led); outline-offset: 3px; }
 
 /* On a phone held sideways the sheet is wider than it is tall, so the picture
    goes beside the controls rather than pushing them off the bottom. */
@@ -1899,7 +1911,6 @@ body[data-miss] .halo {
   #look-sheet .camera-frame { grid-column: 1; grid-row: 2 / span 5; width: 100%; margin: 0; }
   #look-sheet .camera-status,
   #look-sheet .import-note,
-  #look-sheet .crop-row,
   #look-sheet .detail-actions { grid-column: 2; }
   #look-sheet .detail-actions { margin-top: .6rem; }
 }

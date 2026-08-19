@@ -36,7 +36,11 @@ const DEFAULTS = {
   countUp: true,
   wakeLock: true,
   camera: false,
-  crop: { x: 0.5, y: 0.5, size: 1 },
+  // The four corners of the mat in the camera's picture, clockwise from the
+  // top left. A square by default, because a camera pointed straight down at a
+  // mat sees a square; every other angle sees a trapezium, so the corners move
+  // independently.
+  crop: { corners: [[0, 0], [1, 0], [1, 1], [0, 1]] },
   font: 'rounded',
   practice: true,
   goalKind: 'time',   // 'time' counts the solving up, 'solves' counts the solves
@@ -62,6 +66,36 @@ function clampNumber(value, low, high, fallback) {
 
 const isColor = (value) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
 
+const inside = (value, fallback) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(Math.max(number, 0), 1) : fallback;
+};
+
+/**
+ * The four corners the camera pays attention to, whatever is in storage.
+ * Crops used to be a centred square written as a middle and a side; one of
+ * those is read back as the square it describes rather than thrown away.
+ */
+function cleanCorners(crop) {
+  const stored = crop?.corners;
+  if (Array.isArray(stored) && stored.length === 4 && stored.every((c) => Array.isArray(c) && c.length === 2)) {
+    return stored.map(([x, y], i) => [inside(x, DEFAULTS.crop.corners[i][0]), inside(y, DEFAULTS.crop.corners[i][1])]);
+  }
+
+  const size = Number(crop?.size);
+  if (Number.isFinite(size) && size > 0) {
+    const half = Math.min(Math.max(size, 0.1), 1) / 2;
+    const x = inside(crop?.x, 0.5);
+    const y = inside(crop?.y, 0.5);
+    const left = Math.min(Math.max(x - half, 0), 1 - half * 2);
+    const top = Math.min(Math.max(y - half, 0), 1 - half * 2);
+    const right = left + half * 2;
+    const bottom = top + half * 2;
+    return [[left, top], [right, top], [right, bottom], [left, bottom]];
+  }
+  return DEFAULTS.crop.corners.map((corner) => corner.slice());
+}
+
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(KEY);
@@ -80,16 +114,7 @@ export function loadSettings() {
     for (const key of SWITCHES) settings[key] = settings[key] !== false;
     for (const key of OPT_IN) settings[key] = settings[key] === true;
 
-    // The square of the picture the camera pays attention to, kept sane
-    // whatever is in storage.
-    const crop = { ...DEFAULTS.crop, ...(settings.crop || {}) };
-    const clamp = (value, low, high, fallback) =>
-      Number.isFinite(Number(value)) ? Math.min(Math.max(Number(value), low), high) : fallback;
-    settings.crop = {
-      size: clamp(crop.size, 0.2, 1, DEFAULTS.crop.size),
-      x: clamp(crop.x, 0, 1, DEFAULTS.crop.x),
-      y: clamp(crop.y, 0, 1, DEFAULTS.crop.y)
-    };
+    settings.crop = { corners: cleanCorners(settings.crop) };
 
     const colors = { ...DEFAULTS.colors, ...(settings.colors || {}) };
     for (const { key, fallback } of COLOR_SLOTS) {

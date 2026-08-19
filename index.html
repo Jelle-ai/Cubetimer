@@ -198,25 +198,29 @@
            preview behaves like a mirror. Inside it, positions are the camera's
            own, which is what the crop is stored in. -->
       <div class="camera-mirror">
-        <video id="look-video" playsinline muted></video>
-        <div id="crop-box" class="crop-box">
-          <svg class="camera-guide" viewBox="0 0 1 1" aria-hidden="true">
+        <!-- The picture is clipped to the frame; the handles are not, so a
+             corner sitting on the very edge still has a whole handle to grab. -->
+        <div class="camera-clip">
+          <video id="look-video" playsinline muted></video>
+          <svg id="crop-shape" class="crop-shape" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
+            <path id="crop-shade" class="crop-shade" fill-rule="evenodd" />
+            <path id="crop-outline" class="crop-outline" fill="none" />
+          </svg>
+          <svg id="look-guide" class="camera-guide" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
             <path id="look-outline" fill="none" />
           </svg>
-          <span class="crop-grip"></span>
         </div>
+        <button type="button" class="crop-handle"></button>
+        <button type="button" class="crop-handle"></button>
+        <button type="button" class="crop-handle"></button>
+        <button type="button" class="crop-handle"></button>
       </div>
     </div>
 
     <p id="look-status" class="camera-status">Camera starten…</p>
     <p id="look-detail" class="import-note"></p>
 
-    <label class="crop-row">
-      <span>Uitsnede</span>
-      <input type="range" id="crop-size" class="camera-size" min="20" max="100" step="1" value="100" aria-label="Grootte van de uitsnede">
-      <output id="crop-size-out">100%</output>
-    </label>
-    <p class="import-note">Sleep het kader over je matje. Alleen wat erin valt wordt bekeken — kleiner maken laat de kubus groter uitkomen.</p>
+    <p class="import-note">Sleep de vier hoeken op de hoeken van je matje — het mag scheef, want zo zie je het matje ook. Alleen wat binnen die vorm ligt wordt bekeken, en hoe strakker eromheen, hoe groter je kubus uitkomt. Sleep ernaast om de hele vorm te verschuiven.</p>
 
     <div class="detail-actions">
       <button type="button" id="crop-reset">Hele beeld</button>
