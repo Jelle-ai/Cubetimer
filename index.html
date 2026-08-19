@@ -184,6 +184,31 @@
   </div>
 </dialog>
 
+<!-- The same thing a solve does, but watched: learn the empty mat, then read
+     whatever is put on it. -->
+<dialog id="look-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Wat de camera ziet</h2>
+      <button type="button" id="look-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <div class="camera-frame look-frame">
+      <video id="look-video" playsinline muted></video>
+      <svg class="camera-guide" viewBox="0 0 1 1" aria-hidden="true">
+        <path id="look-outline" fill="none" />
+      </svg>
+    </div>
+
+    <p id="look-status" class="camera-status">Camera starten…</p>
+    <p id="look-detail" class="import-note"></p>
+
+    <div class="detail-actions">
+      <button type="button" id="look-relearn">Matje opnieuw leren</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- What the camera sees while it is judging a solve, small and out of the way. -->
 <div id="camera-peek" class="camera-peek" hidden>
   <video id="peek-video" playsinline muted></video>
@@ -496,6 +521,14 @@
           of een DNF, dan zet hij die; twijfelt hij, dan blijft het een gewone solve</small>
       </div>
       <button type="button" class="switch" id="set-camera" role="switch" aria-checked="false" aria-label="Kubus controleren"><span></span></button>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Wat de camera ziet</span>
+        <small>Kijk live mee en zie wat hij van je kubus maakt</small>
+      </div>
+      <button type="button" id="camera-look" class="text-button">bekijken</button>
     </section>
 
     <section class="setting">

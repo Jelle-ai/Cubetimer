@@ -219,6 +219,17 @@ beoordeling maakt dat niets uit: een gespiegelde kubus heeft dezelfde kleuren in
 aantallen, en de streep die één zet achterlaat ligt langs een rand — welke kant je hem ook
 op houdt. Gemeten wordt het ongespiegelde beeld.
 
+### Live meekijken
+
+**Instellingen → wat de camera ziet** laat precies zien wat hij doet. Eerst leert hij een
+paar seconden het lege matje, net als tijdens een solve; daarna leg je er een kubus op en
+zie je live de omtrek die hij eromheen tekent, wat hij ervan maakt, en hoe zeker hij is.
+Onderaan staat er ook bij hoeveel vlakken en kleuren hij ziet.
+
+Handig om te weten wanneer de telefoon te ver weg staat, het licht niet meewerkt of de
+kubus net buiten beeld valt — dat zijn allemaal dingen over jouw kamer, en die kun je niet
+uit een beschrijving halen.
+
 ### Wat hij per zicht kan bewijzen
 
 Je ziet nooit een hele kubus: drie vlakken op een hoek, twee op een rib, soms één recht

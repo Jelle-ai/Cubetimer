@@ -1818,6 +1818,12 @@ body[data-miss] .halo {
   accent-color: var(--led);
 }
 
+/* A front camera reads backwards to the person in front of it, here too. */
+.look-frame video,
+.look-frame .camera-guide { transform: scaleX(-1); }
+
+.look-frame path { stroke: rgba(255, 255, 255, .92); stroke-width: .008; fill: none; }
+
 /* ---------- what the camera sees while it judges ----------
 
    Small, in a corner, and only there while it is actually looking: enough to

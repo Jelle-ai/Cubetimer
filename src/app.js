@@ -84,6 +84,14 @@ const el = {
   pickedNote: document.getElementById('picked-note'),
   pickedList: document.getElementById('picked-list'),
   pickedClose: document.getElementById('picked-close'),
+  cameraLook: document.getElementById('camera-look'),
+  lookSheet: document.getElementById('look-sheet'),
+  lookVideo: document.getElementById('look-video'),
+  lookOutline: document.getElementById('look-outline'),
+  lookStatus: document.getElementById('look-status'),
+  lookDetail: document.getElementById('look-detail'),
+  lookRelearn: document.getElementById('look-relearn'),
+  lookClose: document.getElementById('look-close'),
   cameraPeek: document.getElementById('camera-peek'),
   peekVideo: document.getElementById('peek-video'),
   peekOutline: document.getElementById('peek-outline'),
@@ -2165,6 +2173,115 @@ function applyVerdict(verdict) {
     }
   });
 }
+
+/* ---------- watching it work ----------
+
+   The same two steps a solve goes through, only visible: learn the empty mat,
+   then read whatever is put on it. Worth having because everything that can go
+   wrong is a thing about the room -- where the phone stands, how the light
+   falls, how big the cube comes out -- and none of that is answerable from a
+   description. */
+
+const LEARN_MS = 2600;
+
+let lookTimer = null;
+let lookLearning = false;
+
+/** Plain words for what the reading came back with. */
+const LOOK_WORDS = {
+  'geen kubus': ['Niets nieuws op het matje', 'Leg er een kubus op.'],
+  'geen kubusvorm': ['Dat heeft geen kubusvorm', 'Te langwerpig of te rafelig — een hand erbij?'],
+  'niet volledig in beeld': ['Valt buiten beeld', 'Zet de telefoon verder weg of schuif de kubus naar het midden.'],
+  'te klein in beeld': ['Te klein in beeld', 'Zet de telefoon dichterbij; negen stickers moeten breed genoeg uitkomen.'],
+  'raster zit scheef': ['Vlakken niet goed te vinden', 'De monsters vallen op de naden.'],
+  'niet leesbaar': ['Niet te lezen', 'Te donker, of te weinig van de kubus in zicht.'],
+  'niet zeker genoeg': ['Niet zeker genoeg', 'Hier zou hij zwijgen en je solve met rust laten.'],
+  'te weinig zicht': ['Te weinig zicht', 'Genoeg om te zien dat er iets ligt, te weinig om iets te bewijzen.'],
+  'lijkt opgelost': ['Ziet er opgelost uit', 'Geen straf — en let op: drie vlakken kunnen dat niet bewijzen, alleen niet tegenspreken.'],
+  'een zet ernaast': ['Eén zet ernaast', 'Dit zou een +2 worden.'],
+  'meer dan een zet': ['Meer dan één zet ernaast', 'Dit zou een DNF worden.']
+};
+
+function lookOnce() {
+  if (!camera) return;
+  const frame = camera.grab(FRAME_SIZE);
+  if (!frame) return;
+
+  if (lookLearning) {
+    emptyFrames.push(coarse(frame));
+    if (emptyFrames.length > EMPTY_FRAMES) emptyFrames.shift();
+    return;
+  }
+
+  const reading = inspectFrame(frame, emptyMat);
+  el.lookOutline.setAttribute('d', foundPath(reading.found));
+
+  const [headline, detail] = LOOK_WORDS[reading.state] || [reading.state, ''];
+  el.lookStatus.textContent = headline;
+  el.lookStatus.dataset.sure = String(reading.verdict !== 'none' || reading.state === 'lijkt opgelost');
+  el.lookDetail.textContent = reading.colours
+    ? `${detail} · ${reading.faces === 3 ? 'drie vlakken' : 'geen hoekzicht'}, ${reading.colours} kleuren, zekerheid ${Math.round(reading.confidence * 100)}%`
+    : detail;
+}
+
+function learnMat() {
+  lookLearning = true;
+  emptyFrames = [];
+  emptyMat = null;
+  el.lookOutline.setAttribute('d', '');
+  el.lookStatus.textContent = 'Het lege matje leren…';
+  el.lookStatus.dataset.sure = 'false';
+  el.lookDetail.textContent = 'Haal de kubus even weg. Dit is wat er tijdens je solve ook gebeurt.';
+
+  setTimeout(() => {
+    if (!lookTimer) return;
+    emptyMat = reference(emptyFrames);
+    emptyFrames = [];
+    lookLearning = false;
+    if (!emptyMat) {
+      el.lookStatus.textContent = 'Geen beeld van het matje';
+      el.lookDetail.textContent = '';
+    }
+  }, LEARN_MS);
+}
+
+el.cameraLook.addEventListener('click', async () => {
+  el.cameraLook.blur();
+  el.lookStatus.textContent = 'Camera starten…';
+  el.lookStatus.dataset.sure = 'false';
+  el.lookDetail.textContent = '';
+  el.lookOutline.setAttribute('d', '');
+  el.lookSheet.showModal();
+
+  try {
+    await useCamera(el.lookVideo);
+  } catch (error) {
+    el.lookStatus.textContent = error?.name === 'NotAllowedError'
+      ? 'Geen toegang tot de camera'
+      : 'Camera lukt niet';
+    el.lookDetail.textContent = error?.name === 'NotAllowedError'
+      ? 'Sta het toe in je browser, of zet de controle uit.'
+      : String(error?.message || error);
+    return;
+  }
+
+  if (!el.lookSheet.open) { releaseCamera(); return; }
+  lookTimer = setInterval(lookOnce, LOOK_EVERY_MS);
+  learnMat();
+});
+
+el.lookRelearn.addEventListener('click', () => { if (lookTimer) learnMat(); });
+el.lookClose.addEventListener('click', () => el.lookSheet.close());
+
+el.lookSheet.addEventListener('close', () => {
+  clearInterval(lookTimer);
+  lookTimer = null;
+  lookLearning = false;
+  // A solve is not running while the settings are open, so this camera is ours
+  // to put away.
+  releaseCamera();
+  el.lookVideo.srcObject = null;
+});
 
 /* ---------- screen wake lock ---------- */
 
