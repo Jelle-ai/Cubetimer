@@ -193,62 +193,44 @@ Alles telt over al je sessies samen — oefenen is oefenen, op welke puzzel dan 
 
 ## De kubus laten controleren
 
-Staat **kubus controleren** aan, dan gebeurt alles vanzelf. De **selfiecamera** gaat open
-zodra je solve begint en zoekt de kubus zelf op het matje zodra de tijd stopt — de
-voorkant, zodat je scherm naar je toe staat en je de timer gewoon kunt lezen terwijl hij
-filmt. Er valt niets te
-richten en niets te bedienen: linksonder verschijnt kort een venstertje zodat je ziet dat
-hij kijkt, en dat is het.
+Staat **kubus controleren** aan, dan gaat de selfiecamera open zodra je solve begint en
+kijkt hij naar het matje zodra de tijd stopt. Denkt hij dat de kubus meer dan één zet van
+opgelost af is, dan **vraagt** hij of het een DNF moet worden. Hij zet zelf nooit iets.
 
-Ziet hij één zet ernaast, dan wordt het een **+2**; ziet hij meer, een **DNF**. In beide
-gevallen staat er `toch niet` in de melding.
+### Waarom vragen en niet zetten
+
+Jouw regel klopt volledig: één vlak dat niet één kleur is maar zes-en-drie, dat is één zet
+ernaast; een vlak met kleuren door elkaar is verder weg. Nagerekend op het echte
+kubusmodel is dat zelfs bewijs — na precies één zet is géén van de 108 vlakken rommelig,
+en van 400 scrambles heeft er 400 minstens één rommelig vlak.
+
+Het probleem is niet de regel maar het aflezen. Om negen stickers van één vlak apart te
+lezen moet de hoek van de kubus tot op een paar pixels bekend zijn. Uitgemeten over 162
+camerastanden — hoogte 24 tot 42 graden, drie richtingen rond, drie scheefstanden —
+schoof dat raster vaak genoeg mis om **31 straffen uit te delen op kubussen die opgelost
+waren**. Eén op vijf.
+
+Zonder dat raster, door alleen de kleuren over de hele kubus te tellen, wordt het beter
+maar niet goed: ongeveer drie valse alarmen tegenover zes terechte, en de drempel
+verhogen ruilt het ene simpelweg tegen het andere. Een hulpje dat ongeveer even vaak een
+goede solve afkeurt als het een slechte betrapt, is slechter dan geen hulpje. Vandaar dat
+het bij een vraag blijft.
+
+### Live meekijken
+
+**Instellingen → wat de camera ziet** laat zien wat hij doet: eerst leert hij een paar
+seconden het lege matje, daarna leg je er een kubus op en zie je live wat hij ervan maakt.
+Dat is het eerlijkste stuk van de hele functie — je ziet zelf of je hem in jouw kamer,
+met jouw licht en jouw camerahoek, wilt geloven.
 
 ### Hoe hij de kubus vindt
 
 Terwijl je solvet ligt de kubus in je handen, dus het matje is leeg. De camera neemt
 tijdens de solve een reeks foto's van dat lege matje en neemt daar de middelste waarde
 van, zodat langsschietende handen wegvallen. Wat er daarna anders is, is de kubus. Geen
-kalibratie, geen aanwijzen, en het werkt op een blauw matje zonder te weten dat het blauw
-is.
-
-De drie vlakken worden er daarna overheen gedraaid tot ze het beste passen, want een kubus
-komt zelden recht op het matje terecht.
-
-Het venstertje toont het beeld gespiegeld, zoals een selfiecamera hoort te doen. Voor de
-beoordeling maakt dat niets uit: een gespiegelde kubus heeft dezelfde kleuren in dezelfde
-aantallen, en de streep die één zet achterlaat ligt langs een rand — welke kant je hem ook
-op houdt. Gemeten wordt het ongespiegelde beeld.
-
-### Live meekijken
-
-**Instellingen → wat de camera ziet** laat precies zien wat hij doet. Eerst leert hij een
-paar seconden het lege matje, net als tijdens een solve; daarna leg je er een kubus op en
-zie je live de omtrek die hij eromheen tekent, wat hij ervan maakt, en hoe zeker hij is.
-Onderaan staat er ook bij hoeveel vlakken en kleuren hij ziet.
-
-Handig om te weten wanneer de telefoon te ver weg staat, het licht niet meewerkt of de
-kubus net buiten beeld valt — dat zijn allemaal dingen over jouw kamer, en die kun je niet
-uit een beschrijving halen.
-
-### Wat hij per zicht kan bewijzen
-
-Je ziet nooit een hele kubus: drie vlakken op een hoek, twee op een rib, soms één recht
-van voren. Uitgemeten op het echte kubusmodel — elke één-zet-stand door elke hoek, rib en
-vlak — geldt: één zet van opgelost toont hoogstens **5** kleuren vanaf drie vlakken, **4**
-vanaf twee, **2** vanaf één. Meer dan dat is dus bewijs van minstens twee zetten, wat de
-kant die je niet ziet ook doet.
-
-| zicht | DNF herkennen | +2 herkennen |
-| --- | --- | --- |
-| drie vlakken (hoek) | ja | ja |
-| twee vlakken (rib) | ja, op het kleurental | nee, te weinig zicht |
-| één vlak | ja, op het kleurental | nee |
-
-**Twijfelt hij, dan blijft het een gewone solve.** Dat is de belangrijkste regel. Op alle
-getekende scenario's — kubus overal op het matje, groot, klein, gedraaid, warm licht,
-ruis, rommel ernaast, een hand er half voor, half uit beeld, leeg matje — kwam er **geen
-enkele valse straf** uit. Wat er wel gebeurt is dat hij soms zwijgt terwijl hij iets had
-kunnen zeggen, en dat is de kant waarop je fouten wilt maken.
+kalibratie, en het werkt op een blauw matje zonder te weten dat het blauw is. Dat deel
+werkt wel goed: lege matjes, rommel, een hand ervoor en een kubus half uit beeld worden
+allemaal netjes herkend en overgeslagen.
 
 ## Sessies
 

@@ -354,74 +354,106 @@ export function findCube(image, empty) {
 
 /* ---------- fitting the faces over it ----------
 
-   A cube on a mat is not obliged to sit square to the camera, so the three
-   rhombi are turned to wherever they actually fit: the angle is the one whose
-   hexagon overlaps the silhouette best. Without this a cube a few degrees off
-   put every sample on a seam, and a solved cube came back as six colours. */
+   A regular hexagon was the first attempt and it is right for exactly one
+   camera angle: dead isometric, 35.26 degrees above the mat. At any other
+   height the silhouette is a longer or flatter hexagon, and rhombi cut from a
+   regular one run across stickers instead of along the seams -- which read a
+   solved cube as several colours and called it a DNF with every confidence.
 
-const hexagonAt = (found, turn, radius) => HEX.map(([x, y]) => {
-  const angle = turn * Math.PI / 180;
-  return [
-    found.x + (x * Math.cos(angle) - y * Math.sin(angle)) * radius,
-    found.y + (x * Math.sin(angle) + y * Math.cos(angle)) * radius
-  ];
-});
+   So the silhouette's own six corners are used. Under a parallel projection a
+   cube's outline is the sum of three edge vectors, which puts its corners at
+   P+a, P+a+b, P+b, P+b+c, P+c, P+c+a for the near corner P. Every other one of
+   them is therefore a diagonal of one visible face, and P falls out of any
+   three in a row: P = q0 + q2 - q1. Three of those, and they should agree. */
 
-/** Share of the mask the hexagon covers and of itself that is mask. */
-function overlap(found, turn, radius) {
-  const corners = hexagonAt(found, turn, radius);
-  let both = 0;
-  let onlyHexagon = 0;
-  let onlyMask = 0;
+/** Convex hull of a set of points, counter-clockwise. */
+function hull(points) {
+  const sorted = points.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (sorted.length < 3) return sorted;
 
-  const inHexagon = (px, py) => {
-    for (let i = 0; i < 6; i++) {
-      const [ax, ay] = corners[i];
-      const [bx, by] = corners[(i + 1) % 6];
-      if ((bx - ax) * (py - ay) - (by - ay) * (px - ax) < 0) return false;
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = (list) => {
+    const out = [];
+    for (const point of list) {
+      while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], point) <= 0) out.pop();
+      out.push(point);
     }
-    return true;
+    out.pop();
+    return out;
   };
+  return [...half(sorted), ...half(sorted.reverse())];
+}
 
-  for (let y = found.top; y <= found.bottom; y++) {
-    for (let x = found.left; x <= found.right; x++) {
-      const mask = found.mask[y * GRID + x] === 1;
-      const hexagon = inHexagon((x + 0.5) / GRID, (y + 0.5) / GRID);
-      if (mask && hexagon) both++;
-      else if (hexagon) onlyHexagon++;
-      else if (mask) onlyMask++;
+const triangle = (a, b, c) =>
+  Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2;
+
+/** Cut a convex outline down to n corners, dropping the least of it each time. */
+function reduceTo(polygon, n) {
+  let corners = polygon.slice();
+  while (corners.length > n) {
+    let worst = 0;
+    let least = Infinity;
+    for (let i = 0; i < corners.length; i++) {
+      const loss = triangle(
+        corners[(i - 1 + corners.length) % corners.length],
+        corners[i],
+        corners[(i + 1) % corners.length]
+      );
+      if (loss < least) { least = loss; worst = i; }
     }
+    corners.splice(worst, 1);
   }
-  return both / Math.max(1, both + onlyHexagon + onlyMask);
+  return corners;
 }
 
 /**
- * The turn and size that fit best, and how well they fit at all.
- *
- * The size comes from the area rather than the bounding box: a hexagon of
- * circumradius R covers 3*sqrt(3)/2 * R squared, and taking half the shorter
- * side of the box instead made every hexagon a seventh too small, which put
- * every sample on a seam.
+ * The near corner and the three faces around it, straight off the silhouette.
+ * @returns {{middle: number[], faces: number[][][], agreement: number}|null}
  */
 export function fitFaces(found) {
-  const fromArea = Math.sqrt(found.cells.length / (GRID * GRID) / 2.598);
-  let best = { turn: 0, radius: fromArea, score: 0 };
-
-  for (const scale of [0.88, 0.94, 1, 1.06, 1.12]) {
-    for (let turn = 0; turn < 60; turn += 4) {
-      const radius = fromArea * scale;
-      const score = overlap(found, turn, radius);
-      if (score > best.score) best = { turn, radius, score };
+  const edge = [];
+  for (const at of found.cells) {
+    const y = Math.floor(at / GRID);
+    const x = at % GRID;
+    if (x === 0 || y === 0 || x === GRID - 1 || y === GRID - 1
+      || !found.mask[(y - 1) * GRID + x] || !found.mask[(y + 1) * GRID + x]
+      || !found.mask[y * GRID + x - 1] || !found.mask[y * GRID + x + 1]) {
+      edge.push([(x + 0.5) / GRID, (y + 0.5) / GRID]);
     }
   }
-  for (let turn = best.turn - 3; turn <= best.turn + 3; turn++) {
-    const score = overlap(found, turn, best.radius);
-    if (score > best.score) best = { ...best, turn, score };
+  if (edge.length < 12) return null;
+
+  const outline = reduceTo(hull(edge), 6);
+  if (outline.length < 6) return null;
+
+  // Either every other corner is a face diagonal, or the ones in between are.
+  // The right choice is the one whose three answers for the near corner agree.
+  let best = null;
+  for (const parity of [0, 1]) {
+    const q = [0, 1, 2, 3, 4, 5].map((i) => outline[(i + parity) % 6]);
+    const guesses = [0, 2, 4].map((i) => [
+      q[i][0] + q[(i + 2) % 6][0] - q[(i + 1) % 6][0],
+      q[i][1] + q[(i + 2) % 6][1] - q[(i + 1) % 6][1]
+    ]);
+    const middle = [
+      guesses.reduce((sum, g) => sum + g[0], 0) / 3,
+      guesses.reduce((sum, g) => sum + g[1], 0) / 3
+    ];
+    const scatter = Math.max(...guesses.map((g) => Math.hypot(g[0] - middle[0], g[1] - middle[1])));
+    if (!best || scatter < best.scatter) {
+      best = {
+        scatter,
+        middle,
+        faces: [0, 2, 4].map((i) => [middle, q[i], q[(i + 1) % 6], q[(i + 2) % 6]])
+      };
+    }
   }
-  return best;
+
+  // Scattered answers mean it is not a cube corner in view at all.
+  return { ...best, agreement: Math.max(0, 1 - best.scatter / (found.radius * 0.5)) };
 }
 
-/* ---------- reading ---------- */
+/* ---------- reading ---------- *//* ---------- reading ---------- */
 
 /** Median of a small patch, which shrugs off a speck of glare or a seam. */
 function patch(image, cx, cy, radius) {
@@ -449,36 +481,67 @@ const inside = (found, x, y) => {
   return found.mask[cy * GRID + cx] === 1;
 };
 
-const uniform = (face) => face.every((colour) => colour === face[0]);
+/**
+ * What one face looks like, as one of three things.
+ *
+ * Counted rather than placed: nine stickers, how many of each colour. A single
+ * turn leaves every face of the cube either all one colour or six of its own
+ * and three of one other -- checked against the real cube over every one-move
+ * state, all 108 faces, without exception. So a face that is neither is proof
+ * of at least two moves, from one face alone, with no need to see any other and
+ * no need to know which way up it is.
+ */
+export function faceShape(face) {
+  const tally = new Map();
+  for (const colour of face) tally.set(colour, (tally.get(colour) || 0) + 1);
+  const counts = [...tally.values()].sort((a, b) => b - a);
 
-/** The strips a single turn can leave behind: one whole edge row or column. */
-const STRIPS = [[0, 1, 2], [6, 7, 8], [0, 3, 6], [2, 5, 8]];
-
-/** Solved but for one edge strip of a single foreign colour. */
-function oneStripOff(face) {
-  for (const strip of STRIPS) {
-    const rest = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter((i) => !strip.includes(i));
-    const stripColour = face[strip[0]];
-    const restColour = face[rest[0]];
-    if (stripColour === restColour) continue;
-    if (strip.every((i) => face[i] === stripColour) && rest.every((i) => face[i] === restColour)) return true;
-  }
-  return false;
+  if (counts.length === 1) return 'uniform';
+  if (counts.length === 2 && counts[0] === 6 && counts[1] === 3) return 'strip';
+  return 'messy';
 }
 
-/** One turn leaves one visible face whole and takes a strip out of the others. */
-function looksOneMove(faces) {
-  const whole = faces.filter(uniform).length;
-  const stripped = faces.filter((face) => !uniform(face) && oneStripOff(face)).length;
-  return whole === 1 && stripped === 2;
-}
+/**
+ * How sure the count has to be. Raising it further was measured and barely
+ * helps: the readings that go wrong go wrong confidently, so the bar buys
+ * almost nothing and costs most of what it does catch.
+ */
+export const CERTAIN = 0.6;
 
-export const CERTAIN = 0.45;
 
 /**
  * Look at one frame and say only what it can stand behind.
  *
  * @returns {{verdict: 'none'|'+2'|'DNF', state: string, faces: number, colours: number,
+ *   confidence: number, found: object|null}}
+ */
+/**
+ * Look at one frame and say only what it can stand behind.
+ *
+ * What it does NOT do, after being built and measured and thrown away: read the
+ * nine stickers of each face and judge their pattern. That is the natural way
+ * to think about it -- one face off in a stripe is a +2, a face with colours
+ * all over it is a DNF -- and it is exactly right about cubes. It is reading
+ * them off a photograph that fails. Placing a three-by-three grid on a face
+ * needs the cube's corner found to within a few pixels, and swept over 162
+ * camera positions (height 24 to 42 degrees, three angles round, three
+ * tilts) that grid slipped often enough to hand out 31 penalties on cubes that
+ * were solved. One in five. No amount of certainty about the colours helps when
+ * the grid is on the wrong stickers.
+ *
+ * So the faces are not divided up at all. The cube is sampled all over and the
+ * colours are counted, which asks far less of the geometry -- a sample that
+ * lands slightly off is still on the cube, and one colour more or less does not
+ * follow from a grid being a few pixels out. And counting is enough for the
+ * half of the question that matters most: five is the most a cube one move from
+ * solved can show from three faces, measured over every one-move state through
+ * every corner, so six is proof of at least two moves whatever the hidden side
+ * is doing.
+ *
+ * The cost is the other half. A +2 cannot be told from a solved cube this way,
+ * and is left alone.
+ *
+ * @returns {{verdict: 'none'|'DNF', state: string, faces: number, colours: number,
  *   confidence: number, found: object|null}}
  */
 export function inspectFrame(image, empty) {
@@ -494,97 +557,57 @@ export function inspectFrame(image, empty) {
 
   const side = Math.min(image.width, image.height);
   const across = found.radius * 2 * side;
-  if (across < 96) { // nine stickers across fewer than a hundred pixels is a guess
-    return { verdict: 'none', state: 'te klein in beeld', faces: 0, colours: 0, confidence: 0, found };
-  }
-
-  const fit = fitFaces(found);
-  found.turn = fit.turn;
-  found.radius = fit.radius;
-  found.fit = fit.score;
-
-  const angle = fit.turn * Math.PI / 180;
-  const place = (point) => ({
-    x: found.x + (point.x * Math.cos(angle) - point.y * Math.sin(angle)) * fit.radius,
-    y: found.y + (point.x * Math.sin(angle) + point.y * Math.cos(angle)) * fit.radius
-  });
-
-  // Half a sticker across, so a patch stays clear of the seams around it.
-  const size = Math.max(2, Math.round(fit.radius * 2 * side / 3 / 3 * 0.22));
-  const read = (at) => patch(image, Math.round(at.x * image.width), Math.round(at.y * image.height), size);
+  if (across < 96) return { verdict: 'none', state: 'te klein in beeld', faces: 0, colours: 0, confidence: 0, found };
 
   const base = { found, faces: 0, colours: 0, confidence: 0 };
 
-  // With a good hexagon the three faces are where they should be and the finer
-  // question -- one move, or more -- can be asked. Otherwise only the coarse one.
-  if (fit.score > 0.82) {
-    const points = samplePoints().map((point) => ({ ...point, ...place(point) }));
-    const colours = points.map(read);
-    if (colours.some((c) => c === null)) return { verdict: 'none', state: 'niet leesbaar', ...base };
-
-    // A sample much darker than the rest fell on a seam, which means the grid
-    // is not sitting where it thinks it is.
-    const brightness = colours.map(([r, g, b]) => (r + g + b) / 3);
-    const middle = brightness.slice().sort((a, b) => a - b)[brightness.length >> 1];
-    const onSeam = brightness.filter((value) => value < middle * 0.45).length;
-    if (onSeam > 3) return { verdict: 'none', state: 'raster zit scheef', ...base };
-
-    const grouped = classify(colours);
-    if (!grouped) return { verdict: 'none', state: 'niet leesbaar', ...base };
-
-    const faces = [0, 1, 2].map((face) => points
-      .map((point, i) => ({ point, i }))
-      .filter(({ point }) => point.face === face)
-      .map(({ i }) => grouped.labels[i]));
-
-    const now = { found, faces: 3, colours: grouped.colours, confidence: grouped.clarity };
-    if (grouped.clarity < CERTAIN) return { verdict: 'none', state: 'niet zeker genoeg', ...now };
-
-    // Too many colours for one move is proof on the count alone, and the count
-    // is the part that does not need every sticker pinned down.
-    if (grouped.colours > ONE_MOVE_AT_MOST[3]) return { verdict: 'DNF', state: 'meer dan een zet', ...now };
-
-    // The rest is about the shape on each face, and that does need every
-    // sticker right.
-    if (grouped.separation < CERTAIN) return { verdict: 'none', state: 'niet zeker genoeg', ...now };
-    if (faces.every(uniform)) return { verdict: 'none', state: 'lijkt opgelost', ...now };
-    if (looksOneMove(faces)) return { verdict: '+2', state: 'een zet ernaast', ...now };
-    return { verdict: 'DNF', state: 'meer dan een zet', ...now };
-  }
-
-  // Not a corner view -- two faces, or one, or an angle the rhombi do not suit.
-  // Nothing here can tell one move from none, but counting colours still can
-  // tell more than one move from anything, and that needs no geometry at all.
-  const spots = [];
+  // Well inside, not merely inside. A slanted silhouette edge on a coarse grid
+  // keeps a sliver of mat in the cells along it, and mat sampled as if it were
+  // a sticker is a whole extra colour -- which on a solved cube is the
+  // difference between three and four.
+  const inner = [];
+  const clear = (x, y) => {
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const ny = y + dy;
+        const nx = x + dx;
+        if (ny < 0 || nx < 0 || ny >= GRID || nx >= GRID || !found.mask[ny * GRID + nx]) return false;
+      }
+    }
+    return true;
+  };
   for (let y = found.top; y <= found.bottom; y++) {
     for (let x = found.left; x <= found.right; x++) {
-      if (found.mask[y * GRID + x] !== 1) continue;
-      // well inside, so the silhouette edge is not sampled
-      if (!found.mask[(y - 1) * GRID + x] || !found.mask[(y + 1) * GRID + x]
-        || !found.mask[y * GRID + x - 1] || !found.mask[y * GRID + x + 1]) continue;
-      spots.push({ x: (x + 0.5) / GRID, y: (y + 0.5) / GRID });
+      if (clear(x, y)) inner.push([(x + 0.5) / GRID, (y + 0.5) / GRID]);
     }
   }
+  if (inner.length < 24) return { verdict: 'none', state: 'te weinig zicht', ...base };
 
-  const step = Math.max(1, Math.floor(spots.length / 40));
-  const picked = spots.filter((_, i) => i % step === 0).slice(0, 40);
-  const colours = picked.map(read).filter(Boolean);
-  if (colours.length < 12) return { verdict: 'none', state: 'te weinig zicht', ...base };
+  const step = Math.max(1, Math.floor(inner.length / 48));
+  const picked = inner.filter((_, i) => i % step === 0).slice(0, 48);
+  const size = Math.max(2, Math.round(across / 9 * 0.2));
+  const colours = picked
+    .map(([x, y]) => patch(image, Math.round(x * image.width), Math.round(y * image.height), size))
+    .filter(Boolean);
+  if (colours.length < 20) return { verdict: 'none', state: 'niet leesbaar', ...base };
 
+  // Drop the ones that landed on a seam rather than a sticker.
   const brightness = colours.map(([r, g, b]) => (r + g + b) / 3);
-  const middle = brightness.slice().sort((a, b) => a - b)[brightness.length >> 1];
-  const lit = colours.filter((_, i) => brightness[i] >= middle * 0.5);
+  const middleBright = brightness.slice().sort((a, b) => a - b)[brightness.length >> 1];
+  const lit = colours.filter((_, i) => brightness[i] >= middleBright * 0.55);
+  if (lit.length < 18) return { verdict: 'none', state: 'niet leesbaar', ...base };
+
   const grouped = classify(lit);
   if (!grouped) return { verdict: 'none', state: 'niet leesbaar', ...base };
 
-  const now = { found, faces: 0, colours: grouped.colours, confidence: grouped.clarity };
-  if (grouped.clarity < CERTAIN) return { verdict: 'none', state: 'niet zeker genoeg', ...now };
+  const now = { found, faces: 3, colours: grouped.colours, confidence: grouped.clarity };
 
-  // Five is the most a cube one move from solved can show from any three faces,
-  // measured over every one-move state through every corner. More than that is
-  // proof, whatever the hidden side is doing.
+  // Only the count is being trusted, and the count only needs the number of
+  // groups to be right -- which is what clarity measures. Whether any one
+  // sticker is in the right group does not come into it.
+  if (grouped.clarity < 0.6) return { verdict: 'none', state: 'niet zeker genoeg', ...now };
   if (grouped.colours > ONE_MOVE_AT_MOST[3]) return { verdict: 'DNF', state: 'meer dan een zet', ...now };
-  return { verdict: 'none', state: 'te weinig zicht', ...now };
+  return { verdict: 'none', state: 'niets te bewijzen', ...now };
 }
 
 /* ---------- the camera ---------- */
@@ -592,9 +615,15 @@ export function inspectFrame(image, empty) {
 /** The outline of what it is looking at, as an SVG path in a 0..1 box. */
 export function foundPath(found) {
   if (!found) return '';
-  return HEX.map(([x, y], i) =>
-    `${i ? 'L' : 'M'}${(found.x + x * found.radius).toFixed(4)} ${(found.y + y * found.radius).toFixed(4)}`
-  ).join(' ') + ' Z';
+  if (!found.outline) {
+    const box = [[found.left, found.top], [found.right + 1, found.top],
+      [found.right + 1, found.bottom + 1], [found.left, found.bottom + 1]];
+    return box.map(([x, y], i) => `${i ? 'L' : 'M'}${(x / 96).toFixed(4)} ${(y / 96).toFixed(4)}`).join(' ') + ' Z';
+  }
+  // The three faces it settled on, each drawn round.
+  return found.outline.map((quad) =>
+    quad.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(4)} ${y.toFixed(4)}`).join(' ') + ' Z'
+  ).join(' ');
 }
 
 /**

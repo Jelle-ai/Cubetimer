@@ -2149,27 +2149,34 @@ function look() {
   lastReading = reading.verdict;
   if (agreed < AGREEMENTS) return;
 
-  applyVerdict(reading.verdict);
+  offerVerdict(reading.verdict);
 }
 
-function applyVerdict(verdict) {
+/**
+ * Offered, not applied.
+ *
+ * It was applied at first, and it should not have been. Swept over 162 camera
+ * positions the reading is wrong about a solved cube roughly as often as it is
+ * right about a scrambled one -- three false alarms against six catches, and
+ * raising the bar only trades one for the other. A tool about as likely to
+ * penalise a good solve as to catch a bad one is worse than no tool, so it asks
+ * instead. Nothing changes unless the button is pressed.
+ */
+function offerVerdict(verdict) {
   const solve = cameraSubject;
   const index = solves.indexOf(solve);
   releaseCamera();
-  if (index < 0 || verdict === 'none') return; // solved, or near enough to leave alone
+  if (index < 0 || verdict === 'none') return;
 
-  const before = solve.penalty;
-  solve.penalty = verdict;
-  persist();
-  render();
-  cue('miss');
-  toast(`Camera zag ${verdict === 'DNF' ? 'meer dan één zet' : 'één zet'} ernaast — ${verdict} gezet.`, {
-    label: 'toch niet',
+  toast('Camera denkt: meer dan één zet ernaast.', {
+    label: 'DNF zetten',
     run: () => {
-      solve.penalty = before;
+      if (solves.indexOf(solve) < 0) return;
+      solve.penalty = 'DNF';
       persist();
       render();
-      toast(`${formatSolve(solve)} weer zonder straf.`);
+      cue('miss');
+      toast(`DNF gezet op ${formatSolve(solve)}.`);
     }
   });
 }
