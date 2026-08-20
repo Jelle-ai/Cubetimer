@@ -147,8 +147,41 @@
 
     <p id="paste-note" class="import-note"></p>
 
+    <input type="file" id="paste-file" accept=".txt,.csv,.json,text/plain,text/csv,application/json" class="visually-hidden">
     <div class="detail-actions">
+      <button type="button" id="paste-pick">Uit een bestand</button>
       <button type="button" id="paste-add">Toevoegen</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="transfer-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Naar een ander toestel</h2>
+      <button type="button" id="transfer-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <p class="detail-meta">Eén bestand met al je sessies, tijden, scrambles en voorkeuren.
+      Bewaar het hier, open het daar. Wat de camera van je matje en je kubus geleerd heeft
+      gaat niet mee — dat hoort bij dit toestel.</p>
+
+    <h3 class="transfer-head">Van dit toestel af</h3>
+    <p id="transfer-here" class="import-note"></p>
+    <div class="detail-actions">
+      <button type="button" id="transfer-save">Bewaar bestand</button>
+      <button type="button" id="transfer-share" hidden>Versturen…</button>
+    </div>
+
+    <h3 class="transfer-head">Van een ander toestel</h3>
+    <p id="transfer-there" class="import-note">Kies het bestand dat je op je andere toestel bewaard hebt.</p>
+    <input type="file" id="transfer-file" accept=".json,application/json,text/plain" class="visually-hidden">
+    <div class="detail-actions">
+      <button type="button" id="transfer-pick">Bestand kiezen</button>
+    </div>
+    <div class="detail-actions" id="transfer-choice" hidden>
+      <button type="button" id="transfer-merge">Samenvoegen</button>
+      <button type="button" id="transfer-replace" class="danger">Alles vervangen</button>
     </div>
   </div>
 </dialog>
@@ -581,17 +614,29 @@
       <button type="button" class="switch" id="set-highlight" role="switch" aria-checked="true" aria-label="Beste en slechtste"><span></span></button>
     </section>
 
+    <section class="setting">
+      <div class="setting-label">
+        <span>Naar een ander toestel</span>
+        <small>Alles in één bestand: sessies, tijden, scrambles en voorkeuren. Samenvoegen
+          in plaats van overschrijven, dus je kunt heen en weer</small>
+      </div>
+      <button type="button" id="transfer-open" class="text-button">openen</button>
+    </section>
+
     <section class="setting stacked">
       <div class="setting-label">
         <span>Tijden exporteren</span>
-        <small>Deze sessie naar je klembord, in het formaat dat je nodig hebt</small>
+        <small>Deze sessie naar een andere app, in het formaat dat je nodig hebt</small>
       </div>
       <div class="segmented" id="export-format" role="group">
         <button type="button" data-value="text">tekst</button>
         <button type="button" data-value="csv">csv</button>
         <button type="button" data-value="cstimer">cstimer</button>
       </div>
-      <button type="button" id="export" class="text-button">kopieer</button>
+      <div class="detail-actions">
+        <button type="button" id="export">Kopieer</button>
+        <button type="button" id="export-save">Bewaar bestand</button>
+      </div>
     </section>
 
     <section class="setting stacked">

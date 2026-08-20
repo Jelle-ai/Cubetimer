@@ -169,8 +169,9 @@ Via het tandwiel rechtsboven:
 | Trillen | Korte trilling bij groen, start en stop (mobiel) |
 | Vieren | Confetti onder je doeltijd, een korte rode puls erboven, en een feest over het hele scherm bij een record |
 | Beste en slechtste | Groen en rood in de lijst |
-| Tijden exporteren | Hele sessie naar je klembord: als tekst, als csv of als cstimer-JSON |
-| Tijden invoeren | Plak een lijst; `12.34`, `1:23.45`, `12.34+` en `DNF(12.34)` worden herkend |
+| Naar een ander toestel | Alles in één bestand, en dat bestand weer inlezen — samenvoegend |
+| Tijden exporteren | Hele sessie naar je klembord of naar een bestand: tekst, csv of cstimer-JSON |
+| Tijden invoeren | Plak een lijst of kies een tekstbestand; `12.34`, `1:23.45`, `12.34+` en `DNF(12.34)` worden herkend |
 
 Alles wordt lokaal bewaard, net als de tijden.
 
@@ -385,6 +386,29 @@ op de eerstvolgende keer dat je herlaadt. En een bestand dat er niet is krijgt g
 HTML-pagina meer als antwoord — dat maakte van een ontbrekend bestand een syntaxfout,
 wat eruitziet alsof de hele app stuk is.
 
+## Naar een ander toestel
+
+**Instellingen → naar een ander toestel** maakt één bestand met al je sessies, tijden,
+scrambles, notities en voorkeuren: `cubetimer-2026-08-20.json`. Bewaar het, zet het op je
+andere toestel — AirDrop, mail, een map in de cloud — en kies het daar bij *bestand kiezen*.
+Kan je browser bestanden delen, dan staat er ook een knop **versturen**, die het meteen aan
+de deelknop van je toestel geeft.
+
+Het **voegt samen, het overschrijft niet**. Voordat je iets kiest staat er wat het bestand
+zou brengen: hoeveel tijden erin zitten, hoeveel daarvan nieuw zijn voor dit toestel en
+hoeveel er al stonden. Solve je 's ochtends op je tablet en 's avonds op je telefoon, dan
+kun je het bestand heen en weer sturen en heb je aan beide kanten alles. Hetzelfde bestand
+twee keer inlezen verandert niets — een tijd wordt herkend aan het moment waarop hij
+gestopt is, tot op de milliseconde.
+
+Wat niet meegaat: wat de camera van je matje en je kubus geleerd heeft. De vier hoeken zijn
+tegen één camera in één kamer getekend en de zes kleuren zijn onder één lamp geleerd; die
+aan een nieuw toestel geven is het drie instellingen geven die niet kloppen. Je thema,
+kleuren, inspectietijd en doelen gaan wel mee.
+
+Wil je toch alles op dit toestel weggooien en precies het bestand overhouden, dan is er
+**alles vervangen**, met een vraag ervoor die zegt hoeveel tijden eraan gaan.
+
 ## Sessies
 
 Boven de lijst staat een keuzelijst met je sessies. Via **beheer** hernoem je de huidige
@@ -438,14 +462,17 @@ index.html        opbouw van de pagina
 styles.css        styling
 src/app.js        state machine, invoer en UI
 src/scramble.js   scramble-generator (random-state via cubing.js, met reserve)
-vendor/           cubing.js (MPL-2.0) en random-uint-below (Unlicense)
+src/preview.js    het plaatje bij de scramble, voor alle zes de puzzels
 src/gan-timer.js  Web Bluetooth client voor de GAN Smart Timer
+src/vision.js     de kubus op het matje vinden en lezen
 src/stats.js      tijdnotatie, ao5/ao12, mean
-src/store.js      opslag van de sessie
+src/practice.js   dagen, reeksen en de oefenmeter
+src/store.js      opslag van de sessies
+src/backup.js     alles in één bestand, en dat bestand weer samenvoegen
 src/settings.js   voorkeuren en de kleuren
-manifest.webmanifest, sw.js, icons/  installeerbaar en offline
 src/feedback.js   tonen, trillen, confetti en de puls bij een gemiste doeltijd
-src/cube.js       kubussimulatie voor het voorbeeld
+vendor/           cubing.js (MPL-2.0) en random-uint-below (Unlicense)
+manifest.webmanifest, sw.js, icons/  installeerbaar en offline
 ```
 
 Het bluetooth-protocol van de GAN Smart Timer (service `fff0`, state-characteristic `fff5`,

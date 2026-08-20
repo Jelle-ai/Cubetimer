@@ -5,6 +5,7 @@ import {
   formatSolve, formatTime, meanOf, sessionMean, setDecimals, worst
 } from './stats.js';
 import { KEY as SAVE_KEY, load, save } from './store.js';
+import { backupName, buildBackup, foldIn, readBackup, summarise } from './backup.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
@@ -81,6 +82,21 @@ const el = {
   pasteNote: document.getElementById('paste-note'),
   pasteAdd: document.getElementById('paste-add'),
   pasteClose: document.getElementById('paste-close'),
+  pastePick: document.getElementById('paste-pick'),
+  pasteFile: document.getElementById('paste-file'),
+  exportSave: document.getElementById('export-save'),
+  transferOpen: document.getElementById('transfer-open'),
+  transferSheet: document.getElementById('transfer-sheet'),
+  transferClose: document.getElementById('transfer-close'),
+  transferHere: document.getElementById('transfer-here'),
+  transferSave: document.getElementById('transfer-save'),
+  transferShare: document.getElementById('transfer-share'),
+  transferThere: document.getElementById('transfer-there'),
+  transferPick: document.getElementById('transfer-pick'),
+  transferFile: document.getElementById('transfer-file'),
+  transferChoice: document.getElementById('transfer-choice'),
+  transferMerge: document.getElementById('transfer-merge'),
+  transferReplace: document.getElementById('transfer-replace'),
   statsCompare: document.getElementById('stats-compare'),
   pickedSheet: document.getElementById('picked-sheet'),
   pickedTitle: document.getElementById('picked-title'),
@@ -3053,9 +3069,15 @@ function sessionAsCstimer() {
 let exportFormat = 'text';
 
 const EXPORTS = {
-  text: { build: sessionAsText, label: 'als tekst' },
-  csv: { build: sessionAsCsv, label: 'als csv' },
-  cstimer: { build: sessionAsCstimer, label: 'voor cstimer' }
+  text: { build: sessionAsText, label: 'als tekst', extension: 'txt', type: 'text/plain' },
+  csv: { build: sessionAsCsv, label: 'als csv', extension: 'csv', type: 'text/csv' },
+  cstimer: { build: sessionAsCstimer, label: 'voor cstimer', extension: 'json', type: 'application/json' }
+};
+
+/** A file name out of the session's own name, safe on every filesystem. */
+const fileNameFor = (extension) => {
+  const stem = currentSession().name.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').toLowerCase();
+  return `${stem || 'sessie'}-${backupName().slice(10, 20)}.${extension}`;
 };
 
 el.exportFormat.addEventListener('click', (event) => {
@@ -3063,6 +3085,18 @@ el.exportFormat.addEventListener('click', (event) => {
   if (!button) return;
   exportFormat = button.dataset.value;
   markGroup(el.exportFormat, exportFormat);
+});
+
+el.exportSave.addEventListener('click', () => {
+  el.exportSave.blur();
+  if (!solves.length) {
+    toast('Nog geen tijden om te bewaren.');
+    return;
+  }
+  const { build, extension, type } = EXPORTS[exportFormat] || EXPORTS.text;
+  const name = fileNameFor(extension);
+  offerFile(name, build(), type);
+  toast(`${solves.length} tijden bewaard als ${name}.`);
 });
 
 el.export.addEventListener('click', async () => {
@@ -3077,6 +3111,160 @@ el.export.addEventListener('click', async () => {
     toast(`${solves.length} tijden gekopieerd ${label}.`);
   } catch {
     toast('Kopiëren lukte niet in deze browser.');
+  }
+});
+
+/* ---------- carrying it all to another device ----------
+
+   A new phone, or a tablet in the morning and a phone in the evening. One file
+   holds every session, and folding it in merges rather than overwrites, so it
+   can go back and forth without either side losing an afternoon. */
+
+/** Hand a file to whatever the device does with files. */
+function offerFile(name, text, type = 'application/json') {
+  const blob = new Blob([text], { type });
+  const address = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = address;
+  link.download = name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // Revoked late: Safari has been known to still be reading it.
+  setTimeout(() => URL.revokeObjectURL(address), 20000);
+}
+
+/** Read a file the user picked, or say plainly that it could not be read. */
+async function textOf(input) {
+  const file = input.files?.[0];
+  input.value = ''; // so picking the same file twice still counts as a change
+  if (!file) return null;
+  try {
+    return { name: file.name, text: await file.text() };
+  } catch {
+    toast('Dat bestand kon niet gelezen worden.');
+    return null;
+  }
+}
+
+let arriving = null; // a file read and understood, waiting to be folded in
+
+function showTransfer() {
+  const sessions = saveFile.sessions.length;
+  const times = saveFile.sessions.reduce((sum, session) => sum + session.solves.length, 0);
+  el.transferHere.textContent = times
+    ? `${sessions} ${sessions === 1 ? 'sessie' : 'sessies'}, ${times} ${times === 1 ? 'tijd' : 'tijden'}.`
+    : 'Nog geen tijden op dit toestel.';
+  el.transferSave.disabled = !times;
+  el.transferShare.disabled = !times;
+  el.transferChoice.hidden = true;
+  arriving = null;
+}
+
+/** Sharing a file straight from the app is what makes AirDrop one tap. */
+const canShareFiles = () => {
+  if (!navigator.canShare || !navigator.share) return false;
+  try {
+    return navigator.canShare({ files: [new File(['{}'], 'x.json', { type: 'application/json' })] });
+  } catch {
+    return false;
+  }
+};
+
+el.transferOpen.addEventListener('click', () => {
+  el.transferOpen.blur();
+  el.transferShare.hidden = !canShareFiles();
+  el.transferThere.textContent = 'Kies het bestand dat je op je andere toestel bewaard hebt.';
+  showTransfer();
+  el.transferSheet.showModal();
+});
+
+el.transferClose.addEventListener('click', () => el.transferSheet.close());
+el.transferSheet.addEventListener('close', () => { arriving = null; });
+
+el.transferSave.addEventListener('click', () => {
+  el.transferSave.blur();
+  offerFile(backupName(), JSON.stringify(buildBackup(saveFile, settings)));
+  toast('Bestand bewaard. Zet het op je andere toestel en open het daar.');
+});
+
+el.transferShare.addEventListener('click', async () => {
+  el.transferShare.blur();
+  const file = new File([JSON.stringify(buildBackup(saveFile, settings))], backupName(),
+    { type: 'application/json' });
+  try {
+    await navigator.share({ files: [file], title: 'Cubetimer' });
+  } catch (error) {
+    // Closing the share sheet is not a failure and is not worth a word.
+    if (error?.name !== 'AbortError') toast('Versturen lukte niet; bewaar het bestand dan gewoon.');
+  }
+});
+
+el.transferPick.addEventListener('click', () => {
+  el.transferPick.blur();
+  el.transferFile.click();
+});
+
+el.transferFile.addEventListener('change', async () => {
+  const picked = await textOf(el.transferFile);
+  if (!picked) return;
+
+  try {
+    const incoming = readBackup(picked.text);
+    const look = summarise(incoming, saveFile);
+    arriving = incoming;
+
+    const when = look.saved ? ` van ${new Date(look.saved).toLocaleDateString('nl-BE')}` : '';
+    const times = (count) => `${count} ${count === 1 ? 'tijd' : 'tijden'}`;
+    el.transferThere.textContent = look.added
+      ? `${picked.name}${when}: ${look.sessions} ${look.sessions === 1 ? 'sessie' : 'sessies'}, `
+        + `${times(look.times)} — daarvan ${look.added} nieuw voor dit toestel`
+        + (look.known ? `, ${look.known} staan er al` : '')
+        + (look.newSessions ? `, ${look.newSessions} nieuwe ${look.newSessions === 1 ? 'sessie' : 'sessies'}` : '')
+        + '.'
+      : `${picked.name}${when}: alles wat erin staat heb je hier al.`;
+    el.transferChoice.hidden = false;
+    el.transferMerge.disabled = !look.added;
+  } catch (error) {
+    arriving = null;
+    el.transferChoice.hidden = true;
+    el.transferThere.textContent = error.message;
+  }
+});
+
+function fold(how) {
+  if (!arriving) return;
+  const folded = foldIn(saveFile, arriving, how);
+  saveFile = { active: folded.active, sessions: folded.sessions };
+  solves = currentSession().solves;
+  selecting = false;
+  selected.clear();
+
+  // Only what the file carried, and only over what this device has not been
+  // told otherwise -- the camera's own settings are never in there to begin
+  // with, so they cannot be trodden on.
+  if (arriving.settings && Object.keys(arriving.settings).length) {
+    settings = { ...settings, ...arriving.settings };
+    storeSettings();
+    applySettings();
+  }
+
+  persist();
+  syncTargetUi();
+  render();
+  el.transferSheet.close();
+  const count = `${folded.added} ${folded.added === 1 ? 'tijd' : 'tijden'}`;
+  toast(how === 'replace'
+    ? `Alles vervangen: ${count}.`
+    : `${count} erbij${folded.known ? `, ${folded.known} stonden er al` : ''}.`);
+}
+
+el.transferMerge.addEventListener('click', () => fold('merge'));
+
+el.transferReplace.addEventListener('click', () => {
+  const times = saveFile.sessions.reduce((sum, session) => sum + session.solves.length, 0);
+  if (!times || confirm(`Alles op dit toestel weggooien en vervangen door het bestand? ${times} tijden verdwijnen.`)) {
+    fold('replace');
   }
 });
 
@@ -3142,6 +3330,26 @@ el.pasteOpen.addEventListener('click', () => {
   el.pasteInput.value = '';
   describePaste();
   el.pasteSheet.showModal();
+});
+
+el.pastePick.addEventListener('click', () => {
+  el.pastePick.blur();
+  el.pasteFile.click();
+});
+
+el.pasteFile.addEventListener('change', async () => {
+  const picked = await textOf(el.pasteFile);
+  if (!picked) return;
+
+  // A whole-app backup picked here is not what this sheet is for, and reading
+  // it as a list of times would find nothing. Say where it belongs instead.
+  if (/"cubetimer"\s*:/.test(picked.text)) {
+    el.pasteNote.textContent = 'Dit is een heel Cubetimer-bestand. Gebruik "naar een ander toestel" — daar blijven je sessies en scrambles heel.';
+    return;
+  }
+
+  el.pasteInput.value = picked.text.slice(0, 200000);
+  describePaste();
 });
 
 el.pasteClose.addEventListener('click', () => el.pasteSheet.close());

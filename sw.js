@@ -1,5 +1,5 @@
 // Offline shell. Bump CACHE when the files below change.
-const CACHE = 'cubetimer-v32';
+const CACHE = 'cubetimer-v33';
 
 // The scrambler is vendored, so it has to be cached too or offline use falls
 // back to random-move scrambles.
@@ -13,6 +13,7 @@ const SHELL = [
   './src/gan-timer.js',
   './src/stats.js',
   './src/store.js',
+  './src/backup.js',
   './src/settings.js',
   './src/feedback.js',
   './src/preview.js',

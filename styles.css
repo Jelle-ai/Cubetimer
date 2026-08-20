@@ -1918,6 +1918,33 @@ body[data-miss] .halo {
   #look-sheet .detail-actions { margin-top: .6rem; }
 }
 
+/* ---------- carrying it all to another device ---------- */
+
+/* A file input styled by the browser and impossible to style back, so the
+   button beside it does the talking and this one is only reachable by it. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.transfer-head {
+  margin: 1rem 0 .3rem;
+  font-size: .82rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.transfer-head:first-of-type { margin-top: .6rem; }
+
 /* ---------- this cube's own colours ---------- */
 
 .colour-teach { margin-top: .5rem; }
