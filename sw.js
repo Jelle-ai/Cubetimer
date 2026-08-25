@@ -1,5 +1,5 @@
 // Offline shell. Bump CACHE when the files below change.
-const CACHE = 'cubetimer-v34';
+const CACHE = 'cubetimer-v35';
 
 // The scrambler is vendored, so it has to be cached too or offline use falls
 // back to random-move scrambles.

@@ -431,6 +431,37 @@ kies een tweede sessie en elke waarde krijgt een kolom per sessie.
 Tijden uit een oudere versie van de app worden bij het eerste bezoek automatisch als
 "Sessie 1" overgenomen.
 
+### Merken op een tijd
+
+Twee dingen die een solve in de lijst kan meekrijgen, via de snelacties (vasthouden) of
+het detailvenster:
+
+**Telt niet mee.** Voor een opwarmer, een keer dat je werd gestoord, of een solve waarvan
+je gewoon weet dat hij niet meetelt. Hij blijft in je lijst staan, doorgestreept, maar valt
+buiten elk gemiddelde en elk record. Nagemeten met een geluksmomentje van 3,00 in een
+sessie van rond de 12: beste ging van 3,00 terug naar 11,80 en de ao5 van 12,16 naar 12,23,
+zonder dat de regel verdween. Wissen zou dat ook gedaan hebben, maar dan was je ook kwijt
+dát je die solve gedaan had.
+
+**★ Bewaren.** Voor de solve waarvan je weet dat hij bijzonder was. Later terug te vinden
+via de filter.
+
+### Zoeken in je tijden
+
+**zoek** boven de lijst opent een zoekveld en een paar knopjes: alleen bewaarde solves,
+alleen +2's, alleen DNF's, alleen wat niet meetelt. Het zoekveld kijkt in je scramble, je
+notitie en de tijd zelf.
+
+Wat het níet doet is je gemiddelden veranderen. Een ao5 van een zoekresultaat is geen
+getal dat iemand wil; de filter bepaalt alleen wat je ziet.
+
+### Een tijd met de hand toevoegen
+
+**+ tijd** boven de lijst, voor een solve die je ergens anders gedaan hebt. `12.34` en
+`1:23.45` worden allebei gelezen, je kunt er een +2 of DNF bij zetten en een scramble
+intypen. Er staat onderaan wat er toegevoegd gaat worden voor je op de knop drukt, en er
+zit een ongedaan-maken in de melding.
+
 ### Tijden naar een andere sessie
 
 Bijna altijd omdat ze in de verkeerde terechtgekomen zijn: vijf 2x2-solves die in je

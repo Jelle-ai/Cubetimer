@@ -1,8 +1,8 @@
 import { PUZZLES, nextScramble, puzzleById, randomMoveScramble, warmUp } from './scramble.js';
 import { bluetoothAvailable, connectGanTimer, isSupported, TimerState } from './gan-timer.js';
 import {
-  averageOf, best, bestAverageAt, bestAverageOf, bestMeanAt, bestMeanOf, effective,
-  formatSolve, formatTime, meanOf, sessionMean, setDecimals, worst
+  averageOf, best, bestAverageAt, bestAverageOf, bestMeanAt, bestMeanOf, counting, counts,
+  effective, formatSolve, formatTime, meanOf, sessionMean, setDecimals, worst
 } from './stats.js';
 import { KEY as SAVE_KEY, load, save } from './store.js';
 import { backupName, buildBackup, foldIn, inOrder, readBackup, summarise } from './backup.js';
@@ -57,6 +57,19 @@ const el = {
   statsTitle: document.getElementById('stats-title'),
   statsList: document.getElementById('stats-list'),
   selectMode: document.getElementById('select-mode'),
+  addTime: document.getElementById('add-time'),
+  addSheet: document.getElementById('add-sheet'),
+  addClose: document.getElementById('add-close'),
+  addTimeValue: document.getElementById('add-time-value'),
+  addPenalty: document.getElementById('add-penalty'),
+  addScramble: document.getElementById('add-scramble'),
+  addNote: document.getElementById('add-note'),
+  addSave: document.getElementById('add-save'),
+  filterOpen: document.getElementById('filter-open'),
+  filterBar: document.getElementById('filter-bar'),
+  filterText: document.getElementById('filter-text'),
+  filterChips: document.getElementById('filter-chips'),
+  filterClear: document.getElementById('filter-clear'),
   selectionBar: document.getElementById('selection-bar'),
   selectionCount: document.getElementById('selection-count'),
   selectAll: document.getElementById('select-all'),
@@ -178,6 +191,10 @@ const el = {
   quickRemove: document.getElementById('quick-remove'),
   quickMove: document.getElementById('quick-move'),
   detailMove: document.getElementById('detail-move'),
+  detailSkip: document.getElementById('detail-skip'),
+  detailStar: document.getElementById('detail-star'),
+  quickSkip: document.getElementById('quick-skip'),
+  quickStar: document.getElementById('quick-star'),
   selectionMove: document.getElementById('selection-move'),
   moveSheet: document.getElementById('move-sheet'),
   moveTitle: document.getElementById('move-title'),
@@ -385,13 +402,14 @@ function renderStats() {
   const last = solves.length ? effective(solves[solves.length - 1]) : null;
 
   el.stats.single.textContent = formatTime(last);
-  el.stats.singleBest.textContent = formatTime(best(solves));
-  el.stats.mo3.textContent = formatTime(meanOf(solves, 3));
-  el.stats.mo3Best.textContent = formatTime(bestMeanOf(solves, 3));
-  el.stats.ao5.textContent = formatTime(averageOf(solves, 5));
-  el.stats.ao5Best.textContent = formatTime(bestAverageOf(solves, 5));
-  el.stats.ao12.textContent = formatTime(averageOf(solves, 12));
-  el.stats.ao12Best.textContent = formatTime(bestAverageOf(solves, 12));
+  const scored = counting(solves);
+  el.stats.singleBest.textContent = formatTime(best(scored));
+  el.stats.mo3.textContent = formatTime(meanOf(scored, 3));
+  el.stats.mo3Best.textContent = formatTime(bestMeanOf(scored, 3));
+  el.stats.ao5.textContent = formatTime(averageOf(scored, 5));
+  el.stats.ao5Best.textContent = formatTime(bestAverageOf(scored, 5));
+  el.stats.ao12.textContent = formatTime(averageOf(scored, 12));
+  el.stats.ao12Best.textContent = formatTime(bestAverageOf(scored, 12));
 }
 
 const MONTHS = ['januari', 'februari', 'maart', 'april', 'mei', 'juni',
@@ -417,9 +435,134 @@ function dayLabel(day) {
   return date.getFullYear() === now.getFullYear() ? stamp : `${stamp} ${date.getFullYear()}`;
 }
 
+/* ---------- a time you solved somewhere else ---------- */
+
+let addPenalty = 'none';
+
+function describeAdd() {
+  const found = parseTimeLine(el.addTimeValue.value);
+  el.addSave.disabled = !found;
+  el.addNote.textContent = el.addTimeValue.value.trim() && !found
+    ? 'Dat lees ik niet als een tijd. Probeer 12.34 of 1:23.45.'
+    : found
+      ? `Wordt toegevoegd als ${formatSolve({ ms: found.ms, penalty: addPenalty })}.`
+      : '';
+}
+
+el.addTime.addEventListener('click', () => {
+  el.addTime.blur();
+  el.addTimeValue.value = '';
+  el.addScramble.value = '';
+  addPenalty = 'none';
+  markGroup(el.addPenalty, addPenalty);
+  describeAdd();
+  el.addSheet.showModal();
+});
+
+el.addClose.addEventListener('click', () => el.addSheet.close());
+el.addTimeValue.addEventListener('input', describeAdd);
+
+el.addPenalty.addEventListener('click', (event) => {
+  const button = event.target.closest('button');
+  if (!button) return;
+  addPenalty = button.dataset.value;
+  markGroup(el.addPenalty, addPenalty);
+  describeAdd();
+});
+
+el.addSave.addEventListener('click', () => {
+  const found = parseTimeLine(el.addTimeValue.value);
+  if (!found) return;
+
+  const scramble = el.addScramble.value.trim() || found.scramble || '';
+  const solve = { ms: found.ms, penalty: addPenalty, at: Date.now() };
+  if (scramble) solve.scramble = scramble;
+  solves.push(solve);
+
+  persist();
+  render();
+  el.addSheet.close();
+  toast(`${formatSolve(solve)} toegevoegd.`, {
+    label: 'Ongedaan maken',
+    run: () => {
+      const at = solves.indexOf(solve);
+      if (at < 0) return;
+      solves.splice(at, 1);
+      persist();
+      render();
+    }
+  });
+});
+
+/* ---------- searching the list ----------
+
+   A filter narrows what is shown and nothing else. The averages are still of
+   the session, not of what happens to be on screen -- an average of a search
+   result is not a thing anybody wants. */
+
+let filterText = '';
+let filterOnly = null; // 'star' | '+2' | 'DNF' | 'skip'
+
+const filtering = () => filterText !== '' || filterOnly !== null;
+
+function matches(solve) {
+  if (filterOnly === 'star' && !solve.star) return false;
+  if (filterOnly === 'skip' && !solve.skip) return false;
+  if ((filterOnly === '+2' || filterOnly === 'DNF') && solve.penalty !== filterOnly) return false;
+  if (!filterText) return true;
+
+  const needle = filterText.toLowerCase();
+  return `${solve.scramble || ''} ${solve.note || ''} ${formatSolve(solve)}`.toLowerCase().includes(needle);
+}
+
+function renderFilter() {
+  el.filterBar.hidden = !filterShown;
+  el.filterOpen.dataset.active = String(filtering());
+  for (const chip of el.filterChips.children) {
+    chip.dataset.active = String(chip.dataset.only === filterOnly);
+  }
+}
+
+let filterShown = false;
+
+el.filterOpen.addEventListener('click', () => {
+  el.filterOpen.blur();
+  filterShown = !filterShown;
+  if (!filterShown) { filterText = ''; filterOnly = null; el.filterText.value = ''; }
+  renderFilter();
+  renderSolves();
+  if (filterShown) el.filterText.focus();
+});
+
+el.filterText.addEventListener('input', () => {
+  filterText = el.filterText.value.trim();
+  renderFilter();
+  renderSolves();
+});
+
+el.filterChips.addEventListener('click', (event) => {
+  const chip = event.target.closest('button');
+  if (!chip) return;
+  filterOnly = filterOnly === chip.dataset.only ? null : chip.dataset.only;
+  renderFilter();
+  renderSolves();
+});
+
+el.filterClear.addEventListener('click', () => {
+  filterText = '';
+  filterOnly = null;
+  el.filterText.value = '';
+  renderFilter();
+  renderSolves();
+});
+
 function renderSolves() {
   el.solves.innerHTML = '';
-  el.empty.hidden = solves.length > 0;
+  const shown = solves.filter(matches);
+  el.empty.hidden = shown.length > 0;
+  el.empty.textContent = solves.length && !shown.length
+    ? 'Niets gevonden met deze filter.'
+    : 'Nog geen tijden.';
 
   const times = solves.map(effective).filter(Number.isFinite);
   const fastest = settings.highlight && times.length > 1 ? Math.min(...times) : null;
@@ -430,6 +573,7 @@ function renderSolves() {
   let openDay;
   for (let index = solves.length - 1; index >= 0; index--) {
     const solve = solves[index];
+    if (!matches(solve)) continue;
     const day = dayOf(solve);
     if (day !== openDay) {
       openDay = day;
@@ -479,6 +623,22 @@ function renderSolves() {
       tag.className = 'solve-tag';
       tag.textContent = solve.penalty;
       row.append(tag);
+    }
+
+    if (solve.star) {
+      const star = document.createElement('span');
+      star.className = 'solve-star';
+      star.textContent = '★';
+      star.title = 'Bewaard';
+      row.append(star);
+    }
+
+    if (solve.skip) {
+      row.classList.add('is-skipped');
+      const mark = document.createElement('span');
+      mark.className = 'solve-tag is-quiet';
+      mark.textContent = 'telt niet';
+      row.append(mark);
     }
 
     if (solve.note) {
@@ -626,7 +786,7 @@ function renderInsight() {
     if (streak >= 2) parts.push(`${streak} op rij onder ${formatTime(currentTarget())}`);
   }
 
-  const goal = currentTarget() ?? bestAverageOf(solves, 5);
+  const goal = currentTarget() ?? bestAverageOf(counting(solves), 5);
   if (goal) {
     const ceiling = ao5Ceiling(goal);
     if (ceiling === Infinity) parts.push(`ao5 onder ${formatTime(goal)} is zeker`);
@@ -777,59 +937,78 @@ el.sessionDelete.addEventListener('click', () => {
  * only by their being adjacent.
  */
 function statGroups(list = solves) {
-  const solves = list; // every measure below reads this, and this one only
-  const dnfs = solves.filter((solve) => solve.penalty === 'DNF').length;
-  const plusTwos = solves.filter((solve) => solve.penalty === '+2').length;
+  // No shadowing here. The name used to be reused for the filtered copy, which
+  // hid the module's own list behind it -- and the one line that wanted to ask
+  // "is this the session on screen?" ended up comparing the argument with
+  // itself, always true.
+  const thisSession = list === solves;
 
-  const all = solves.map((_, index) => index);
-  const where = (test) => all.filter((index) => test(solves[index]));
+  // Measured over the solves that count, but every set of solves handed back is
+  // in the coordinates of the list on screen, so `back` carries the indices
+  // across and a warm-up in the middle does not shift what a tapped average
+  // opens.
+  const scored = counting(list);
+  const back = list.flatMap((solve, index) => (counts(solve) ? [index] : []));
+
+  const dnfs = scored.filter((solve) => solve.penalty === 'DNF').length;
+  const plusTwos = scored.filter((solve) => solve.penalty === '+2').length;
+
+  const all = scored.map((_, index) => index);
+  const outward = (indices) => indices.map((i) => back[i]);
+  const where = (test) => outward(all.filter((index) => test(scored[index])));
   const extreme = (value) => {
-    const index = all.find((i) => effective(solves[i]) === value);
-    return index === undefined ? [] : [index];
+    const index = all.find((i) => effective(scored[i]) === value);
+    return index === undefined ? [] : [back[index]];
   };
-  const last = (n) => (solves.length >= n ? all.slice(-n) : []);
-  const window = (at) => (at ? all.slice(at.start, at.end) : []);
+  const last = (n) => (scored.length >= n ? outward(all.slice(-n)) : []);
+  const span = (at) => (at ? outward(all.slice(at.start, at.end)) : []);
 
   const wrong = [
     ['+2', String(plusTwos), where((s) => s.penalty === '+2')],
     ['DNF', String(dnfs), where((s) => s.penalty === 'DNF')]
   ];
 
-  const target = currentTarget();
-  if (target !== null && list === solves) {
+  // The target belongs to the session on screen, so it is only offered for that
+  // one; a compared session was being measured against a target never its own.
+  const target = thisSession ? currentTarget() : null;
+  if (target !== null) {
     const under = where((s) => {
       const value = effective(s);
       return Number.isFinite(value) && value <= target;
     });
-    const share = solves.length ? Math.round((under.length / solves.length) * 100) : 0;
+    const share = scored.length ? Math.round((under.length / scored.length) * 100) : 0;
     wrong.push([`Onder ${formatTime(target)}`, `${under.length} (${share}%)`, under]);
   }
 
+  const skipped = list.length - scored.length;
+  const session = [
+    ['solves', String(scored.length), outward(all)],
+    ['mean', formatTime(sessionMean(scored)), outward(all)],
+    ['beste', formatTime(best(scored)), extreme(best(scored))],
+    ['slechtste', formatTime(worst(scored)), extreme(worst(scored))]
+  ];
+  if (skipped) {
+    session.push(['telt niet mee', String(skipped),
+      list.flatMap((solve, index) => (counts(solve) ? [] : [index]))]);
+  }
+
   return [
-    {
-      title: 'Sessie',
-      tiles: [
-        ['solves', String(solves.length), all],
-        ['mean', formatTime(sessionMean(solves)), all],
-        ['beste', formatTime(best(solves)), extreme(best(solves))],
-        ['slechtste', formatTime(worst(solves)), extreme(worst(solves))]
-      ]
-    },
+    { title: 'Sessie', tiles: session },
     {
       title: 'Gemiddelden',
       // label, where it stands now, the best it has ever been, and the solves
       // behind each of those two
       averages: [
-        ['mo3', formatTime(meanOf(solves, 3)), formatTime(bestMeanOf(solves, 3)),
-          last(3), window(bestMeanAt(solves, 3))],
-        ['ao5', formatTime(averageOf(solves, 5)), formatTime(bestAverageOf(solves, 5)),
-          last(5), window(bestAverageAt(solves, 5))],
-        ['ao12', formatTime(averageOf(solves, 12)), formatTime(bestAverageOf(solves, 12)),
-          last(12), window(bestAverageAt(solves, 12))],
-        ['ao50', formatTime(averageOf(solves, 50)), formatTime(bestAverageOf(solves, 50)),
-          last(50), window(bestAverageAt(solves, 50))],
-        ['ao100', formatTime(averageOf(solves, 100)), formatTime(bestAverageOf(solves, 100)),
-          last(100), window(bestAverageAt(solves, 100))]
+        ['mo3', formatTime(meanOf(scored, 3)), formatTime(bestMeanOf(scored, 3)),
+          last(3), span(bestMeanAt(scored, 3))],
+        ['ao5', formatTime(averageOf(scored, 5)), formatTime(bestAverageOf(scored, 5)),
+          last(5), span(bestAverageAt(scored, 5))],
+        ['ao12', formatTime(averageOf(scored, 12)), formatTime(bestAverageOf(scored, 12)),
+          last(12), span(bestAverageAt(scored, 12))],
+        ['ao50', formatTime(averageOf(scored, 50)), formatTime(bestAverageOf(scored, 50)),
+          last(50), span(bestAverageAt(scored, 50))],
+        ['ao100', formatTime(averageOf(scored, 100)), formatTime(bestAverageOf(scored, 100)),
+          last(100), span(bestAverageAt(scored, 100))]
       ]
     },
     { title: 'Straffen', tiles: wrong }
@@ -1313,6 +1492,8 @@ function fillDetail() {
   el.detailNote.value = solve.note || '';
   el.detailPlus2.dataset.active = String(solve.penalty === '+2');
   el.detailDnf.dataset.active = String(solve.penalty === 'DNF');
+  el.detailSkip.dataset.active = String(solve.skip === true);
+  el.detailStar.dataset.active = String(solve.star === true);
 }
 
 el.quickClose.addEventListener('click', () => el.quickSheet.close());
@@ -1327,6 +1508,18 @@ el.quickDnf.addEventListener('click', () => {
   el.quickSheet.close();
 });
 
+el.quickSkip.addEventListener('click', () => {
+  const solve = markSolve(quickIndex, 'skip');
+  el.quickSheet.close();
+  if (solve) toast(solve.skip ? 'Telt niet mee in je gemiddelden.' : 'Telt weer mee.');
+});
+
+el.quickStar.addEventListener('click', () => {
+  const solve = markSolve(quickIndex, 'star');
+  el.quickSheet.close();
+  if (solve) toast(solve.star ? 'Bewaard.' : 'Niet meer bewaard.');
+});
+
 el.quickDetail.addEventListener('click', () => {
   const index = quickIndex;
   el.quickSheet.close();
@@ -1338,6 +1531,20 @@ el.quickRemove.addEventListener('click', () => {
   el.quickSheet.close();
   removeSolveWithUndo(index);
 });
+
+/**
+ * Flip a mark on a solve. Neither changes the time; one keeps it out of the
+ * averages and the other makes it findable again later.
+ */
+function markSolve(index, mark) {
+  const solve = solves[index];
+  if (!solve) return null;
+  if (solve[mark]) delete solve[mark];
+  else solve[mark] = true;
+  persist();
+  render();
+  return solve;
+}
 
 function openDetail(index) {
   detailIndex = index;
@@ -1364,6 +1571,17 @@ el.detailPlus2.addEventListener('click', () => {
 el.detailDnf.addEventListener('click', () => {
   togglePenalty(detailIndex, 'DNF');
   fillDetail();
+});
+
+el.detailSkip.addEventListener('click', () => {
+  const solve = markSolve(detailIndex, 'skip');
+  if (solve) fillDetail();
+  if (solve) toast(solve.skip ? 'Telt niet mee in je gemiddelden.' : 'Telt weer mee.');
+});
+
+el.detailStar.addEventListener('click', () => {
+  const solve = markSolve(detailIndex, 'star');
+  if (solve) fillDetail();
 });
 
 el.detailMove.addEventListener('click', () => {
@@ -1467,7 +1685,7 @@ function persist() {
 }
 
 function addSolve(ms) {
-  const previousBest = best(solves);
+  const previousBest = best(counting(solves));
   solves.push({ ms, penalty: pendingPenalty, scramble, at: Date.now() });
   pendingPenalty = 'none';
   persist();
@@ -1486,7 +1704,7 @@ function addSolve(ms) {
  * going over it gets a short red pulse instead.
  */
 function judgeSolve(previousBest) {
-  const record = best(solves);
+  const record = best(counting(solves));
   const isRecord = solves.length > 1 && previousBest !== null
     && record !== null && record < previousBest;
 

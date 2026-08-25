@@ -1,5 +1,17 @@
 // Time formatting and WCA-style averages.
 
+/**
+ * Whether a solve counts towards the numbers.
+ *
+ * A warm-up is still a solve you did, and deleting it to keep your averages
+ * honest loses the record of having done it. Marked instead, it stays in the
+ * list and stays out of the arithmetic.
+ */
+export const counts = (solve) => solve?.skip !== true;
+
+/** Only the solves the numbers are allowed to see. */
+export const counting = (solves) => solves.filter(counts);
+
 /** Effective time of a solve: +2 adds two seconds, a DNF counts as infinite. */
 export function effective(solve) {
   if (!solve) return null;

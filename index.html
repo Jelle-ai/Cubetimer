@@ -108,6 +108,8 @@
       <div class="session-head">
         <select id="session-select" class="session-select" aria-label="Kies sessie"></select>
         <div class="session-tools">
+          <button id="add-time" class="link" type="button" title="Tijd met de hand toevoegen">+ tijd</button>
+          <button id="filter-open" class="link" type="button" title="Zoeken en filteren">zoek</button>
           <button id="select-mode" class="link" type="button">selecteer</button>
           <button id="session-manage" class="link" type="button">beheer</button>
           <button id="clear" class="link danger" type="button">wissen</button>
@@ -124,6 +126,17 @@
           <button id="selection-delete" class="link danger" type="button">wis</button>
           <button id="select-done" class="link" type="button">klaar</button>
         </div>
+      </div>
+
+      <div id="filter-bar" class="filter-bar" hidden>
+        <input type="search" id="filter-text" placeholder="Zoek in scramble, notitie of tijd" autocomplete="off">
+        <div class="filter-chips" id="filter-chips" role="group">
+          <button type="button" data-only="star">★</button>
+          <button type="button" data-only="+2">+2</button>
+          <button type="button" data-only="DNF">DNF</button>
+          <button type="button" data-only="skip">telt niet</button>
+        </div>
+        <button type="button" id="filter-clear" class="link">alles tonen</button>
       </div>
 
       <ol id="solves" class="solves" reversed></ol>
@@ -310,6 +323,8 @@
       <button type="button" id="quick-plus2">+2</button>
       <button type="button" id="quick-dnf">DNF</button>
       <button type="button" id="quick-detail">Details</button>
+      <button type="button" id="quick-star">★</button>
+      <button type="button" id="quick-skip">Telt niet</button>
       <button type="button" id="quick-move">Verplaatsen</button>
       <button type="button" id="quick-remove" class="danger">Wissen</button>
     </div>
@@ -356,6 +371,40 @@
       <button type="button" id="import-no" class="danger">Nee, laat maar</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="add-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Tijd toevoegen</h2>
+      <button type="button" id="add-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <p class="detail-meta">Voor een solve die je ergens anders gedaan hebt. Hij komt achteraan
+      in de sessie die nu open staat.</p>
+
+    <label class="field">
+      <span>Tijd</span>
+      <input type="text" id="add-time-value" inputmode="decimal" autocomplete="off" placeholder="12.34 of 1:23.45">
+    </label>
+
+    <div class="segmented" id="add-penalty" role="group">
+      <button type="button" data-value="none">geen straf</button>
+      <button type="button" data-value="+2">+2</button>
+      <button type="button" data-value="DNF">DNF</button>
+    </div>
+
+    <label class="field">
+      <span>Scramble (mag leeg)</span>
+      <input type="text" id="add-scramble" autocomplete="off" spellcheck="false">
+    </label>
+
+    <p id="add-note" class="import-note"></p>
+
+    <div class="detail-actions">
+      <button type="button" id="add-save">Toevoegen</button>
+    </div>
+  </div>
 </dialog>
 
 <dialog id="move-sheet" class="sheet" tabindex="-1">
@@ -439,6 +488,8 @@
     <div class="detail-actions">
       <button type="button" id="detail-plus2">+2</button>
       <button type="button" id="detail-dnf">DNF</button>
+      <button type="button" id="detail-star">★ Bewaren</button>
+      <button type="button" id="detail-skip">Telt niet mee</button>
       <button type="button" id="detail-move">Verplaatsen</button>
       <button type="button" id="detail-remove" class="danger">Verwijderen</button>
     </div>

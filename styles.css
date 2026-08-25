@@ -1945,6 +1945,53 @@ body[data-miss] .halo {
 
 .transfer-head:first-of-type { margin-top: .6rem; }
 
+/* ---------- searching the list ---------- */
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  margin-bottom: .5rem;
+}
+
+.filter-bar input[type="search"] {
+  flex: 1 1 10rem;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 .7rem;
+  border-radius: 10px;
+  border: 1px solid var(--edge);
+  background: var(--sunken);
+  color: var(--ink);
+  font: inherit;
+  font-size: .85rem;
+}
+
+.filter-chips { display: flex; gap: .25rem; }
+
+.filter-chips button {
+  min-height: 32px;
+  padding: 0 .55rem;
+  border-radius: 9px;
+  background: var(--sunken);
+  font-size: .78rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.filter-chips button[data-active="true"] { background: var(--led); color: #fff; }
+
+#filter-open[data-active="true"] { color: var(--led); font-weight: 600; }
+
+/* ---------- marks on a solve ---------- */
+
+.solve-star { margin-left: .3rem; color: var(--record); font-size: .82rem; }
+
+/* Still there, still readable, plainly not part of the numbers. */
+.solve.is-skipped .solve-time { opacity: .55; text-decoration: line-through; text-decoration-thickness: 1px; }
+.solve-tag.is-quiet { background: transparent; color: var(--muted); border: 1px solid var(--edge); }
+
 /* ---------- moving times to another session ---------- */
 
 .move-list { display: flex; flex-direction: column; gap: .35rem; }
