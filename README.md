@@ -431,6 +431,26 @@ kies een tweede sessie en elke waarde krijgt een kolom per sessie.
 Tijden uit een oudere versie van de app worden bij het eerste bezoek automatisch als
 "Sessie 1" overgenomen.
 
+### Tijden naar een andere sessie
+
+Bijna altijd omdat ze in de verkeerde terechtgekomen zijn: vijf 2x2-solves die in je
+3x3-sessie belandden omdat je de puzzelkiezer niet had aangeraakt. Dat kan nu rechtgezet
+worden zonder ze over te typen.
+
+- **Eén tijd**: houd hem vast in de lijst en kies **verplaatsen**, of open hem en gebruik
+  dezelfde knop in het detailvenster.
+- **Meerdere**: druk op **selecteer**, vink ze aan en druk op **verplaats**.
+
+Je krijgt een lijstje met je andere sessies, met hoeveel tijden er al in staan. Staat er een
+sessie voor een andere puzzel bij, dan is die naam gekleurd — want dat is meestal precies
+waarom je aan het verplaatsen bent, niet iets om tegen gewaarschuwd te worden. Is de sessie
+die je zoekt er nog niet, dan maak je hem onderaan in één stap aan, met een naam en een
+puzzel naar keuze.
+
+De tijden landen tussen de tijden die er al stonden, op het moment waarop ze gesolved zijn,
+en niet op een hoop achteraan. En er staat een **ongedaan maken** in de melding die beide
+sessies precies terugzet zoals ze waren.
+
 ### Waarom de lampjes van de timer hier niet te regelen zijn
 
 De lichteffecten van de GAN Halo worden ingesteld via GAN's eigen app, over een

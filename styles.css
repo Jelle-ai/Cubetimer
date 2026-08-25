@@ -1945,6 +1945,56 @@ body[data-miss] .halo {
 
 .transfer-head:first-of-type { margin-top: .6rem; }
 
+/* ---------- moving times to another session ---------- */
+
+.move-list { display: flex; flex-direction: column; gap: .35rem; }
+
+.move-list button {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  width: 100%;
+  min-height: 46px;
+  padding: .5rem .8rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  text-align: left;
+  color: var(--ink);
+  transition: background .15s;
+}
+
+.move-list button:hover { background: var(--hover); }
+.move-list button b { font-weight: 600; font-size: .95rem; }
+.move-list button small { color: var(--muted); font-size: .8rem; }
+.move-list button b.other { color: var(--record); }
+.move-list button .grow { flex: 1; }
+
+.move-new { display: flex; gap: .4rem; margin-bottom: .1rem; }
+
+.move-new input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 .7rem;
+  border-radius: 12px;
+  border: 1px solid var(--edge);
+  background: var(--sunken);
+  color: var(--ink);
+  font: inherit;
+  font-size: .9rem;
+}
+
+.move-new select {
+  min-height: 44px;
+  padding: 0 .5rem;
+  border-radius: 12px;
+  border: 1px solid var(--edge);
+  background: var(--sunken);
+  color: var(--ink);
+  font: inherit;
+  font-size: .88rem;
+}
+
 /* ---------- this cube's own colours ---------- */
 
 .colour-teach { margin-top: .5rem; }

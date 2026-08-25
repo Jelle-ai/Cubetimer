@@ -5,7 +5,7 @@ import {
   formatSolve, formatTime, meanOf, sessionMean, setDecimals, worst
 } from './stats.js';
 import { KEY as SAVE_KEY, load, save } from './store.js';
-import { backupName, buildBackup, foldIn, readBackup, summarise } from './backup.js';
+import { backupName, buildBackup, foldIn, inOrder, readBackup, summarise } from './backup.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
@@ -176,6 +176,17 @@ const el = {
   quickDnf: document.getElementById('quick-dnf'),
   quickDetail: document.getElementById('quick-detail'),
   quickRemove: document.getElementById('quick-remove'),
+  quickMove: document.getElementById('quick-move'),
+  detailMove: document.getElementById('detail-move'),
+  selectionMove: document.getElementById('selection-move'),
+  moveSheet: document.getElementById('move-sheet'),
+  moveTitle: document.getElementById('move-title'),
+  moveClose: document.getElementById('move-close'),
+  moveWhat: document.getElementById('move-what'),
+  moveList: document.getElementById('move-list'),
+  moveName: document.getElementById('move-name'),
+  movePuzzle: document.getElementById('move-puzzle'),
+  moveCreate: document.getElementById('move-create'),
   quickClose: document.getElementById('quick-close'),
   stats: {
     single: document.getElementById('st-single'),
@@ -686,14 +697,18 @@ function currentSession() {
   return saveFile.sessions[saveFile.active];
 }
 
+/** A session named after its puzzle should not say so twice. */
+function labelSession(session) {
+  const puzzle = puzzleById(session.puzzle).name;
+  return session.name === puzzle ? session.name : `${session.name} · ${puzzle}`;
+}
+
 function renderSessions() {
   el.sessionSelect.innerHTML = '';
   saveFile.sessions.forEach((session, index) => {
     const option = document.createElement('option');
     option.value = String(index);
-    const puzzle = puzzleById(session.puzzle).name;
-    const label = session.name === puzzle ? session.name : `${session.name} · ${puzzle}`;
-    option.textContent = `${label} (${session.solves.length})`;
+    option.textContent = `${labelSession(session)} (${session.solves.length})`;
     option.selected = index === saveFile.active;
     el.sessionSelect.append(option);
   });
@@ -1070,7 +1085,7 @@ function renderSelection() {
   el.selectionCount.textContent = `${selected.size} gekozen`;
 
   const none = selected.size === 0;
-  for (const button of [el.selectionPlus2, el.selectionDnf, el.selectionDelete]) {
+  for (const button of [el.selectionPlus2, el.selectionDnf, el.selectionMove, el.selectionDelete]) {
     button.disabled = none;
     button.style.opacity = none ? '.4' : '1';
   }
@@ -1134,6 +1149,143 @@ el.selectionDelete.addEventListener('click', () => {
   render();
   renderSelection();
   toast(count === 1 ? 'Tijd verwijderd.' : `${count} tijden verwijderd.`);
+});
+
+/* ---------- moving times to another session ----------
+
+   Almost always because they were put in the wrong one: five 2x2 solves that
+   landed in the 3x3 session because the picker was never touched. So moving
+   across puzzles is the point rather than a mistake to guard against, and the
+   list says which puzzle each session is for so you can see what you are doing.
+
+   Times land among the ones already there rather than at the end, by the moment
+   they were solved -- the same ordering a file from another device gets. */
+
+/** The solves waiting to be moved, and where they came from. */
+let moving = null;
+
+function describeMoving(count) {
+  return count === 1 ? 'Deze tijd' : `Deze ${count} tijden`;
+}
+
+function openMove(list, title) {
+  if (!list.length) return;
+  moving = { solves: list.slice(), from: saveFile.active };
+
+  el.moveTitle.textContent = title;
+  el.moveWhat.textContent = `${describeMoving(list.length)} uit ${currentSession().name}. `
+    + (list.length === 1 ? 'Kies waar hij heen moet.' : 'Kies waar ze heen moeten.');
+
+  el.moveList.replaceChildren(...saveFile.sessions.flatMap((session, index) => {
+    if (index === moving.from) return [];
+    const button = document.createElement('button');
+    button.type = 'button';
+
+    const name = document.createElement('b');
+    name.textContent = labelSession(session);
+    const grow = document.createElement('span');
+    grow.className = 'grow';
+
+    // The label already carries the puzzle when it is worth carrying, so the
+    // line beside it only has the count to add.
+    const about = document.createElement('small');
+    about.textContent = `${session.solves.length} ${session.solves.length === 1 ? 'tijd' : 'tijden'}`;
+    // A different puzzle is usually the whole reason for moving, so it is
+    // pointed out rather than warned about.
+    if (session.puzzle !== currentSession().puzzle) name.className = 'other';
+
+    button.append(name, grow, about);
+    button.addEventListener('click', () => moveTo(index));
+    return [button];
+  }));
+
+  if (el.moveList.children.length === 0) {
+    const only = document.createElement('p');
+    only.className = 'import-note';
+    only.textContent = 'Dit is je enige sessie. Maak er hieronder een aan.';
+    el.moveList.append(only);
+  }
+
+  el.movePuzzle.replaceChildren(...PUZZLES.map((puzzle) => {
+    const option = document.createElement('option');
+    option.value = puzzle.id;
+    option.textContent = puzzle.name;
+    option.selected = puzzle.id === currentSession().puzzle;
+    return option;
+  }));
+  el.moveName.value = '';
+
+  // Opened from inside another sheet, which Safari has been known to refuse.
+  if (!openSheet(el.moveSheet)) {
+    moving = null;
+    toast('Dit venster gaat niet open in deze browser.');
+  }
+}
+
+/** Put them back exactly where they were, both sides. */
+function undoMove(from, to, before) {
+  const source = saveFile.sessions[from];
+  const target = saveFile.sessions[to];
+  if (!source || !target) return;
+  source.solves = before.source;
+  target.solves = before.target;
+  solves = currentSession().solves;
+  persist();
+  render();
+}
+
+function moveTo(index) {
+  if (!moving) return;
+  const { solves: taken, from } = moving;
+  const source = saveFile.sessions[from];
+  const target = saveFile.sessions[index];
+  if (!source || !target) return;
+
+  const before = { source: source.solves.slice(), target: target.solves.slice() };
+  const going = new Set(taken);
+
+  source.solves = source.solves.filter((solve) => !going.has(solve));
+  target.solves = inOrder([...target.solves, ...taken]);
+
+  moving = null;
+  el.moveSheet.close();
+  setSelecting(false);
+  solves = currentSession().solves;
+  persist();
+  render();
+
+  toast(`${describeMoving(taken.length)} verplaatst naar ${target.name}.`, {
+    label: 'Ongedaan maken',
+    run: () => undoMove(from, index, before)
+  });
+}
+
+el.moveCreate.addEventListener('click', () => {
+  if (!moving) return;
+  const wanted = el.moveName.value.trim().slice(0, 40);
+  const puzzle = el.movePuzzle.value;
+  saveFile.sessions.push({
+    name: wanted || puzzleById(puzzle).name,
+    puzzle,
+    target: null,
+    solves: []
+  });
+  moveTo(saveFile.sessions.length - 1);
+});
+
+el.moveClose.addEventListener('click', () => el.moveSheet.close());
+el.moveSheet.addEventListener('close', () => { moving = null; });
+
+el.selectionMove.addEventListener('click', () => {
+  if (!selected.size) return;
+  // In the list order, not the order they happened to be ticked in.
+  openMove(solves.filter((solve) => selected.has(solve)), 'Verplaatsen');
+});
+
+el.quickMove.addEventListener('click', () => {
+  const solve = solves[quickIndex];
+  el.quickSheet.close();
+  if (solve) openMove([solve], 'Verplaatsen');
 });
 
 /* ---------- solve details ---------- */
@@ -1212,6 +1364,12 @@ el.detailPlus2.addEventListener('click', () => {
 el.detailDnf.addEventListener('click', () => {
   togglePenalty(detailIndex, 'DNF');
   fillDetail();
+});
+
+el.detailMove.addEventListener('click', () => {
+  const solve = solves[detailIndex];
+  el.detail.close();
+  if (solve) openMove([solve], 'Verplaatsen');
 });
 
 el.detailRemove.addEventListener('click', () => {

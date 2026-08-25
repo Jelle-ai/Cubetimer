@@ -120,6 +120,7 @@
           <button id="select-all" class="link" type="button">alles</button>
           <button id="selection-plus2" class="link" type="button">+2</button>
           <button id="selection-dnf" class="link" type="button">DNF</button>
+          <button id="selection-move" class="link" type="button">verplaats</button>
           <button id="selection-delete" class="link danger" type="button">wis</button>
           <button id="select-done" class="link" type="button">klaar</button>
         </div>
@@ -309,6 +310,7 @@
       <button type="button" id="quick-plus2">+2</button>
       <button type="button" id="quick-dnf">DNF</button>
       <button type="button" id="quick-detail">Details</button>
+      <button type="button" id="quick-move">Verplaatsen</button>
       <button type="button" id="quick-remove" class="danger">Wissen</button>
     </div>
   </div>
@@ -354,6 +356,28 @@
       <button type="button" id="import-no" class="danger">Nee, laat maar</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="move-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="move-title">Verplaatsen</h2>
+      <button type="button" id="move-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <p id="move-what" class="detail-meta"></p>
+
+    <div id="move-list" class="move-list"></div>
+
+    <h3 class="transfer-head">Of naar een nieuwe sessie</h3>
+    <div class="move-new">
+      <input type="text" id="move-name" maxlength="40" autocomplete="off" placeholder="Naam">
+      <select id="move-puzzle" aria-label="Puzzel voor de nieuwe sessie"></select>
+    </div>
+    <div class="detail-actions">
+      <button type="button" id="move-create">Aanmaken en verplaatsen</button>
+    </div>
+  </div>
 </dialog>
 
 <dialog id="session-sheet" class="sheet" tabindex="-1">
@@ -415,6 +439,7 @@
     <div class="detail-actions">
       <button type="button" id="detail-plus2">+2</button>
       <button type="button" id="detail-dnf">DNF</button>
+      <button type="button" id="detail-move">Verplaatsen</button>
       <button type="button" id="detail-remove" class="danger">Verwijderen</button>
     </div>
   </form>

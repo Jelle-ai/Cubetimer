@@ -104,8 +104,11 @@ const sameSession = (a, b) =>
  * Times without a moment attached still have somewhere they belong: right where
  * they were, among the ones that do. So each takes the moment of the last dated
  * solve before it, and a stable sort leaves them in that spot.
+ *
+ * Exported because moving times between sessions wants the same answer: they
+ * land among the ones that were already there, not in a heap at the end.
  */
-function inOrder(solves) {
+export function inOrder(solves) {
   let carried = 0;
   const keyed = solves.map((solve, index) => {
     if (Number.isFinite(solve.at)) carried = solve.at;
