@@ -431,6 +431,29 @@ kies een tweede sessie en elke waarde krijgt een kolom per sessie.
 Tijden uit een oudere versie van de app worden bij het eerste bezoek automatisch als
 "Sessie 1" overgenomen.
 
+### Records en terugblik
+
+Onderaan de statistieken zit **records en terugblik**. Alles daarin staat al in je
+opslag; het is alleen nooit eerder bij elkaar gezet.
+
+- **Vandaag** — hoeveel je vandaag gedaan hebt, je beste en je ao5, en of dat meer of
+  minder is dan je gewone dag.
+- **Je snelste drie** op een echt podium, goud in het midden.
+- **Hoe je record gezakt is** — elke keer dat je PB viel, met de datum en hoeveel eraf
+  ging. Bovenaan staat de huidige, met erboven hoe lang hij al staat.
+- **Je beste vijf op rij** — je beste ao5-reeksen ooit, en ze mogen elkaar niet
+  overlappen. Anders staat er tien keer dezelfde goede middag in, telkens één solve
+  verschoven. Tik er een aan en je ziet de vijf solves.
+- **Wat als** — wat je gemiddelde geweest was zonder je traagste paar. Niet om iets van
+  te leren; het is gewoon prettig om te zien, en de grootte van het verschil zegt of je
+  probleem je tempo is of je ongelukken.
+- **Op deze dag** — wat je vandaag een jaar geleden deed, als er iets is.
+- **De teller** — solves ooit, hoeveel uur je aan het draaien geweest bent, en over
+  hoeveel dagen. Over al je sessies samen.
+
+Onder de ring staat bovendien wat je nog nodig hebt: staat er geen doeltijd, dan jaagt hij
+op je **PB ao5** en zegt hij wat deze solve maximaal mag worden om hem te pakken.
+
 ### Merken op een tijd
 
 Twee dingen die een solve in de lijst kan meekrijgen, via de snelacties (vasthouden) of

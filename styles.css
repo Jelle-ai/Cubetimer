@@ -1945,6 +1945,93 @@ body[data-miss] .halo {
 
 .transfer-head:first-of-type { margin-top: .6rem; }
 
+/* ---------- records and looking back ---------- */
+
+.records-body { display: flex; flex-direction: column; gap: 1.1rem; }
+
+.records-block h3 {
+  margin: 0 0 .5rem;
+  font-size: .82rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.records-line { margin: 0 0 .3rem; font-size: .88rem; color: var(--ink-soft); }
+.records-lead { margin: 0 0 .5rem; font-size: .92rem; font-weight: 500; color: var(--ink); }
+.records-aside { margin: .4rem 0 0; font-size: .8rem; color: var(--muted); }
+
+/* The three fastest, on an actual podium: gold first and tallest. */
+.podium {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: end;
+  gap: .4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.podium li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .1rem;
+  padding: .6rem .3rem .5rem;
+  border-radius: 12px 12px 4px 4px;
+  background: var(--sunken);
+  text-align: center;
+}
+
+.podium li[data-place="1"] { order: 2; padding-top: 1.3rem; background: color-mix(in srgb, var(--record) 16%, var(--sunken)); }
+.podium li[data-place="2"] { order: 1; padding-top: .95rem; }
+.podium li[data-place="3"] { order: 3; }
+
+.podium-medal { font-size: 1.25rem; line-height: 1; }
+.podium b { font-size: 1rem; font-variant-numeric: tabular-nums; }
+.podium small { font-size: .68rem; color: var(--muted); }
+
+.record-run { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .25rem; }
+
+.record-run li,
+.record-run li button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .6rem;
+  width: 100%;
+  padding: .45rem .7rem;
+  border-radius: 10px;
+  background: var(--sunken);
+  text-align: left;
+  color: var(--ink);
+}
+
+.record-run li button { padding: 0; background: none; }
+.record-run li:has(button) { padding: 0; }
+.record-run li button:hover { background: var(--hover); border-radius: 10px; }
+.record-run li button { padding: .45rem .7rem; }
+
+.record-run b { font-size: .95rem; font-variant-numeric: tabular-nums; }
+.record-run small { font-size: .74rem; color: var(--muted); }
+.record-run li[data-standing="true"] { background: color-mix(in srgb, var(--ready) 18%, var(--sunken)); }
+
+.counter-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; }
+
+.counter-strip div {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  padding: .6rem .4rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  text-align: center;
+}
+
+.counter-strip b { font-size: 1rem; font-variant-numeric: tabular-nums; }
+.counter-strip small { font-size: .68rem; color: var(--muted); }
+
 /* ---------- searching the list ---------- */
 
 .filter-bar {

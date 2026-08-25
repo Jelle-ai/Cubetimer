@@ -6,6 +6,9 @@ import {
 } from './stats.js';
 import { KEY as SAVE_KEY, load, save } from './store.js';
 import { backupName, buildBackup, foldIn, inOrder, readBackup, summarise } from './backup.js';
+import {
+  bestRuns, byDay, fastest, onThisDay, recordAge, records, spellDuration, totals, without
+} from './history.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
@@ -54,6 +57,11 @@ const el = {
   importNo: document.getElementById('import-no'),
   statsButton: document.getElementById('stats'),
   statsSheet: document.getElementById('stats-sheet'),
+  recordsOpen: document.getElementById('records-open'),
+  recordsSheet: document.getElementById('records-sheet'),
+  recordsTitle: document.getElementById('records-title'),
+  recordsClose: document.getElementById('records-close'),
+  recordsBody: document.getElementById('records-body'),
   statsTitle: document.getElementById('stats-title'),
   statsList: document.getElementById('stats-list'),
   selectMode: document.getElementById('select-mode'),
@@ -786,11 +794,20 @@ function renderInsight() {
     if (streak >= 2) parts.push(`${streak} op rij onder ${formatTime(currentTarget())}`);
   }
 
-  const goal = currentTarget() ?? bestAverageOf(counting(solves), 5);
+  // Chasing the record is more interesting than chasing a round number, so when
+  // there is no target of your own it is the record that gets chased -- and
+  // then it says so, because "onder 12.16" means nothing until you know that
+  // 12.16 is the thing to beat.
+  const target = currentTarget();
+  const record = bestAverageOf(counting(solves), 5);
+  const goal = target ?? record;
+  const chasingRecord = target === null && record !== null;
+
   if (goal) {
     const ceiling = ao5Ceiling(goal);
-    if (ceiling === Infinity) parts.push(`ao5 onder ${formatTime(goal)} is zeker`);
-    else if (ceiling) parts.push(`ao5 onder ${formatTime(goal)}: deze mag max ${formatTime(ceiling)}`);
+    const what = chasingRecord ? 'PB ao5' : `ao5 onder ${formatTime(goal)}`;
+    if (ceiling === Infinity) parts.push(`${what} is binnen, wat deze ook wordt`);
+    else if (ceiling) parts.push(`${what}: deze mag max ${formatTime(ceiling)}`);
   }
 
   el.insight.textContent = parts.join('  ·  ');
@@ -1254,6 +1271,210 @@ el.statsButton.addEventListener('click', () => {
   el.statsButton.blur();
   openStats();
 });
+
+/* ---------- records and looking back ----------
+
+   Everything here is already in the save file; none of it is worth a number on
+   the main screen but all of it is worth a look now and then. Kept in one sheet
+   so it can be read like a page rather than hunted for in tiles. */
+
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+/** A titled block, so every section below reads the same way. */
+function recordBlock(title, body) {
+  const section = document.createElement('section');
+  section.className = 'records-block';
+  const heading = document.createElement('h3');
+  heading.textContent = title;
+  section.append(heading, ...[body].flat().filter(Boolean));
+  return section;
+}
+
+const line = (text, className = 'records-line') => {
+  const p = document.createElement('p');
+  p.className = className;
+  p.textContent = text;
+  return p;
+};
+
+function podiumBlock() {
+  const top = fastest(solves, 3);
+  if (!top.length) return null;
+
+  const list = document.createElement('ol');
+  list.className = 'podium';
+  top.forEach((entry, place) => {
+    const item = document.createElement('li');
+    item.dataset.place = String(place + 1);
+    const medal = document.createElement('span');
+    medal.className = 'podium-medal';
+    medal.textContent = MEDALS[place];
+    const time = document.createElement('b');
+    time.textContent = formatSolve(entry.solve);
+    const when = document.createElement('small');
+    when.textContent = entry.solve.at ? describeMoment(entry.solve.at) : '';
+    item.append(medal, time, when);
+    list.append(item);
+  });
+  return recordBlock('Je snelste drie', list);
+}
+
+function recordHistoryBlock() {
+  const all = records(solves);
+  if (all.length < 2) return null;
+
+  const age = recordAge(solves);
+  const list = document.createElement('ol');
+  list.className = 'record-run';
+
+  // Newest first: the one that still stands is the one you care about.
+  all.slice().reverse().forEach((mark, index) => {
+    const item = document.createElement('li');
+    if (index === 0) item.dataset.standing = 'true';
+    const time = document.createElement('b');
+    time.textContent = formatTime(mark.ms);
+    const when = document.createElement('small');
+    const gained = mark.before === null ? 'eerste tijd' : `${formatTime(mark.before - mark.ms)} eraf`;
+    when.textContent = `${mark.at ? new Date(mark.at).toLocaleDateString('nl-BE') : ''} · ${gained}`;
+    item.append(time, when);
+    list.append(item);
+  });
+
+  const head = age === null ? null
+    : line(age === 0 ? 'Je record is van vandaag.' : `Je record staat ${age} ${age === 1 ? 'dag' : 'dagen'}.`, 'records-lead');
+  return recordBlock('Hoe je record gezakt is', [head, list]);
+}
+
+function runsBlock() {
+  const runs = bestRuns(solves, 5, 5);
+  if (runs.length < 2) return null;
+
+  const back = solves.flatMap((solve, index) => (counts(solve) ? [index] : []));
+  const list = document.createElement('ol');
+  list.className = 'record-run';
+
+  runs.forEach((run, place) => {
+    const item = document.createElement('li');
+    const button = document.createElement('button');
+    button.type = 'button';
+    const time = document.createElement('b');
+    time.textContent = formatTime(run.value);
+    const where = document.createElement('small');
+    where.textContent = `${place + 1}e · solve ${back[run.start] + 1} t/m ${back[run.end - 1] + 1}`;
+    button.append(time, where);
+    button.addEventListener('click', () => {
+      el.recordsSheet.close();
+      showSolves(`Beste ao5 #${place + 1}`, back.slice(run.start, run.end));
+    });
+    item.append(button);
+    list.append(item);
+  });
+  return recordBlock('Je beste vijf op rij', list);
+}
+
+function whatIfBlock() {
+  const drop = solves.length >= 20 ? 3 : 1;
+  const shape = without(solves, drop);
+  if (!shape || shape.now - shape.then < 50) return null;
+
+  const many = drop === 1 ? 'je traagste solve' : `je ${drop} traagste solves`;
+  return recordBlock('Wat als', [
+    line(`Zonder ${many} was je gemiddelde ${formatTime(shape.then)} in plaats van ${formatTime(shape.now)}.`),
+    line(`Dat scheelt ${formatTime(shape.now - shape.then)} — meer aan uitschieters dan aan tempo, als dat groot is.`, 'records-aside')
+  ]);
+}
+
+function counterBlock() {
+  const sum = totals(saveFile.sessions);
+  if (!sum.solves) return null;
+
+  const bits = [`${sum.solves} solves`, spellDuration(sum.ms), `${sum.days} ${sum.days === 1 ? 'dag' : 'dagen'}`];
+  const strip = document.createElement('div');
+  strip.className = 'counter-strip';
+  for (const [value, label] of [[String(sum.solves), 'solves ooit'],
+    [spellDuration(sum.ms), 'aan het draaien'], [String(sum.days), sum.days === 1 ? 'dag' : 'dagen']]) {
+    const cell = document.createElement('div');
+    const big = document.createElement('b');
+    big.textContent = value;
+    const small = document.createElement('small');
+    small.textContent = label;
+    cell.append(big, small);
+    strip.append(cell);
+  }
+
+  const since = sum.since
+    ? line(`Sinds ${new Date(sum.since).toLocaleDateString('nl-BE')}, over al je sessies samen.`, 'records-aside')
+    : null;
+  return recordBlock('De teller', [strip, since]);
+}
+
+function longAgoBlock() {
+  const then = onThisDay(saveFile.sessions);
+  if (!then.length) return null;
+
+  const shown = then.slice(0, 3);
+  return recordBlock('Op deze dag', shown.map((entry) => line(
+    `${entry.years} jaar geleden, in ${entry.session}: ${formatSolve(entry.solve)}.`)));
+}
+
+/** What you have done in this session today, and how that compares. */
+function todayBlock() {
+  const today = dayOf({ at: Date.now() });
+  const mine = counting(solves).filter((solve) => dayOf(solve) === today);
+  if (mine.length < 3) return null;
+
+  const days = new Map();
+  for (const solve of counting(solves)) {
+    const day = dayOf(solve);
+    if (day === null) continue;
+    days.set(day, (days.get(day) || 0) + 1);
+  }
+  const others = [...days.entries()].filter(([day]) => day !== today).map(([, count]) => count);
+  const usual = others.length ? others.reduce((sum, n) => sum + n, 0) / others.length : null;
+
+  const strip = document.createElement('div');
+  strip.className = 'counter-strip';
+  for (const [value, label] of [
+    [String(mine.length), mine.length === 1 ? 'solve' : 'solves'],
+    [formatTime(best(mine)), 'beste'],
+    [formatTime(averageOf(mine, 5)), 'ao5']
+  ]) {
+    const cell = document.createElement('div');
+    const big = document.createElement('b');
+    big.textContent = value;
+    const small = document.createElement('small');
+    small.textContent = label;
+    cell.append(big, small);
+    strip.append(cell);
+  }
+
+  const versus = usual === null ? null : line(
+    mine.length >= usual
+      ? `Meer dan je gewone dag (${Math.round(usual)}).`
+      : `Je gewone dag is er ${Math.round(usual)}.`,
+    'records-aside');
+  return recordBlock('Vandaag', [strip, versus]);
+}
+
+function renderRecords() {
+  el.recordsTitle.textContent = `Records — ${currentSession().name}`;
+  const blocks = [
+    todayBlock(), podiumBlock(), recordHistoryBlock(), runsBlock(),
+    whatIfBlock(), longAgoBlock(), counterBlock()
+  ].filter(Boolean);
+
+  el.recordsBody.replaceChildren(...(blocks.length ? blocks
+    : [line('Nog te weinig tijden om iets terug te kijken. Solve er een paar en kom terug.')]));
+}
+
+el.recordsOpen.addEventListener('click', () => {
+  el.recordsOpen.blur();
+  el.statsSheet.close();
+  renderRecords();
+  if (!openSheet(el.recordsSheet)) toast('Dit venster gaat niet open in deze browser.');
+});
+
+el.recordsClose.addEventListener('click', () => el.recordsSheet.close());
 
 /* ---------- selecting several solves ---------- */
 

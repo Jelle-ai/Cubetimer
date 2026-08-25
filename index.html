@@ -462,7 +462,21 @@
     </label>
 
     <div id="stats-list" class="stats-body"></div>
+
+    <div class="detail-actions">
+      <button type="button" id="records-open">Records en terugblik</button>
+    </div>
   </form>
+</dialog>
+
+<dialog id="records-sheet" class="sheet sheet-tall" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="records-title">Records</h2>
+      <button type="button" id="records-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+    <div id="records-body" class="records-body"></div>
+  </div>
 </dialog>
 
 <dialog id="solve-detail" class="sheet" tabindex="-1">
