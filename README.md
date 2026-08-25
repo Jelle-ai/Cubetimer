@@ -431,6 +431,38 @@ kies een tweede sessie en elke waarde krijgt een kolom per sessie.
 Tijden uit een oudere versie van de app worden bij het eerste bezoek automatisch als
 "Sessie 1" overgenomen.
 
+## Modi
+
+Het knopje met het zonnetje in de balk. Een sessie zonder einde is de juiste
+standaardinstelling en een matig spel; deze geven een reeks een vorm. Ze veranderen niets
+aan waar je tijden terechtkomen — ze bepalen alleen wat er boven de ring staat en wanneer
+er iets afgelopen is, dus je kunt er altijd uitstappen zonder iets kwijt te raken.
+
+**Marathon.** Hoeveel achter elkaar onder jouw drempel? Er staat een rij bolletjes bij die
+langer wordt. Eén erover en je begint opnieuw — maar je langste reeks blijft staan.
+
+**Vijf minuten.** Zoveel mogelijk solves binnen de tijd. De klok loopt door terwijl je
+scrambelt, dus haasten helpt.
+
+**Verrassing.** Je ziet niets: geen tijd, geen gemiddelde, geen lijst, tot je er zoveel
+gedaan hebt als je hebt ingesteld. Daarna komt alles in één keer tevoorschijn. Geen enkele
+solve verpest door de vorige.
+
+**Wedstrijdronde.** Vijf solves, beste en slechtste eraf, en aan het eind een resultaat.
+Een ronde met een begin en een einde in plaats van een lijst die maar doorloopt.
+
+### Nog eens dezelfde
+
+Onder de scramble staat **nog eens dezelfde**. De volgende solve is dan op precies dezelfde
+scramble, zodat je de twee naast elkaar kunt leggen.
+
+### Een scramble die je al eens gehad hebt
+
+Zo nu en dan is de scramble geen nieuwe maar een van jezelf, van minstens drie weken
+geleden. Er staat dan een grijs regeltje onder: *"deze had je in mei ook"* — meer niet,
+want als je van tevoren weet wat je toen deed, solve je anders. Pas achteraf krijg je te
+horen hoe het ging tegen toen.
+
 ### Records en terugblik
 
 Onderaan de statistieken zit **records en terugblik**. Alles daarin staat al in je

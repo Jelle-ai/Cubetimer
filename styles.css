@@ -1945,6 +1945,74 @@ body[data-miss] .halo {
 
 .transfer-head:first-of-type { margin-top: .6rem; }
 
+/* ---------- modes ---------- */
+
+.mode-strip {
+  margin: 0 0 .4rem;
+  font-size: .84rem;
+  font-weight: 500;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.mode-strip[data-kind="marathon"] { color: var(--led); }
+.mode-strip[data-kind="sprint"] { color: var(--record); }
+
+#mode-open[data-active="true"] { color: var(--led); }
+
+.mode-list { display: flex; flex-direction: column; gap: .35rem; margin-bottom: .6rem; }
+
+.mode-list button {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  width: 100%;
+  padding: .55rem .8rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  text-align: left;
+  color: var(--ink);
+}
+
+.mode-list button:hover { background: var(--hover); }
+.mode-list button[data-active="true"] { background: color-mix(in srgb, var(--led) 16%, var(--sunken)); }
+.mode-list button b { font-size: .95rem; font-weight: 600; }
+.mode-list button small { font-size: .78rem; color: var(--muted); }
+
+.round-headline {
+  margin: 0 0 .6rem;
+  font-size: 2.2rem;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.round-lines { display: flex; flex-direction: column; gap: .25rem; }
+
+.round-lines div {
+  display: flex;
+  justify-content: space-between;
+  gap: .8rem;
+  padding: .4rem .7rem;
+  border-radius: 10px;
+  background: var(--sunken);
+  font-size: .88rem;
+}
+
+.round-lines b { font-variant-numeric: tabular-nums; }
+
+/* A scramble you have had before says so, and nothing more. */
+.scramble-again {
+  margin: .15rem 0 0;
+  font-size: .74rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.scramble-tools { display: flex; gap: .7rem; justify-content: center; align-items: baseline; }
+#repeat-scramble[data-active="true"] { color: var(--led); font-weight: 600; }
+
 /* ---------- records and looking back ---------- */
 
 .records-body { display: flex; flex-direction: column; gap: 1.1rem; }

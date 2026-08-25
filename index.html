@@ -29,6 +29,12 @@
         <path d="M4 6.5h16M4 12h16M4 17.5h10"/>
       </svg>
     </button>
+    <button id="mode-open" class="icon-button" type="button" title="Modus" aria-label="Modus">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v3M12 18v3M4.2 12h3M16.8 12h3M6.4 6.4l2.1 2.1M15.5 15.5l2.1 2.1M17.6 6.4l-2.1 2.1M8.5 15.5l-2.1 2.1"/>
+        <circle cx="12" cy="12" r="2.6"/>
+      </svg>
+    </button>
     <button id="settings-open" class="icon-button" type="button" title="Instellingen" aria-label="Instellingen">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3.1"/>
@@ -48,7 +54,11 @@
     <div id="setup" class="setup">
       <div class="scramble-block">
         <button id="scramble" class="scramble" type="button" title="Klik om te kopiëren">–</button>
-        <button id="new-scramble" class="link" type="button">nieuwe scramble</button>
+        <p id="scramble-again" class="scramble-again" hidden></p>
+        <div class="scramble-tools">
+          <button id="new-scramble" class="link" type="button">nieuwe scramble</button>
+          <button id="repeat-scramble" class="link" type="button">nog eens dezelfde</button>
+        </div>
       </div>
 
       <div id="preview" class="preview" hidden></div>
@@ -102,6 +112,7 @@
       </span>
     </button>
 
+    <p id="mode-strip" class="mode-strip" hidden></p>
     <p id="insight" class="insight" hidden></p>
 
     <section class="session">
@@ -371,6 +382,38 @@
       <button type="button" id="import-no" class="danger">Nee, laat maar</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="mode-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Modus</h2>
+      <button type="button" id="mode-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <div id="mode-list" class="mode-list"></div>
+
+    <label class="field" id="mode-number-field" hidden>
+      <span id="mode-number-label">Drempel</span>
+      <input type="text" id="mode-number" inputmode="decimal" autocomplete="off">
+    </label>
+
+    <p id="mode-note" class="import-note"></p>
+
+    <div class="detail-actions">
+      <button type="button" id="mode-start">Beginnen</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="round-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="round-title">Ronde</h2>
+      <button type="button" id="round-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+    <div id="round-body" class="records-body"></div>
+  </div>
 </dialog>
 
 <dialog id="add-sheet" class="sheet" tabindex="-1">

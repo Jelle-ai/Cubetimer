@@ -9,6 +9,7 @@ import { backupName, buildBackup, foldIn, inOrder, readBackup, summarise } from 
 import {
   bestRuns, byDay, fastest, onThisDay, recordAge, records, spellDuration, totals, without
 } from './history.js';
+import { MODES, absorb, begin, describe, expired, hushed, result, runSolves } from './modes.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
@@ -182,6 +183,22 @@ const el = {
   scrambleSheet: document.getElementById('scramble-sheet'),
   scrambleSlot: document.getElementById('scramble-slot'),
   scrambleOpen: document.getElementById('scramble-open'),
+  scrambleAgain: document.getElementById('scramble-again'),
+  repeatScramble: document.getElementById('repeat-scramble'),
+  modeOpen: document.getElementById('mode-open'),
+  modeSheet: document.getElementById('mode-sheet'),
+  modeClose: document.getElementById('mode-close'),
+  modeList: document.getElementById('mode-list'),
+  modeNumberField: document.getElementById('mode-number-field'),
+  modeNumberLabel: document.getElementById('mode-number-label'),
+  modeNumber: document.getElementById('mode-number'),
+  modeNote: document.getElementById('mode-note'),
+  modeStart: document.getElementById('mode-start'),
+  modeStrip: document.getElementById('mode-strip'),
+  roundSheet: document.getElementById('round-sheet'),
+  roundTitle: document.getElementById('round-title'),
+  roundClose: document.getElementById('round-close'),
+  roundBody: document.getElementById('round-body'),
   scrambleClose: document.getElementById('scramble-close'),
   shell: document.getElementById('shell'),
   panel: document.getElementById('panel'),
@@ -243,6 +260,7 @@ if (settings.targetOn === true && Number.isFinite(settings.targetMs)) {
 let solves = saveFile.sessions[saveFile.active].solves;
 let scramble = randomMoveScramble(saveFile.sessions[saveFile.active].puzzle);
 let scrambleToken = 0; // guards against a slow scramble landing after a newer one
+let keepScramble = false; // asked to do this one again
 let phase = 'idle'; // idle | inspecting | holding | ready | running
 let holdTimer = null;
 let startedAt = 0;
@@ -373,6 +391,7 @@ function setPhase(next) {
 }
 
 function showTime(ms) {
+  if (hushed(run) && phase !== 'running') { el.time.textContent = HUSH; return; }
   el.time.textContent = formatTime(ms);
 }
 
@@ -406,7 +425,16 @@ function renderScramble() {
 }
 
 /** Every column shows the latest value with the session record under it. */
+const HUSH = '– – –';
+
 function renderStats() {
+  // In verrassingsmodus every number waits until the run is over, including
+  // the one that just landed. That is the whole point of it.
+  if (hushed(run)) {
+    for (const cell of Object.values(el.stats)) cell.textContent = HUSH;
+    return;
+  }
+
   const last = solves.length ? effective(solves[solves.length - 1]) : null;
 
   el.stats.single.textContent = formatTime(last);
@@ -566,6 +594,12 @@ el.filterClear.addEventListener('click', () => {
 
 function renderSolves() {
   el.solves.innerHTML = '';
+  if (hushed(run)) {
+    el.empty.hidden = false;
+    el.empty.textContent = `Verrassingsmodus — nog ${Math.max(0, run.number - runSolves(run, solves).length)} te gaan.`;
+    return;
+  }
+
   const shown = solves.filter(matches);
   el.empty.hidden = shown.length > 0;
   el.empty.textContent = solves.length && !shown.length
@@ -848,11 +882,62 @@ function usePuzzle(id) {
  * Ask for the next official scramble. One is always queued up, so this normally
  * resolves at once; while it does not, the previous scramble stays on screen.
  */
-async function newScramble() {
+/* ---------- a scramble you have met before ----------
+
+   Every so often the scramble is not a new one but one of your own, from long
+   enough ago that you will not remember it. It arrives without ceremony -- a
+   grey line under the moves saying when you last had it, and not what you did,
+   because knowing the number beforehand changes the solve. Afterwards you are
+   told how it went against then. */
+
+const AGAIN_ONE_IN = 12;
+const AGAIN_AFTER_DAYS = 21;
+
+/** A solve from this puzzle, old enough to have been forgotten. */
+function anOldScramble() {
+  const cutoff = Date.now() - AGAIN_AFTER_DAYS * 86400000;
+  const puzzle = currentSession().puzzle;
+  const pool = [];
+
+  for (const session of saveFile.sessions) {
+    if (session.puzzle !== puzzle) continue;
+    for (const solve of session.solves) {
+      if (!solve.scramble || !Number.isFinite(solve.at) || solve.at > cutoff) continue;
+      if (solve.penalty === 'DNF' || !counts(solve)) continue;
+      pool.push(solve);
+    }
+  }
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/** The solve this scramble is a rematch of, or null for an ordinary one. */
+let rematch = null;
+
+function renderRematch() {
+  el.scrambleAgain.hidden = !rematch;
+  if (!rematch) return;
+  const when = new Date(rematch.at);
+  const month = MONTHS[when.getMonth()];
+  el.scrambleAgain.textContent = `deze had je in ${month} ook`;
+}
+
+async function newScramble({ allowRematch = true } = {}) {
   const puzzle = currentSession().puzzle;
   const token = ++scrambleToken;
-  el.scramble.dataset.loading = 'true';
 
+  rematch = allowRematch && Math.random() < 1 / AGAIN_ONE_IN ? anOldScramble() : null;
+  if (rematch) {
+    scramble = rematch.scramble;
+    delete el.scramble.dataset.loading;
+    el.scramble.dataset.official = 'true';
+    el.scramble.title = 'Klik om te kopiëren';
+    renderScramble();
+    renderRematch();
+    return;
+  }
+
+  el.scramble.dataset.loading = 'true';
   const { text, official } = await nextScramble(puzzle);
   if (token !== scrambleToken) return; // a newer request already won
 
@@ -863,6 +948,7 @@ async function newScramble() {
     ? 'Officiële random-state scramble · klik om te kopiëren'
     : 'Reservescramble: de officiële scrambler kon niet laden · klik om te kopiëren';
   renderScramble();
+  renderRematch();
 }
 
 /* ---------- sessions ---------- */
@@ -1270,6 +1356,191 @@ el.statsCompare.addEventListener('change', () => {
 el.statsButton.addEventListener('click', () => {
   el.statsButton.blur();
   openStats();
+});
+
+/** Only now, when the number can no longer change how you solved it. */
+function sayHowThatWent(then, now) {
+  const before = effective(then);
+  const after = effective(now);
+  const when = new Date(then.at).toLocaleDateString('nl-BE');
+  if (!Number.isFinite(before) || !Number.isFinite(after)) {
+    toast(`Deze scramble had je op ${when} ook.`);
+    return;
+  }
+  const gap = formatTime(Math.abs(before - after));
+  toast(after < before
+    ? `Deze scramble deed je op ${when} in ${formatTime(before)} — ${gap} sneller nu.`
+    : `Deze scramble deed je op ${when} in ${formatTime(before)} — ${gap} trager nu.`);
+}
+
+/* ---------- modes ----------
+
+   A run is a shape laid over the ordinary session: the solves land where they
+   always land, and the run only decides what the strip says and when something
+   is over. So nothing can be lost by leaving a mode, and a mode cannot make a
+   solve go missing. */
+
+let run = null;
+let runTicker = null;
+let picked = 'normal';
+
+function renderMode() {
+  const text = describe(run, solves, Date.now());
+  el.modeStrip.textContent = text;
+  el.modeStrip.hidden = !text;
+  el.modeStrip.dataset.kind = run?.kind || '';
+  el.modeOpen.dataset.active = String(Boolean(run));
+  el.body.dataset.hushed = String(hushed(run));
+}
+
+/** The sprint has a clock of its own, so the strip has to move on its own too. */
+function watchRunClock() {
+  clearInterval(runTicker);
+  runTicker = null;
+  if (!run || run.kind !== 'sprint' || run.over) return;
+
+  runTicker = setInterval(() => {
+    if (expired(run, Date.now())) {
+      run.over = true;
+      clearInterval(runTicker);
+      runTicker = null;
+      renderMode();
+      render();
+      showResult();
+      return;
+    }
+
+    renderMode();
+  }, 250);
+}
+
+function showResult() {
+  if (!run) return;
+  const { headline, lines } = result(run, solves);
+  el.roundTitle.textContent = MODES[run.kind].name;
+
+  const big = document.createElement('p');
+  big.className = 'round-headline';
+  big.textContent = headline;
+
+  const list = document.createElement('div');
+  list.className = 'round-lines';
+  for (const [label, value] of lines) {
+    const row = document.createElement('div');
+    const name = document.createElement('span');
+    name.textContent = label;
+    const figure = document.createElement('b');
+    figure.textContent = value;
+    row.append(name, figure);
+    list.append(row);
+  }
+
+  const solvesLine = document.createElement('p');
+  solvesLine.className = 'records-aside';
+  solvesLine.textContent = runSolves(run, solves).map(formatSolve).join('   ');
+
+  el.roundBody.replaceChildren(big, list, solvesLine);
+  cue('record');
+  if (settings.celebrate) confetti('party');
+  openSheet(el.roundSheet);
+}
+
+function stopRun(quietly = false) {
+  const had = run;
+  run = null;
+  clearInterval(runTicker);
+  runTicker = null;
+  renderMode();
+  render();
+  if (had && !quietly) toast(`${MODES[had.kind].name} gestopt.`);
+}
+
+/** Called once for every solve that lands, before anything is drawn. */
+function runAbsorb(solve) {
+  if (!run || run.over) return;
+  const { ended, broke } = absorb(run, solve, solves);
+  if (broke) cue('miss');
+  renderMode();
+  if (!ended) return;
+
+  clearInterval(runTicker);
+  runTicker = null;
+  // The run being over is the moment verrassingsmodus stops hiding things, and
+  // the screen was last drawn while it still was -- so it is drawn again before
+  // the result goes up over it.
+  render();
+  const last = solves[solves.length - 1];
+  if (last) showTime(effective(last));
+  showResult();
+}
+
+function renderModeList() {
+  el.modeList.replaceChildren(...Object.entries(MODES).map(([kind, shape]) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.active = String(kind === picked);
+    const name = document.createElement('b');
+    name.textContent = shape.name;
+    const about = document.createElement('small');
+    about.textContent = shape.about;
+    button.append(name, about);
+    button.addEventListener('click', () => {
+      picked = kind;
+      renderModeList();
+      renderModeFields();
+    });
+    return button;
+  }));
+}
+
+function renderModeFields() {
+  const shape = MODES[picked];
+  const number = shape.number || null;
+  el.modeNumberField.hidden = !number;
+  if (number) {
+    el.modeNumberLabel.textContent = `${number.label} (${number.unit})`;
+    if (!el.modeNumber.value || el.modeNumber.dataset.for !== picked) {
+      el.modeNumber.value = String(number.fallback);
+      el.modeNumber.dataset.for = picked;
+    }
+  }
+  el.modeStart.textContent = picked === 'normal' ? 'Terug naar gewoon' : 'Beginnen';
+  el.modeNote.textContent = run && picked !== 'normal'
+    ? 'Dit begint een nieuwe reeks; de vorige telt niet verder.'
+    : '';
+}
+
+el.repeatScramble.addEventListener('click', () => {
+  el.repeatScramble.blur();
+  // Bumping the token is not enough: finishing a solve asks for a new scramble
+  // outright, with a newer token still. So it is a standing wish, cleared the
+  // moment it is granted.
+  keepScramble = true;
+  el.repeatScramble.dataset.active = 'true';
+  toast('De volgende is dezelfde scramble.');
+});
+
+el.modeOpen.addEventListener('click', () => {
+  el.modeOpen.blur();
+  picked = run?.kind || 'normal';
+  renderModeList();
+  renderModeFields();
+  el.modeSheet.showModal();
+});
+
+el.modeClose.addEventListener('click', () => el.modeSheet.close());
+el.roundClose.addEventListener('click', () => el.roundSheet.close());
+
+el.modeStart.addEventListener('click', () => {
+  el.modeSheet.close();
+  if (picked === 'normal') { stopRun(); return; }
+
+  const number = Number(String(el.modeNumber.value).replace(',', '.'));
+  run = begin(picked, number, Date.now(), solves.length);
+  renderMode();
+  render();
+  watchRunClock();
+  toast(`${MODES[picked].name} begonnen.`);
 });
 
 /* ---------- records and looking back ----------
@@ -1910,10 +2181,19 @@ function addSolve(ms) {
   solves.push({ ms, penalty: pendingPenalty, scramble, at: Date.now() });
   pendingPenalty = 'none';
   persist();
-  newScramble();
+  if (keepScramble) keepScramble = false;
+  else newScramble();
   render();
 
+  const rematchWas = rematch;
+  rematch = null;
+  renderRematch();
+  delete el.repeatScramble.dataset.active;
+
+  runAbsorb(solves[solves.length - 1]);
   judgeSolve(previousBest);
+
+  if (rematchWas) sayHowThatWent(rematchWas, solves[solves.length - 1]);
 
   // The check comes after the celebration, so a record still gets its party
   // even when the camera is about to turn it into a DNF.
