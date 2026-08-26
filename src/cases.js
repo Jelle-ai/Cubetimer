@@ -289,6 +289,12 @@ export function caseSignature(pattern, group, Alg = null) {
   return smallest;
 }
 
+/**
+ * The simplifier writes a half turn it has folded together as U2', which is the
+ * same turn and reads like a mistake. Half turns have no direction.
+ */
+const tidyMoves = (moves) => moves.replace(/([A-Za-z])2'/g, '$12');
+
 /** An algorithm without the top-layer turns at either end that only say which
     way round you happened to be holding it. */
 function bareMoves(moves) {
@@ -324,7 +330,7 @@ export function checkCase(entry, kpuzzle, Alg, moves = null) {
   let setup;
   let landed;
   try {
-    setup = new Alg(moves ?? entry.algs[0]).invert().experimentalSimplify({ cancel: true }).toString();
+    setup = tidyMoves(new Alg(moves ?? entry.algs[0]).invert().experimentalSimplify({ cancel: true }).toString());
     landed = kpuzzle.defaultPattern().applyAlg(new Alg(setup));
   } catch (error) {
     return { ok: false, why: `niet te lezen (${error.message})` };

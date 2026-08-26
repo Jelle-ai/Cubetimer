@@ -20,7 +20,7 @@ import {
 import { COLOR_SLOTS, LED_COLORS, SKINS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, together, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
-import { drawLastLayer, lastLayerOf } from './diagram.js';
+import { drawF2L, drawLastLayer, f2lOf, lastLayerOf } from './diagram.js';
 import {
   dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
 } from './practice.js';
@@ -199,6 +199,7 @@ const el = {
   casesClose: document.getElementById('cases-close'),
   casesGroups: document.getElementById('cases-groups'),
   casesBody: document.getElementById('cases-body'),
+  casesFilter: document.getElementById('cases-filter'),
   recordsTabs: document.getElementById('records-tabs'),
   settingsTabs: document.getElementById('settings-tabs'),
   settingsGroups: document.getElementById('settings-groups'),
@@ -2090,8 +2091,11 @@ function startCase(entry) {
   duel = null;
   dailyRun = false;
   drilling = entry;
-  const turn = caseSet.AUF[Math.floor(Math.random() * caseSet.AUF.length)];
-  scramble = `${entry.setup}${turn ? ` ${turn}` : ''}`.trim();
+  // The setup that belongs to the algorithm you starred, so the case arrives
+  // the way that algorithm wants it.
+  const mine = chosenAlg(entry);
+  const turn = settings.caseAuf ? caseSet.AUF[Math.floor(Math.random() * caseSet.AUF.length)] : '';
+  scramble = `${mine.setup}${turn ? ` ${turn}` : ''}`.trim();
   scrambleToken++;
   keepScramble = true; // finishing one solve must not fetch an ordinary scramble
   delete el.scramble.dataset.loading;
@@ -2138,11 +2142,33 @@ function focusName(group, focus = drillFocus) {
 function caseThumb(entry) {
   const slot = document.createElement('span');
   slot.className = 'case-thumb';
-  lastLayerOf(entry.setup).then((shape) => {
-    if (!shape) return;
-    slot.append(drawLastLayer(shape, entry.group === 'pll' ? 'pll' : 'oll'));
-  }).catch(() => {});
+  const drawn = entry.group === 'f2l'
+    ? f2lOf(entry.setup).then((shape) => (shape ? drawF2L(shape) : null))
+    : lastLayerOf(entry.setup).then((shape) =>
+      (shape ? drawLastLayer(shape, entry.group === 'pll' ? 'pll' : 'oll') : null));
+  drawn.then((svg) => { if (svg) slot.append(svg); }).catch(() => {});
   return slot;
+}
+
+/* ---------- which algorithm is yours ----------
+
+   A case has more than one way through it, and the one you use is the one the
+   drill should set up: the setup is the algorithm turned back to front, so
+   starring a different algorithm means the case comes up facing the way that
+   algorithm expects rather than facing some other way you then have to work
+   around. */
+
+const algKey = (entry) => `${entry.group}/${entry.id}`;
+
+/** The algorithm you starred, or the first one if you have not starred any. */
+function chosenAlg(entry) {
+  const at = settings.pickedAlg?.[algKey(entry)] ?? 0;
+  return entry.algs[at] || entry.algs[0];
+}
+
+function pickAlg(entry, at) {
+  settings.pickedAlg = { ...settings.pickedAlg, [algKey(entry)]: at };
+  storeSettings();
 }
 
 /* ---------- putting a set together ---------- */
@@ -2236,114 +2262,194 @@ el.setDrop.addEventListener('click', () => {
   toast(`"${name}" verwijderd.`);
 });
 
-/* ---------- every time you have put into a case ---------- */
+/* ---------- the case book ----------
+
+   Every case of a group, with its picture, the ways through it, and what you
+   have ever done on it. The star says which algorithm is yours, and that is not
+   only a note to yourself: the setup is the algorithm turned back to front, so
+   the drill serves the case facing the way your algorithm expects it. */
 
 let casesGroup = 'pll';
 const openCases = new Set();
+let casesOnly = 'all';   // all | drilled | untried
 
-function renderCaseTimes() {
-  const known = caseSet ? groupCases(casesGroup) : [];
-  const byId = new Map(known.map((entry) => [entry.id, entry]));
-  const standing = caseStanding(play(), casesGroup);
+function algRow(entry, alg, at) {
+  const row = document.createElement('div');
+  row.className = 'alg-row';
+  row.dataset.mine = String(chosenAlg(entry) === alg);
+
+  const star = document.createElement('button');
+  star.type = 'button';
+  star.className = 'alg-star';
+  star.title = 'Dit is de mijne';
+  star.setAttribute('aria-label', `Kies ${alg.moves}`);
+  star.textContent = '★';
+  star.addEventListener('click', () => {
+    pickAlg(entry, at);
+    renderCaseBook();
+    // A case already on the mat should turn round to face the new algorithm.
+    if (drilling?.id === entry.id) startCase(entry);
+  });
+
+  const moves = document.createElement('code');
+  moves.textContent = alg.moves;
+
+  const count = document.createElement('small');
+  count.textContent = `${alg.turns}`;
+
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.className = 'ghost tiny';
+  copy.textContent = 'kopieer';
+  copy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(alg.moves);
+      toast('Gekopieerd.');
+    } catch {
+      toast('Kopiëren lukte niet in deze browser.');
+    }
+  });
+
+  row.append(star, moves, count, copy);
+  return row;
+}
+
+function renderCaseBook() {
+  if (!caseSet) return;
+  const mine = groupCases(casesGroup);
+  const standing = new Map(caseStanding(play(), casesGroup).map((row) => [row.id, row]));
   const times = play().cases[casesGroup] || {};
 
-  el.casesGroups.replaceChildren(...Object.entries(caseSet?.GROUPS || {}).map(([group, shape]) => {
+  el.casesGroups.replaceChildren(...Object.entries(caseSet.GROUPS).map(([group, shape]) => {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'chip';
     chip.dataset.active = String(group === casesGroup);
     const done = Object.keys(play().cases[group] || {}).length;
-    chip.textContent = `${shape.name}${done ? ` · ${done}` : ''}`;
-    chip.addEventListener('click', () => { casesGroup = group; renderCaseTimes(); });
+    const many = caseSet.cases.filter((entry) => entry.group === group).length;
+    chip.textContent = `${shape.name} · ${done ? `${done}/${many}` : many}`;
+    chip.addEventListener('click', () => { casesGroup = group; renderCaseBook(); });
     return chip;
   }));
 
-  if (!standing.length) {
-    el.casesBody.replaceChildren(line(
-      `Nog niets geoefend bij ${caseSet?.GROUPS[casesGroup]?.name || casesGroup}. Zodra je hier traint komt elke tijd hier per geval te staan.`,
-      'import-note'));
+  el.casesFilter.replaceChildren(...[
+    ['all', 'alles'], ['drilled', 'geoefend'], ['untried', 'nog nooit']
+  ].map(([id, label]) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'link';
+    chip.dataset.active = String(id === casesOnly);
+    chip.textContent = label;
+    chip.addEventListener('click', () => { casesOnly = id; renderCaseBook(); });
+    return chip;
+  }));
+
+  // Slowest first among the ones you have measured, then everything you have
+  // never touched -- which is the order you would want to work through them in.
+  const shown = mine
+    .filter((entry) => (casesOnly === 'drilled' ? standing.has(entry.id)
+      : casesOnly === 'untried' ? !standing.has(entry.id) : true))
+    .sort((a, b) => {
+      const one = standing.get(a.id);
+      const two = standing.get(b.id);
+      if (one && two) return two.mean - one.mean;
+      if (one) return -1;
+      if (two) return 1;
+      return 0;
+    });
+
+  if (!shown.length) {
+    el.casesBody.replaceChildren(line('Niets om te laten zien met deze keuze.', 'import-note'));
     return;
   }
 
-  // Slowest first, because that is the order you would want to read it in --
-  // but with the count beside it, so a case you did twice is not mistaken for a
-  // weakness you have measured.
   const list = document.createElement('div');
   list.className = 'case-rows';
-  for (const row of standing) {
-    const entry = byId.get(row.id);
+  for (const entry of shown) {
+    const row = standing.get(entry.id);
     const item = document.createElement('div');
     item.className = 'case-row';
-    item.dataset.open = String(openCases.has(row.id));
+    item.dataset.open = String(openCases.has(entry.id));
 
     const head = document.createElement('button');
     head.type = 'button';
     head.className = 'case-head';
-    if (entry) head.append(caseThumb(entry));
+    head.append(caseThumb(entry));
     const label = document.createElement('span');
+    label.className = 'case-name';
     const name = document.createElement('b');
-    name.textContent = row.id;
+    name.textContent = entry.id;
     const about = document.createElement('small');
-    about.textContent = entry?.name && entry.name !== row.id ? entry.name : '';
+    about.textContent = entry.name && entry.name !== entry.id ? entry.name : '';
     label.append(name, about);
     const figure = document.createElement('span');
     figure.className = 'case-figure';
-    figure.textContent = `${formatTime(row.mean)} gem · ${formatTime(row.best)} best · ${row.count}×`;
+    figure.textContent = row
+      ? `${formatTime(row.mean)} gem · ${formatTime(row.best)} best · ${row.count}×`
+      : `${entry.algs.length} ${entry.algs.length === 1 ? 'alg' : 'algs'}`;
     head.append(label, figure);
     head.addEventListener('click', () => {
-      if (openCases.has(row.id)) openCases.delete(row.id);
-      else openCases.add(row.id);
-      renderCaseTimes();
+      if (openCases.has(entry.id)) openCases.delete(entry.id);
+      else openCases.add(entry.id);
+      renderCaseBook();
     });
     item.append(head);
 
-    if (openCases.has(row.id)) {
-      const strip = document.createElement('div');
-      strip.className = 'case-times';
-      // Newest last, the way you did them, so improvement reads left to right.
-      for (const time of times[row.id] || []) {
-        const one = document.createElement('span');
-        one.textContent = formatSolve(time);
-        one.title = time.at ? new Date(time.at).toLocaleString('nl-BE') : '';
-        one.dataset.best = String(effective(time) === row.best);
-        strip.append(one);
-      }
-      item.append(strip);
+    if (openCases.has(entry.id)) {
+      const algs = document.createElement('div');
+      algs.className = 'alg-list';
+      entry.algs.forEach((alg, at) => algs.append(algRow(entry, alg, at)));
+      item.append(algs);
 
-      const again = document.createElement('div');
-      again.className = 'detail-actions';
-      if (entry) {
-        const go = document.createElement('button');
-        go.type = 'button';
-        go.textContent = 'Dit geval nu oefenen';
-        go.addEventListener('click', () => {
-          el.casesSheet.close();
-          startCase(entry);
-          toast(`${entry.id} — draai de opzet en solve dan het geval.`);
-        });
-        again.append(go);
+      const mineTimes = times[entry.id] || [];
+      if (mineTimes.length) {
+        const strip = document.createElement('div');
+        strip.className = 'case-times';
+        for (const time of mineTimes) {
+          const one = document.createElement('span');
+          one.textContent = formatSolve(time);
+          one.title = time.at ? new Date(time.at).toLocaleString('nl-BE') : '';
+          one.dataset.best = String(row && effective(time) === row.best);
+          strip.append(one);
+        }
+        item.append(strip);
       }
-      const forget = document.createElement('button');
-      forget.type = 'button';
-      forget.className = 'danger';
-      forget.textContent = 'Tijden wissen';
-      forget.addEventListener('click', () => {
-        const had = times[row.id];
-        delete play().cases[casesGroup][row.id];
-        persist();
-        renderCaseTimes();
-        toast(`Tijden van ${row.id} gewist.`, {
-          label: 'Ongedaan',
-          run: () => {
-            play().cases[casesGroup] ||= {};
-            play().cases[casesGroup][row.id] = had;
-            persist();
-            renderCaseTimes();
-          }
-        });
+
+      const actions = document.createElement('div');
+      actions.className = 'detail-actions';
+      const go = document.createElement('button');
+      go.type = 'button';
+      go.textContent = 'Dit geval nu oefenen';
+      go.addEventListener('click', () => {
+        el.casesSheet.close();
+        startCase(entry);
+        toast(`${entry.id} — draai de opzet en solve dan het geval.`);
       });
-      again.append(forget);
-      item.append(again);
+      actions.append(go);
+
+      if (mineTimes.length) {
+        const forget = document.createElement('button');
+        forget.type = 'button';
+        forget.className = 'danger';
+        forget.textContent = 'Tijden wissen';
+        forget.addEventListener('click', () => {
+          const had = mineTimes;
+          delete play().cases[casesGroup][entry.id];
+          persist();
+          renderCaseBook();
+          toast(`Tijden van ${entry.id} gewist.`, {
+            label: 'Ongedaan',
+            run: () => {
+              play().cases[casesGroup] ||= {};
+              play().cases[casesGroup][entry.id] = had;
+              persist();
+              renderCaseBook();
+            }
+          });
+        });
+        actions.append(forget);
+      }
+      item.append(actions);
     }
 
     list.append(item);
@@ -2351,15 +2457,15 @@ function renderCaseTimes() {
   el.casesBody.replaceChildren(list);
 }
 
-async function openCaseTimes(group = null) {
+async function openCaseBook(group = null) {
   if (group) casesGroup = group;
   try {
     await loadCases();
   } catch {
-    // The pictures and the names need the library; the times do not, so this
-    // still opens without them rather than not opening at all.
+    toast('De gevallen konden niet geladen worden.');
+    return;
   }
-  renderCaseTimes();
+  renderCaseBook();
   openSheet(el.casesSheet);
 }
 
@@ -2460,10 +2566,10 @@ function renderDrill() {
   const seeTimes = document.createElement('button');
   seeTimes.type = 'button';
   seeTimes.id = 'drill-times';
-  seeTimes.textContent = 'Tijden per geval';
+  seeTimes.textContent = 'Gevallenboek';
   seeTimes.addEventListener('click', () => {
     el.drillSheet.close();
-    openCaseTimes(drillGroup);
+    openCaseBook(drillGroup);
   });
   actions.append(seeTimes);
 
@@ -6056,7 +6162,7 @@ const WIDE = matchMedia('(min-width: 1180px)');
 /** What each row of the rail actually does. */
 const RAIL = {
   'drill-open': () => openDrill(),
-  'cases-times': () => openCaseTimes(),
+  'cases-times': () => openCaseBook(),
   'mode-open': () => el.modeOpen.click(),
   'metro-open': () => openMetro(),
   stats: () => el.statsButton.click(),

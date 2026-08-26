@@ -101,6 +101,11 @@ const DEFAULTS = {
   recordTab: 'now',
   // The groups of the side list you have folded away.
   railShut: [],
+  // Which algorithm you starred for each case, as "group/id" to a number.
+  pickedAlg: {},
+  // Whether a drilled case turns up facing a random way. On while you are
+  // learning to recognise it; off while you are learning the algorithm itself.
+  caseAuf: true,
   wonBadges: [],
   badgesSeeded: false,
   cubes: [],
@@ -157,6 +162,12 @@ export function loadSettings() {
     settings.cube = settings.cubes.includes(settings.cube) ? settings.cube : '';
     settings.shareName = typeof settings.shareName === 'string' ? settings.shareName.slice(0, 24) : '';
     if (!['U', 'D', 'F', 'B', 'R', 'L'].includes(settings.crossFace)) settings.crossFace = DEFAULTS.crossFace;
+    const picked = {};
+    for (const [where, at] of Object.entries(settings.pickedAlg || {})) {
+      if (typeof where === 'string' && Number.isInteger(at) && at >= 0 && at < 12) picked[where] = at;
+    }
+    settings.pickedAlg = picked;
+
     settings.railShut = Array.isArray(settings.railShut)
       ? settings.railShut.filter((id) => typeof id === 'string').slice(0, 12)
       : [];

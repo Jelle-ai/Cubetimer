@@ -125,7 +125,7 @@
     <details class="rail-group" data-group="practise" open>
       <summary>Oefenen</summary>
       <button type="button" data-go="drill-open"><svg viewBox="0 0 24 24"><use href="#mark-cases"/></svg>Gevallen trainen</button>
-      <button type="button" data-go="cases-times"><svg viewBox="0 0 24 24"><use href="#mark-times"/></svg>Tijden per geval</button>
+      <button type="button" data-go="cases-times"><svg viewBox="0 0 24 24"><use href="#mark-times"/></svg>Gevallenboek</button>
       <button type="button" data-go="mode-open"><svg viewBox="0 0 24 24"><use href="#mark-play"/></svg>Spelletjes en modi</button>
       <button type="button" data-go="metro-open"><svg viewBox="0 0 24 24"><use href="#mark-metro"/></svg>Metronoom</button>
     </details>
@@ -548,10 +548,11 @@
 <dialog id="cases-sheet" class="sheet sheet-tall" tabindex="-1">
   <div class="sheet-inner">
     <header class="sheet-head">
-      <h2 id="cases-title">Tijden per geval</h2>
+      <h2 id="cases-title">Gevallenboek</h2>
       <button type="button" id="cases-close" class="icon-button" aria-label="Sluiten">✕</button>
     </header>
     <div id="cases-groups" class="chip-row"></div>
+    <div id="cases-filter" class="session-tools"></div>
     <div id="cases-body" class="sheet-scroll"></div>
   </div>
 </dialog>
