@@ -161,6 +161,73 @@ export function byDay(sessions) {
 }
 
 /**
+ * One line a day, written by nobody. A diary you never had to keep.
+ *
+ * @returns {{day: string, at: number, count: number, best: number|null, note: string}[]}
+ */
+export function diary(sessions, howMany = 30) {
+  const days = byDay(sessions);
+  const marks = new Map();
+
+  // When each record fell, so a day can say that it was the day one did.
+  for (const session of sessions) {
+    for (const mark of records(session.solves)) {
+      if (!mark.at) continue;
+      const key = dayKey(mark.at);
+      const had = marks.get(key);
+      if (!had || mark.ms < had) marks.set(key, mark.ms);
+    }
+  }
+
+  return [...days.entries()]
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .slice(0, howMany)
+    .map(([day, seen]) => {
+      const record = marks.get(day);
+      const bits = [`${seen.count} ${seen.count === 1 ? 'solve' : 'solves'}`];
+      if (seen.best !== null) bits.push(`beste ${(seen.best / 1000).toFixed(2)}`);
+      if (record !== undefined) bits.push('record verbroken');
+      return {
+        day,
+        at: new Date(`${day}T12:00:00`).getTime(),
+        count: seen.count,
+        best: seen.best,
+        note: bits.join(' · ')
+      };
+    });
+}
+
+/**
+ * A year of days, oldest first, with nothing for the days you did not solve.
+ * Squares on a wall rather than a line on a graph.
+ */
+export function yearOfDays(sessions, until = new Date()) {
+  const days = byDay(sessions);
+  const out = [];
+  const cursor = new Date(until);
+  cursor.setHours(12, 0, 0, 0);
+  cursor.setDate(cursor.getDate() - 363);
+
+  let most = 0;
+  for (const day of days.values()) most = Math.max(most, day.count);
+
+  for (let i = 0; i < 364; i++) {
+    const key = dayKey(cursor.getTime());
+    const seen = days.get(key);
+    out.push({
+      day: key,
+      weekday: (cursor.getDay() + 6) % 7, // Monday first
+      count: seen?.count || 0,
+      best: seen?.best ?? null,
+      // Four steps, so a busy day and a very busy day still look different.
+      level: seen ? Math.min(4, Math.ceil((seen.count / Math.max(most, 1)) * 4)) : 0
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return out;
+}
+
+/**
  * Solves from this same date in earlier years, newest of those first. Empty
  * almost always, which is the point: when it is not, it is worth seeing.
  */

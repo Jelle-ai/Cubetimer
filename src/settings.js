@@ -37,6 +37,11 @@ const DEFAULTS = {
   wakeLock: true,
   camera: false,
   splits: false,
+  pace: true,
+  wonBadges: [],
+  cubes: [],
+  cube: '',
+  shareName: '',
   // The four corners of the mat in the camera's picture, clockwise from the
   // top left. A square by default, because a camera pointed straight down at a
   // mat sees a square; every other angle sees a trapezium, so the corners move
@@ -57,7 +62,7 @@ const DEFAULTS = {
     works offline cannot go and fetch a font. */
 export const FONTS = ['rounded', 'system', 'mono'];
 
-const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'highlight', 'preview', 'countUp', 'wakeLock', 'practice'];
+const SWITCHES = ['inspection', 'hideTime', 'pace', 'sound', 'haptics', 'celebrate', 'highlight', 'preview', 'countUp', 'wakeLock', 'practice'];
 
 // Switches that start off rather than on, so "anything but false is true" --
 // the rule the ones above use -- would turn them on by mistake.
@@ -119,6 +124,15 @@ export function loadSettings() {
     for (const key of OPT_IN) settings[key] = settings[key] === true;
 
     settings.crop = { corners: cleanCorners(settings.crop) };
+    settings.cubes = Array.isArray(settings.cubes)
+      ? [...new Set(settings.cubes.filter((name) => typeof name === 'string' && name.trim())
+        .map((name) => name.trim().slice(0, 24)))].slice(0, 12)
+      : [];
+    settings.cube = settings.cubes.includes(settings.cube) ? settings.cube : '';
+    settings.shareName = typeof settings.shareName === 'string' ? settings.shareName.slice(0, 24) : '';
+    settings.wonBadges = Array.isArray(settings.wonBadges)
+      ? settings.wonBadges.filter((id) => typeof id === 'string').slice(0, 200)
+      : [];
     settings.cubeColours = Array.isArray(settings.cubeColours)
       ? settings.cubeColours
         .filter((c) => Array.isArray(c) && c.length === 2 && c.every((v) => Number.isFinite(Number(v))))

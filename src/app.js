@@ -7,8 +7,11 @@ import {
 import { KEY as SAVE_KEY, load, save } from './store.js';
 import { backupName, buildBackup, foldIn, inOrder, readBackup, summarise } from './backup.js';
 import {
-  bestRuns, byDay, fastest, onThisDay, recordAge, records, spellDuration, totals, without
+  bestRuns, byDay, diary, fastest, onThisDay, recordAge, records, spellDuration, totals,
+  without, yearOfDays
 } from './history.js';
+import { badges, newlyWon, tally, wonIds } from './badges.js';
+import { cardFor, drawCard, readShared, shareLink } from './share.js';
 import { MODES, absorb, begin, describe, expired, hushed, ownsSolves, result, runSolves } from './modes.js';
 import {
   bestOf, caseStanding, cleanPlay, dailyHistory, dailyStreak, dayStamp, duelTally,
@@ -63,10 +66,22 @@ const el = {
   statsButton: document.getElementById('stats'),
   statsSheet: document.getElementById('stats-sheet'),
   recordsOpen: document.getElementById('records-open'),
+  shareOpen: document.getElementById('share-open'),
   recordsSheet: document.getElementById('records-sheet'),
   recordsTitle: document.getElementById('records-title'),
   recordsClose: document.getElementById('records-close'),
   recordsBody: document.getElementById('records-body'),
+  shareSheet: document.getElementById('share-sheet'),
+  shareClose: document.getElementById('share-close'),
+  shareWhat: document.getElementById('share-what'),
+  shareImage: document.getElementById('share-image'),
+  shareName: document.getElementById('share-name'),
+  shareSave: document.getElementById('share-save'),
+  shareSend: document.getElementById('share-send'),
+  shareLink: document.getElementById('share-link'),
+  cubeName: document.getElementById('cube-name'),
+  cubeAdd: document.getElementById('cube-add'),
+  cubeList: document.getElementById('cube-list'),
   statsTitle: document.getElementById('stats-title'),
   statsList: document.getElementById('stats-list'),
   selectMode: document.getElementById('select-mode'),
@@ -2221,6 +2236,197 @@ el.keysOpen.addEventListener('click', () => {
 
 el.keysClose.addEventListener('click', () => el.keysSheet.close());
 
+/* ---------- sharing ----------
+
+   A card, because a screenshot of a list of numbers is not something anyone
+   wants to look at, and a link, because sometimes the numbers are the point.
+   Neither needs a server. */
+
+let sharing = null;
+
+function renderShare() {
+  if (!sharing) return;
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--led').trim() || '#4fc3f7';
+  const dark = document.documentElement.dataset.theme === 'dark';
+  const card = drawCard(cardFor(sharing.solves, {
+    title: sharing.title,
+    name: el.shareName.value.trim(),
+    accent,
+    dark
+  }));
+  el.shareImage.src = card.toDataURL('image/png');
+  el.shareImage.dataset.ready = 'true';
+}
+
+function openShare(title, list) {
+  if (!list.length) { toast('Nog niets om te delen.'); return; }
+  sharing = { title, solves: list.map((solve) => ({ ms: solve.ms, penalty: solve.penalty || 'none' })) };
+  el.shareWhat.textContent = `${list.length} ${list.length === 1 ? 'tijd' : 'tijden'} · ${title}`;
+  el.shareName.value = settings.shareName || '';
+  el.shareSend.hidden = !canShareFiles();
+  renderShare();
+  openSheet(el.shareSheet);
+}
+
+el.shareClose.addEventListener('click', () => el.shareSheet.close());
+el.shareSheet.addEventListener('close', () => { sharing = null; });
+el.shareName.addEventListener('input', () => {
+  settings.shareName = el.shareName.value.trim().slice(0, 24);
+  storeSettings();
+  renderShare();
+});
+
+const shareFileName = () => `cubetimer-${(sharing?.title || 'tijden').replace(/[^\p{L}\p{N}]+/gu, '-')}.png`;
+
+async function shareBlob() {
+  const response = await fetch(el.shareImage.src);
+  return response.blob();
+}
+
+el.shareSave.addEventListener('click', async () => {
+  el.shareSave.blur();
+  const blob = await shareBlob();
+  const address = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = address;
+  link.download = shareFileName();
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(address), 20000);
+  toast('Kaartje bewaard.');
+});
+
+el.shareSend.addEventListener('click', async () => {
+  el.shareSend.blur();
+  try {
+    const file = new File([await shareBlob()], shareFileName(), { type: 'image/png' });
+    await navigator.share({ files: [file], text: `${sharing.title} — Cubetimer` });
+  } catch (error) {
+    if (error?.name !== 'AbortError') toast('Versturen lukte niet; bewaar het kaartje dan gewoon.');
+  }
+});
+
+el.shareLink.addEventListener('click', async () => {
+  el.shareLink.blur();
+  const address = shareLink(sharing.solves, { name: el.shareName.value.trim() });
+  try {
+    await navigator.clipboard.writeText(address);
+    toast('Link gekopieerd.');
+  } catch {
+    toast(address);
+  }
+});
+
+/**
+ * Times somebody sent you. They are shown and never stored: this is somebody
+ * else's afternoon, and it has no business in your averages.
+ */
+function showShared() {
+  const sent = readShared();
+  if (!sent) return;
+  history.replaceState(null, '', location.pathname + location.search);
+
+  const average = averageOf(sent.solves, sent.solves.length);
+  el.pickedTitle.textContent = sent.name ? `Van ${sent.name}` : 'Iemand stuurde je dit';
+  el.pickedList.replaceChildren(...sent.solves.map((solve, index) => {
+    const item = document.createElement('li');
+    const row = document.createElement('div');
+    row.className = 'solve';
+    const number = document.createElement('span');
+    number.className = 'solve-index';
+    number.textContent = String(index + 1);
+    const label = document.createElement('span');
+    label.className = 'solve-time';
+    label.textContent = formatSolve(solve);
+    row.append(number, label);
+    item.append(row);
+    return item;
+  }));
+
+  const note = document.createElement('p');
+  note.className = 'import-note';
+  note.textContent = Number.isFinite(average)
+    ? `Gemiddelde ${formatTime(average)}. Deze tijden zijn niet van jou en worden niet bewaard.`
+    : 'Deze tijden zijn niet van jou en worden niet bewaard.';
+  el.pickedList.append(note);
+  openSheet(el.pickedSheet);
+}
+
+/* ---------- your cubes ----------
+
+   Which one was on the mat. Two cubes feel different and it is easy to talk
+   yourself into the new one being faster; this is the cheapest way to find out. */
+
+function renderCubes() {
+  el.cubeList.replaceChildren(...settings.cubes.map((name) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'cube-chip';
+    button.dataset.active = String(name === settings.cube);
+    button.textContent = name;
+    button.addEventListener('click', () => {
+      settings.cube = settings.cube === name ? '' : name;
+      storeSettings();
+      renderCubes();
+    });
+
+    const drop = document.createElement('span');
+    drop.className = 'cube-drop';
+    drop.textContent = '×';
+    drop.title = 'Vergeten';
+    drop.addEventListener('click', (event) => {
+      event.stopPropagation();
+      settings.cubes = settings.cubes.filter((other) => other !== name);
+      if (settings.cube === name) settings.cube = '';
+      storeSettings();
+      renderCubes();
+    });
+    button.append(drop);
+    return button;
+  }));
+}
+
+el.cubeAdd.addEventListener('click', () => {
+  const name = el.cubeName.value.trim().slice(0, 24);
+  if (!name || settings.cubes.includes(name)) { el.cubeName.value = ''; return; }
+  settings.cubes = [...settings.cubes, name].slice(0, 12);
+  settings.cube = name;
+  el.cubeName.value = '';
+  storeSettings();
+  renderCubes();
+});
+
+/** How each cube has gone, over everything you have. */
+function cubesBlock() {
+  const perCube = new Map();
+  for (const session of saveFile.sessions) {
+    for (const solve of counting(session.solves)) {
+      if (!solve.cube) continue;
+      const value = effective(solve);
+      if (!Number.isFinite(value)) continue;
+      const seen = perCube.get(solve.cube) || [];
+      seen.push(value);
+      perCube.set(solve.cube, seen);
+    }
+  }
+  if (perCube.size < 2) return null;
+
+  const list = document.createElement('div');
+  list.className = 'round-lines';
+  for (const [name, times] of [...perCube.entries()].sort((a, b) => b[1].length - a[1].length)) {
+    const mean = times.reduce((sum, t) => sum + t, 0) / times.length;
+    const row = document.createElement('div');
+    const label = document.createElement('b');
+    label.textContent = name;
+    const figure = document.createElement('span');
+    figure.textContent = `${formatTime(mean)} gem · ${formatTime(Math.min(...times))} best · ${times.length}×`;
+    row.append(label, figure);
+    list.append(row);
+  }
+  return recordBlock('Per kubus', list);
+}
+
 /* ---------- records and looking back ----------
 
    Everything here is already in the save file; none of it is worth a number on
@@ -2276,8 +2482,11 @@ function recordHistoryBlock() {
   const list = document.createElement('ol');
   list.className = 'record-run';
 
-  // Newest first: the one that still stands is the one you care about.
-  all.slice().reverse().forEach((mark, index) => {
+  // Newest first, and only the last handful: someone who got faster steadily
+  // for a year has sixty of these, and the sixtieth is not what they came for.
+  const SHOWN = 10;
+  const shown = all.slice().reverse().slice(0, SHOWN);
+  shown.forEach((mark, index) => {
     const item = document.createElement('li');
     if (index === 0) item.dataset.standing = 'true';
     const time = document.createElement('b');
@@ -2291,7 +2500,10 @@ function recordHistoryBlock() {
 
   const head = age === null ? null
     : line(age === 0 ? 'Je record is van vandaag.' : `Je record staat ${age} ${age === 1 ? 'dag' : 'dagen'}.`, 'records-lead');
-  return recordBlock('Hoe je record gezakt is', [head, list]);
+  const rest = all.length > SHOWN
+    ? line(`En daarvoor nog ${all.length - SHOWN} keer.`, 'records-aside')
+    : null;
+  return recordBlock('Hoe je record gezakt is', [head, list, rest]);
 }
 
 function runsBlock() {
@@ -2431,16 +2643,94 @@ function splitsBlock() {
   return recordBlock(`Gemiddeld per deel (${rows.length} solves)`, list);
 }
 
+/** The cabinet: what you have, and what is next. */
+function badgesBlock() {
+  const list = badges(saveFile.sessions, play());
+  const score = tally(list);
+  const got = list.filter((badge) => badge.at !== null).sort((a, b) => b.at - a.at);
+  const next = list.filter((badge) => badge.at === null).slice(0, 4);
+
+  const wall = document.createElement('div');
+  wall.className = 'badge-wall';
+  for (const badge of [...got, ...next]) {
+    const item = document.createElement('div');
+    item.className = 'badge';
+    item.dataset.won = String(badge.at !== null);
+    item.title = badge.about;
+    const name = document.createElement('b');
+    name.textContent = badge.name;
+    const detail = document.createElement('small');
+    detail.textContent = badge.at !== null
+      ? new Date(badge.at).toLocaleDateString('nl-BE')
+      : badge.detail;
+    item.append(name, detail);
+    wall.append(item);
+  }
+
+  return recordBlock(`Kast — ${score.got} van ${score.all}`, wall);
+}
+
+/** A year of days as squares. Not a graph: a wall you can look at. */
+function calendarBlock() {
+  const days = yearOfDays(saveFile.sessions);
+  if (!days.some((day) => day.count)) return null;
+
+  const grid = document.createElement('div');
+  grid.className = 'year-grid';
+  for (const day of days) {
+    const cell = document.createElement('i');
+    cell.dataset.level = String(day.level);
+    cell.style.gridRow = String(day.weekday + 1);
+    cell.title = day.count
+      ? `${day.day}: ${day.count} ${day.count === 1 ? 'solve' : 'solves'}${day.best ? `, beste ${formatTime(day.best)}` : ''}`
+      : day.day;
+    grid.append(cell);
+  }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'year-wrap';
+  wrap.append(grid);
+  return recordBlock('Een jaar aan dagen', wrap);
+}
+
+/** One line a day, written by nobody. */
+function diaryBlock() {
+  const lines = diary(saveFile.sessions, 14);
+  if (lines.length < 2) return null;
+
+  const list = document.createElement('div');
+  list.className = 'round-lines';
+  for (const entry of lines) {
+    const row = document.createElement('div');
+    const when = document.createElement('b');
+    when.textContent = new Date(entry.at).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' });
+    const note = document.createElement('span');
+    note.textContent = entry.note;
+    row.append(when, note);
+    list.append(row);
+  }
+  return recordBlock('Dagboek', list);
+}
+
 function renderRecords() {
   el.recordsTitle.textContent = `Records — ${currentSession().name}`;
   const blocks = [
-    todayBlock(), podiumBlock(), splitsBlock(), recordHistoryBlock(), runsBlock(),
-    whatIfBlock(), longAgoBlock(), counterBlock()
+    todayBlock(), podiumBlock(), badgesBlock(), calendarBlock(), splitsBlock(),
+    recordHistoryBlock(), runsBlock(), cubesBlock(), whatIfBlock(), diaryBlock(),
+    longAgoBlock(), counterBlock()
   ].filter(Boolean);
 
   el.recordsBody.replaceChildren(...(blocks.length ? blocks
     : [line('Nog te weinig tijden om iets terug te kijken. Solve er een paar en kom terug.')]));
 }
+
+el.shareOpen.addEventListener('click', () => {
+  el.shareOpen.blur();
+  const scored = counting(solves);
+  const five = scored.slice(-5);
+  el.statsSheet.close();
+  openShare(five.length === 5 ? 'ao5' : `laatste ${five.length}`, five);
+});
 
 el.recordsOpen.addEventListener('click', () => {
   el.recordsOpen.blur();
@@ -2903,6 +3193,7 @@ function persist() {
 function addSolve(ms, marks = []) {
   const solve = { ms, penalty: pendingPenalty, scramble, at: Date.now() };
   if (marks.length) solve.splits = marks;
+  if (settings.cube) solve.cube = settings.cube;
   pendingPenalty = 'none';
 
   if (drilling) { finishDrill(solve); return; }
@@ -2925,6 +3216,7 @@ function addSolve(ms, marks = []) {
   judgeSolve(previousBest);
 
   if (rematchWas) sayHowThatWent(rematchWas, solves[solves.length - 1]);
+  celebrateBadges();
 
   // The check comes after the celebration, so a record still gets its party
   // even when the camera is about to turn it into a DNF.
@@ -3266,9 +3558,40 @@ function settleInspection() {
 
 /* ---------- timing ---------- */
 
+/**
+ * The ring warms while you are ahead of your usual pace and cools when you fall
+ * behind. No numbers -- the point is to feel it out of the corner of your eye
+ * without reading anything, which works even with the time hidden.
+ */
+let pacer = null;
+
+function startPacing() {
+  const recent = counting(solves).slice(-12).map(effective).filter(Number.isFinite);
+  pacer = recent.length >= 3
+    ? recent.slice().sort((a, b) => a - b)[recent.length >> 1]
+    : null;
+  el.body.dataset.pace = '';
+}
+
+function pace(elapsed) {
+  if (!pacer) return;
+  // Ahead until the clock passes your usual; behind once it is a fifth over.
+  const share = elapsed / pacer;
+  const mark = share < 0.85 ? 'ahead' : share < 1.02 ? 'level' : 'behind';
+  if (el.body.dataset.pace !== mark) el.body.dataset.pace = mark;
+}
+
 function runningTick() {
-  showTime(performance.now() - startedAt);
+  const elapsed = performance.now() - startedAt;
+  pace(elapsed);
+  showTime(elapsed);
   runningFrame = requestAnimationFrame(runningTick);
+}
+
+/** The pace ring is worth having even with the time hidden -- more so, then. */
+function hiddenTick() {
+  pace(performance.now() - startedAt);
+  runningFrame = requestAnimationFrame(hiddenTick);
 }
 
 function startRunning() {
@@ -3284,9 +3607,11 @@ function startRunning() {
   warmCamera();
 
   cue('start');
+  startPacing();
   cancelAnimationFrame(runningFrame);
   if (settings.hideTime) {
     el.time.textContent = DOTS;
+    if (settings.pace) hiddenTick();
   } else {
     runningTick();
   }
@@ -3310,6 +3635,7 @@ function stopRunning(ms) {
   cue('stop');
   cancelAnimationFrame(runningFrame);
   runningFrame = null;
+  el.body.dataset.pace = '';
   const elapsed = ms ?? performance.now() - startedAt;
   setPhase('idle');
 
@@ -3772,6 +4098,26 @@ function cameraLost() {
   } else {
     cameraTrouble = 'De camera werd afgebroken, dus deze solve is niet bekeken.';
   }
+}
+
+/**
+ * A badge is only a moment once. What was already won is remembered by name, so
+ * closing the app cannot make one go by unnoticed, and re-earning cannot make
+ * the same party happen twice.
+ */
+function celebrateBadges() {
+  const list = badges(saveFile.sessions, play());
+  const fresh = newlyWon(list, settings.wonBadges || []);
+  settings.wonBadges = wonIds(list);
+  storeSettings();
+  if (!fresh.length) return;
+
+  const [first] = fresh;
+  cue('record');
+  if (settings.celebrate) confetti('party');
+  toast(fresh.length === 1
+    ? `${first.name} — ${first.about}`
+    : `${first.name} en nog ${fresh.length - 1} erbij.`);
 }
 
 /** Plain words for a camera that will not open, in the settings and in a toast. */
@@ -4565,6 +4911,7 @@ const switches = [
   bindSwitch('set-highlight', 'highlight'),
   bindSwitch('set-camera', 'camera'),
   bindSwitch('set-splits', 'splits'),
+  bindSwitch('set-pace', 'pace'),
   bindSwitch('set-practice', 'practice')
 ];
 
@@ -5198,5 +5545,9 @@ applyLayout();
 
 setPhase('idle');
 renderScramble();
-applySettings();
-newScramble(); // replaces the stand-in with an official one as soon as it is ready // sets the ring colour, decimals, hint and renders the session
+applySettings(); // sets the ring colour, decimals, hint and renders the session
+renderCubes();
+newScramble(); // replaces the stand-in with an official one as soon as it is ready
+
+// A link somebody sent lands here. Shown, never kept: it is their afternoon.
+showShared();

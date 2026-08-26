@@ -59,13 +59,31 @@ export function meetsGoal(entry, goal) {
  * break the run: with nothing solved yet today the streak is whatever yesterday
  * ended on, so the flame stays lit until the day is actually missed.
  */
-export function streaks(days, goal) {
+/**
+ * A run of forty days that dies because one evening you could not is cruel and
+ * teaches nothing. One missed day a month is forgiven: the run carries straight
+ * over it, and the day itself is not counted as one you made.
+ */
+const FORGIVEN_PER_MONTH = 1;
+
+export function streaks(days, goal, { forgive = true } = {}) {
   const start = today();
 
   let current = 0;
+  let spent = 0;
   let cursor = meetsGoal(days.get(start), goal) ? start : dayBefore(start);
-  while (meetsGoal(days.get(cursor), goal)) {
-    current++;
+
+  while (true) {
+    if (meetsGoal(days.get(cursor), goal)) {
+      current++;
+      cursor = dayBefore(cursor);
+      continue;
+    }
+    // A gap is stepped over once every thirty days of run, and only if there is
+    // a day beyond it to step onto.
+    const allowance = Math.floor(current / 30) * FORGIVEN_PER_MONTH + (current >= 3 ? 1 : 0);
+    if (!forgive || spent >= allowance || !meetsGoal(days.get(dayBefore(cursor)), goal)) break;
+    spent++;
     cursor = dayBefore(cursor);
   }
 
@@ -78,7 +96,7 @@ export function streaks(days, goal) {
     longest = Math.max(longest, run);
   }
 
-  return { current, longest: Math.max(longest, current) };
+  return { current, longest: Math.max(longest, current), forgiven: spent };
 }
 
 /** How far into today's goal, from 0 to 1. */

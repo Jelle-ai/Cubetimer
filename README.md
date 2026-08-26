@@ -499,6 +499,59 @@ dat je aan de andere kant van de kamer nog leest. Escape brengt je terug.
 **Toetsen en gebaren** — een overzichtje van wat spatie, escape, je matje en een veeg
 allemaal doen.
 
+## De kast, de kalender en het dagboek
+
+Bij **records en terugblik** staan drie dingen die je nergens hoefde bij te houden.
+
+**De kast.** Je eerste solve, je eerste sub-15, honderd dagen op rij, alle zes de puzzels
+op één dag, een solve om drie uur 's nachts. Elke badge is een vraag die aan je hele
+geschiedenis gesteld wordt, dus de kast wordt telkens opnieuw uitgerekend en er hoeft
+niets bewaard te zijn op de dag zelf. Win je er een, dan is dat een moment met confetti —
+één keer, want wat je al had wordt onthouden bij naam.
+
+**Een jaar aan dagen.** Driehonderdvierenzestig vierkantjes, donkerder naarmate je die dag
+meer gedraaid hebt. Geen grafiek: een muur om naar te kijken.
+
+**Dagboek.** Eén regel per dag, geschreven door niemand: *"25 aug — 4 solves · beste 12,10
+· record verbroken."*
+
+### Eén dag vergeven
+
+Een reeks van veertig dagen die sneuvelt omdat je één avond niet kon is wreed en leert je
+niets. Vanaf drie dagen reeks wordt er één gemiste dag overgeslagen, en nog eens één per
+dertig dagen die de reeks meegaat. De dag zelf telt niet als gehaald — de reeks loopt er
+alleen overheen. Nagemeten: vijf op rij blijft vijf, een gat op dag drie geeft zes in
+plaats van drie, en twee gaten kort na elkaar stopt bij het tweede.
+
+## Delen
+
+Twee manieren, allebei zonder server.
+
+**Een kaartje.** In de statistieken staat **deel je ao5**: dat tekent een plaatje met je
+vijf tijden, je gemiddelde en je naam erop. Getekend en niet gescreenshot, want het scherm
+is ingedeeld om op te solven, niet om achteraf naar te kijken. Bewaren, of meteen naar de
+deelknop van je toestel.
+
+**Een link.** Je tijden worden ingepakt in het stuk van het adres achter de `#` — het
+enige deel dat een browser nooit naar een server stuurt. Vijf tijden passen in twintig
+tekens; de hele link is er zeventig lang. Er wordt dus niets geüpload en niets bewaard, en
+hij werkt gewoon bij wie je hem naartoe stuurt: die ziet je tijden in een venstertje, met
+erbij dat ze niet van hem zijn en niet bewaard worden.
+
+## Je kubussen
+
+In de instellingen kun je je kubussen een naam geven en aanvinken welke er ligt. Elke solve
+onthoudt het, en bij **records en terugblik** komt er een blokje bij zodra er twee in
+voorkomen: per kubus je gemiddelde, je beste en hoe vaak. Zo weet je eindelijk of die
+nieuwe echt sneller is of dat je het jezelf wijsmaakt.
+
+## De ring die meeleeft
+
+Staat **ring leeft mee** aan, dan kleurt de ring tijdens je solve: warm zolang je voorligt
+op je gewone tempo van de laatste twaalf solves, koel zodra je erover gaat. Geen cijfers —
+je voelt het in je ooghoek. Werkt juist ook als je de tijd verborgen hebt, want dan is het
+het enige wat je nog hebt.
+
 ## Spelen
 
 Het knopje met het zonnetje in de balk. **Niets hiervan komt in je sessies terecht.** Een

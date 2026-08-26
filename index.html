@@ -423,6 +423,34 @@
   </div>
 </dialog>
 
+<dialog id="share-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Delen</h2>
+      <button type="button" id="share-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <p id="share-what" class="detail-meta"></p>
+    <div class="share-preview"><img id="share-image" alt="Kaartje met je tijden"></div>
+
+    <label class="field">
+      <span>Je naam op het kaartje (mag leeg)</span>
+      <input type="text" id="share-name" maxlength="24" autocomplete="off">
+    </label>
+
+    <div class="detail-actions">
+      <button type="button" id="share-save">Kaartje bewaren</button>
+      <button type="button" id="share-send" hidden>Versturen…</button>
+    </div>
+    <div class="detail-actions">
+      <button type="button" id="share-link">Link kopiëren</button>
+    </div>
+    <p class="import-note">De link draagt je tijden in het stuk achter de <code>#</code>, dat een
+      browser nooit naar een server stuurt. Er wordt dus niets geüpload en niets bewaard —
+      hij werkt gewoon bij wie je hem naartoe stuurt.</p>
+  </div>
+</dialog>
+
 <dialog id="drill-sheet" class="sheet sheet-tall" tabindex="-1">
   <div class="sheet-inner">
     <header class="sheet-head">
@@ -568,6 +596,7 @@
 
     <div class="detail-actions">
       <button type="button" id="records-open">Records en terugblik</button>
+      <button type="button" id="share-open">Deel je ao5</button>
     </div>
   </form>
 </dialog>
@@ -676,6 +705,15 @@
         <small>Verbergen achter drie bolletjes</small>
       </div>
       <button type="button" class="switch" id="set-hide" role="switch" aria-checked="true" aria-label="Tijd tijdens solve"><span></span></button>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Ring leeft mee</span>
+        <small>Tijdens je solve kleurt de ring warm als je voorligt op je gewone tempo en
+          koel als je achterloopt. Geen cijfers, ook niet als je de tijd verbergt</small>
+      </div>
+      <button type="button" class="switch" id="set-pace" role="switch" aria-checked="true" aria-label="Ring leeft mee"><span></span></button>
     </section>
 
     <section class="setting">
@@ -815,6 +853,19 @@
         <small>Markeer ze in de lijst</small>
       </div>
       <button type="button" class="switch" id="set-highlight" role="switch" aria-checked="true" aria-label="Beste en slechtste"><span></span></button>
+    </section>
+
+    <section class="setting stacked">
+      <div class="setting-label">
+        <span>Je kubussen</span>
+        <small>Geef ze een naam en kies welke er ligt. Elke solve onthoudt het, en je ziet
+          per kubus je beste tijd en gemiddelde</small>
+      </div>
+      <div class="move-new">
+        <input type="text" id="cube-name" maxlength="24" autocomplete="off" placeholder="Naam van een kubus">
+        <button type="button" id="cube-add" class="text-button">toevoegen</button>
+      </div>
+      <div id="cube-list" class="cube-list"></div>
     </section>
 
     <section class="setting">
