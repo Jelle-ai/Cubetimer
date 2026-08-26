@@ -14,9 +14,32 @@ import { averageOf, best, effective, formatTime } from './stats.js';
 const KEEP_RUNS = 60;
 const KEEP_TIMES = 40;
 
+/**
+ * Times per case are kept far longer than a game's are, because they are the
+ * whole point of drilling: what you want to see is that a case you were slow
+ * at in March is one you are quick at now, and forty goes is a month.
+ */
+const KEEP_CASE_TIMES = 150;
+
+/** Sets you made yourself, and how big one may get. */
+const KEEP_SETS = 40;
+const KEEP_IN_SET = 60;
+
 export function emptyPlay() {
-  return { runs: [], daily: {}, cases: {}, duels: [] };
+  return { runs: [], daily: {}, cases: {}, duels: [], sets: [] };
 }
+
+/**
+ * The ten two-look cases used to live in the same drawer as everything else
+ * called OLL. Now that all fifty-seven are here they have drawers of their own,
+ * and the times you already put in must move with them rather than sit under a
+ * name nothing looks for any more.
+ */
+const MOVED = {
+  Punt: 'eo', Streep: 'eo', Haakje: 'eo',
+  Sune: 'ocll', Antisune: 'ocll', Pi: 'ocll', Kop: 'ocll',
+  'Dubbele Sune': 'ocll', Strik: 'ocll', 'T-hoeken': 'ocll'
+};
 
 /** Whatever came out of storage, made safe to read. */
 export function cleanPlay(play) {
@@ -45,11 +68,33 @@ export function cleanPlay(play) {
   if (play.cases && typeof play.cases === 'object') {
     for (const [group, cases] of Object.entries(play.cases)) {
       if (!cases || typeof cases !== 'object') continue;
-      safe.cases[group] = {};
       for (const [id, times] of Object.entries(cases)) {
-        if (Array.isArray(times)) safe.cases[group][id] = times.filter(isTime).slice(-KEEP_TIMES);
+        if (!Array.isArray(times)) continue;
+        const home = group === 'oll' && MOVED[id] ? MOVED[id] : group;
+        safe.cases[home] ||= {};
+        const kept = times.filter(isTime).slice(-KEEP_CASE_TIMES);
+        // A case that moved into a drawer that already has one keeps both lots,
+        // youngest last, rather than one of them being quietly dropped.
+        safe.cases[home][id] = (safe.cases[home][id] || []).concat(kept)
+          .sort((a, b) => (a.at || 0) - (b.at || 0))
+          .slice(-KEEP_CASE_TIMES);
       }
     }
+  }
+
+  if (Array.isArray(play.sets)) {
+    safe.sets = play.sets
+      .filter((set) => set && typeof set.name === 'string' && Array.isArray(set.cases))
+      .slice(0, KEEP_SETS)
+      .map((set, index) => ({
+        id: typeof set.id === 'string' && set.id ? set.id.slice(0, 40) : `set-${index}`,
+        name: set.name.trim().slice(0, 32) || `Reeks ${index + 1}`,
+        group: typeof set.group === 'string' ? set.group : 'pll',
+        cases: [...new Set(set.cases.filter((id) => typeof id === 'string').map((id) => id.slice(0, 24)))]
+          .slice(0, KEEP_IN_SET),
+        at: Number.isFinite(set.at) ? set.at : Date.now()
+      }))
+      .filter((set) => set.cases.length);
   }
 
   if (Array.isArray(play.duels)) {
@@ -164,7 +209,7 @@ export function recordCase(play, group, id, solve) {
   play.cases[group] ||= {};
   const times = (play.cases[group][id] ||= []);
   times.push({ ms: solve.ms, penalty: solve.penalty || 'none', at: solve.at || Date.now() });
-  if (times.length > KEEP_TIMES) times.splice(0, times.length - KEEP_TIMES);
+  if (times.length > KEEP_CASE_TIMES) times.splice(0, times.length - KEEP_CASE_TIMES);
 }
 
 /** How you are doing per case, worst first, which is the point of it. */
@@ -183,6 +228,58 @@ export function caseStanding(play, group) {
     })
     .filter(Boolean)
     .sort((a, b) => b.mean - a.mean);
+}
+
+/* ---------- sets you put together yourself ----------
+
+   A drill that only ever serves a whole group is a drill you outgrow in a week:
+   once you know forty of the fifty-seven, the other seventeen are what you came
+   for. So a set is nothing more than a name and a list of cases, kept beside
+   the times so it travels in the same backup file. */
+
+/** A name turned into something usable as a key, with a number if it has to be. */
+function setId(play, name) {
+  const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'reeks';
+  let id = base;
+  let n = 2;
+  while (play.sets.some((set) => set.id === id)) id = `${base}-${n++}`;
+  return id;
+}
+
+/**
+ * Keep a set. Saving over one of the same name replaces it rather than leaving
+ * two things called the same, which is the only behaviour anybody expects.
+ *
+ * @returns {object} the set as it was stored
+ */
+export function keepSet(play, { name, group, cases, id = null }) {
+  play.sets ||= [];
+  const tidy = {
+    name: String(name).trim().slice(0, 32) || 'Naamloos',
+    group,
+    cases: [...new Set(cases)].slice(0, KEEP_IN_SET),
+    at: Date.now()
+  };
+
+  const at = play.sets.findIndex((set) => (id ? set.id === id : set.name.toLowerCase() === tidy.name.toLowerCase() && set.group === group));
+  if (at >= 0) {
+    play.sets[at] = { ...play.sets[at], ...tidy };
+    return play.sets[at];
+  }
+
+  const made = { id: setId(play, tidy.name), ...tidy };
+  play.sets.push(made);
+  if (play.sets.length > KEEP_SETS) play.sets.shift();
+  return made;
+}
+
+export function dropSet(play, id) {
+  play.sets = (play.sets || []).filter((set) => set.id !== id);
+}
+
+/** The sets for one group, newest first. */
+export function setsOf(play, group) {
+  return (play.sets || []).filter((set) => set.group === group).sort((a, b) => b.at - a.at);
 }
 
 /* ---------- duels ---------- */
@@ -240,9 +337,19 @@ export function mergePlay(mine, theirs) {
       const have = new Set((merged.cases[group][id] || []).map((entry) => entry.at));
       const kept = (merged.cases[group][id] || []).concat(times.filter((entry) => !have.has(entry.at)));
       kept.sort((a, b) => (a.at || 0) - (b.at || 0));
-      merged.cases[group][id] = kept.slice(-KEEP_TIMES);
+      merged.cases[group][id] = kept.slice(-KEEP_CASE_TIMES);
     }
   }
+
+  // A set from the other device is taken as it is unless there is already one
+  // of that name in that group, which stays: a name you chose here means more
+  // than the same name chosen there.
+  for (const set of arriving.sets) {
+    const clash = merged.sets.some((mine) =>
+      mine.group === set.group && mine.name.toLowerCase() === set.name.toLowerCase());
+    if (!clash) merged.sets.push({ ...set, id: setId(merged, set.name) });
+  }
+  if (merged.sets.length > KEEP_SETS) merged.sets.splice(0, merged.sets.length - KEEP_SETS);
 
   const duelled = new Set(merged.duels.map((duel) => duel.at));
   for (const duel of arriving.duels) {

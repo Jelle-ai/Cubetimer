@@ -14,12 +14,13 @@ import { badges, newlyWon, tally, wonIds } from './badges.js';
 import { cardFor, drawCard, readShared, shareLink } from './share.js';
 import { MODES, absorb, begin, describe, expired, hushed, ownsSolves, result, runSolves } from './modes.js';
 import {
-  bestOf, caseStanding, cleanPlay, dailyHistory, dailyStreak, dayStamp, duelTally,
+  bestOf, caseStanding, cleanPlay, dailyHistory, dailyStreak, dayStamp, dropSet, duelTally, keepSet, setsOf,
   recordCase, recordDaily, recordDuel, recordRun, runsOf, scoreOf, spellScore
 } from './play.js';
 import { COLOR_SLOTS, LED_COLORS, SKINS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, together, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
+import { drawLastLayer, lastLayerOf } from './diagram.js';
 import {
   ALL_SIX, CERTAIN, FULL_FRAME, askForCamera, coarse, cropBox, cropShape, findCube, foundPath,
   inspectFrame, learnColours, openCamera, reference, whichCube
@@ -210,7 +211,28 @@ const el = {
   scrambleAgain: document.getElementById('scramble-again'),
   scrambleTaste: document.getElementById('scramble-taste'),
   colourCubes: document.getElementById('colour-cubes'),
+  setSheet: document.getElementById('set-sheet'),
+  setTitle: document.getElementById('set-title'),
+  setClose: document.getElementById('set-close'),
+  setName: document.getElementById('set-name'),
+  setGrid: document.getElementById('set-grid'),
+  setCount: document.getElementById('set-count'),
+  setAll: document.getElementById('set-all'),
+  setNone: document.getElementById('set-none'),
+  setUnknown: document.getElementById('set-unknown'),
+  setSlow: document.getElementById('set-slow'),
+  setSave: document.getElementById('set-save'),
+  setDrop: document.getElementById('set-drop'),
+  casesSheet: document.getElementById('cases-sheet'),
+  casesTitle: document.getElementById('cases-title'),
+  casesClose: document.getElementById('cases-close'),
+  casesGroups: document.getElementById('cases-groups'),
+  casesBody: document.getElementById('cases-body'),
   welcome: document.getElementById('welcome'),
+  rail: document.getElementById('rail'),
+  railOpen: document.getElementById('rail-open'),
+  railClose: document.getElementById('rail-close'),
+  railShade: document.getElementById('rail-shade'),
   closingOpen: document.getElementById('closing-open'),
   closingSheet: document.getElementById('closing-sheet'),
   closingTitle: document.getElementById('closing-title'),
@@ -2059,24 +2081,19 @@ let drillFocus = 'spread';
 /** How slow a case has to have been to count as one of your weak ones. */
 const WEAK_THIRD = 1 / 3;
 
-/** Pick the next case: the ones you have done least, then the slowest. */
+/**
+ * Pick the next case out of whatever the focus points at: the whole group, your
+ * weakest third, or a set you put together yourself. Within that, the ones you
+ * have never done come first -- a set of seventeen unknown cases should hand
+ * you all seventeen before it repeats one.
+ */
 function nextCase(cases, group) {
-  const mine = cases.filter((entry) => entry.group === group);
+  const pool = focusCases(group);
+  if (!pool.length) return null;
   const standing = new Map(caseStanding(play(), group).map((row) => [row.id, row]));
-
-  if (drillFocus === 'weak') {
-    // caseStanding comes back slowest first, so the front of it is the problem.
-    const tried = caseStanding(play(), group).filter((row) => row.count >= 2);
-    const worst = tried.slice(0, Math.max(3, Math.ceil(tried.length * WEAK_THIRD)));
-    const pool = mine.filter((entry) => worst.some((row) => row.id === entry.id));
-    if (pool.length) return pool[Math.floor(Math.random() * pool.length)];
-    // Nothing drilled often enough to know which is worst: fall through and let
-    // the spread build that knowledge first.
-  }
-
-  const untried = mine.filter((entry) => !standing.has(entry.id));
-  const pool = untried.length ? untried : mine;
-  return pool[Math.floor(Math.random() * pool.length)];
+  const untried = pool.filter((entry) => !standing.has(entry.id));
+  const from = untried.length ? untried : pool;
+  return from[Math.floor(Math.random() * from.length)];
 }
 
 /** How many cases in this group you have done enough of to rank at all. */
@@ -2113,51 +2130,342 @@ function startCase(entry) {
   renderDrill();
 }
 
+/** The cases of one group, in the order they are listed. */
+const groupCases = (group) => caseSet.cases.filter((entry) => entry.group === group);
+
+/** The case list a focus points at: everything, your worst, or a set you made. */
+function focusCases(group, focus = drillFocus) {
+  const mine = groupCases(group);
+  if (focus === 'spread') return mine;
+  if (focus === 'weak') {
+    const tried = caseStanding(play(), group).filter((row) => row.count >= 2);
+    const worst = tried.slice(0, Math.max(3, Math.ceil(tried.length * WEAK_THIRD)));
+    const pool = mine.filter((entry) => worst.some((row) => row.id === entry.id));
+    return pool.length ? pool : mine;
+  }
+  const set = setsOf(play(), group).find((entry) => entry.id === focus);
+  if (!set) return mine;
+  const pool = mine.filter((entry) => set.cases.includes(entry.id));
+  return pool.length ? pool : mine;
+}
+
+/** What the focus is called, for a heading. */
+function focusName(group, focus = drillFocus) {
+  if (focus === 'spread') return 'alles door elkaar';
+  if (focus === 'weak') return 'je zwakste derde';
+  return setsOf(play(), group).find((entry) => entry.id === focus)?.name || 'alles door elkaar';
+}
+
+/* ---------- the picture of a case ---------- */
+
+/**
+ * The diagram, filled in once it is ready. Drawing one needs the puzzle library,
+ * so the tile is put up empty and the picture drops into it -- a list of
+ * fifty-seven cases must not wait for fifty-seven of them before it appears.
+ */
+function caseThumb(entry) {
+  const slot = document.createElement('span');
+  slot.className = 'case-thumb';
+  lastLayerOf(entry.setup).then((shape) => {
+    if (!shape) return;
+    slot.append(drawLastLayer(shape, entry.group === 'pll' ? 'pll' : 'oll'));
+  }).catch(() => {});
+  return slot;
+}
+
+/* ---------- putting a set together ---------- */
+
+let building = null;   // { group, chosen: Set, id: string|null }
+
+function renderSetCount() {
+  const many = building.chosen.size;
+  el.setCount.textContent = `${many} gekozen`;
+  el.setSave.disabled = many === 0 || !el.setName.value.trim();
+}
+
+function renderSetGrid() {
+  el.setGrid.replaceChildren(...groupCases(building.group).map((entry) => {
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'case-tile';
+    tile.dataset.on = String(building.chosen.has(entry.id));
+    const label = document.createElement('b');
+    label.textContent = entry.id;
+    const name = document.createElement('small');
+    name.textContent = entry.name;
+    tile.append(caseThumb(entry), label, name);
+    tile.addEventListener('click', () => {
+      if (building.chosen.has(entry.id)) building.chosen.delete(entry.id);
+      else building.chosen.add(entry.id);
+      tile.dataset.on = String(building.chosen.has(entry.id));
+      renderSetCount();
+    });
+    return tile;
+  }));
+  renderSetCount();
+}
+
+function openSetBuilder(group, set = null) {
+  building = {
+    group,
+    id: set?.id || null,
+    chosen: new Set(set ? set.cases : [])
+  };
+  el.setTitle.textContent = set ? `Reeks — ${set.name}` : `Nieuwe reeks — ${caseSet.GROUPS[group].name}`;
+  el.setName.value = set?.name || '';
+  el.setDrop.hidden = !set;
+  renderSetGrid();
+  openSheet(el.setSheet);
+}
+
+el.setName.addEventListener('input', renderSetCount);
+el.setClose.addEventListener('click', () => el.setSheet.close());
+
+el.setAll.addEventListener('click', () => {
+  building.chosen = new Set(groupCases(building.group).map((entry) => entry.id));
+  renderSetGrid();
+});
+el.setNone.addEventListener('click', () => {
+  building.chosen = new Set();
+  renderSetGrid();
+});
+el.setUnknown.addEventListener('click', () => {
+  // Cases you have never drilled: the ones a set is usually made for.
+  const done = new Set(Object.keys(play().cases[building.group] || {}));
+  building.chosen = new Set(groupCases(building.group).filter((entry) => !done.has(entry.id)).map((entry) => entry.id));
+  renderSetGrid();
+});
+el.setSlow.addEventListener('click', () => {
+  const slow = caseStanding(play(), building.group).filter((row) => row.count >= 2).slice(0, 10);
+  building.chosen = new Set(slow.map((row) => row.id));
+  renderSetGrid();
+});
+
+el.setSave.addEventListener('click', () => {
+  const name = el.setName.value.trim();
+  if (!name || !building.chosen.size) return;
+  const set = keepSet(play(), { name, group: building.group, cases: [...building.chosen], id: building.id });
+  persist();
+  drillGroup = building.group;
+  drillFocus = set.id;
+  el.setSheet.close();
+  renderDrill();
+  toast(`"${set.name}" bewaard — ${set.cases.length} gevallen.`);
+});
+
+el.setDrop.addEventListener('click', () => {
+  if (!building.id) return;
+  const name = el.setName.value.trim();
+  dropSet(play(), building.id);
+  persist();
+  if (drillFocus === building.id) drillFocus = 'spread';
+  el.setSheet.close();
+  renderDrill();
+  toast(`"${name}" verwijderd.`);
+});
+
+/* ---------- every time you have put into a case ---------- */
+
+let casesGroup = 'pll';
+const openCases = new Set();
+
+function renderCaseTimes() {
+  const known = caseSet ? groupCases(casesGroup) : [];
+  const byId = new Map(known.map((entry) => [entry.id, entry]));
+  const standing = caseStanding(play(), casesGroup);
+  const times = play().cases[casesGroup] || {};
+
+  el.casesGroups.replaceChildren(...Object.entries(caseSet?.GROUPS || {}).map(([group, shape]) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.dataset.active = String(group === casesGroup);
+    const done = Object.keys(play().cases[group] || {}).length;
+    chip.textContent = `${shape.name}${done ? ` · ${done}` : ''}`;
+    chip.addEventListener('click', () => { casesGroup = group; renderCaseTimes(); });
+    return chip;
+  }));
+
+  if (!standing.length) {
+    el.casesBody.replaceChildren(line(
+      `Nog niets geoefend bij ${caseSet?.GROUPS[casesGroup]?.name || casesGroup}. Zodra je hier traint komt elke tijd hier per geval te staan.`,
+      'import-note'));
+    return;
+  }
+
+  // Slowest first, because that is the order you would want to read it in --
+  // but with the count beside it, so a case you did twice is not mistaken for a
+  // weakness you have measured.
+  const list = document.createElement('div');
+  list.className = 'case-rows';
+  for (const row of standing) {
+    const entry = byId.get(row.id);
+    const item = document.createElement('div');
+    item.className = 'case-row';
+    item.dataset.open = String(openCases.has(row.id));
+
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'case-head';
+    if (entry) head.append(caseThumb(entry));
+    const label = document.createElement('span');
+    const name = document.createElement('b');
+    name.textContent = row.id;
+    const about = document.createElement('small');
+    about.textContent = entry?.name && entry.name !== row.id ? entry.name : '';
+    label.append(name, about);
+    const figure = document.createElement('span');
+    figure.className = 'case-figure';
+    figure.textContent = `${formatTime(row.mean)} gem · ${formatTime(row.best)} best · ${row.count}×`;
+    head.append(label, figure);
+    head.addEventListener('click', () => {
+      if (openCases.has(row.id)) openCases.delete(row.id);
+      else openCases.add(row.id);
+      renderCaseTimes();
+    });
+    item.append(head);
+
+    if (openCases.has(row.id)) {
+      const strip = document.createElement('div');
+      strip.className = 'case-times';
+      // Newest last, the way you did them, so improvement reads left to right.
+      for (const time of times[row.id] || []) {
+        const one = document.createElement('span');
+        one.textContent = formatSolve(time);
+        one.title = time.at ? new Date(time.at).toLocaleString('nl-BE') : '';
+        one.dataset.best = String(effective(time) === row.best);
+        strip.append(one);
+      }
+      item.append(strip);
+
+      const again = document.createElement('div');
+      again.className = 'detail-actions';
+      if (entry) {
+        const go = document.createElement('button');
+        go.type = 'button';
+        go.textContent = 'Dit geval nu oefenen';
+        go.addEventListener('click', () => {
+          el.casesSheet.close();
+          startCase(entry);
+          toast(`${entry.id} — draai de opzet en solve dan het geval.`);
+        });
+        again.append(go);
+      }
+      const forget = document.createElement('button');
+      forget.type = 'button';
+      forget.className = 'danger';
+      forget.textContent = 'Tijden wissen';
+      forget.addEventListener('click', () => {
+        const had = times[row.id];
+        delete play().cases[casesGroup][row.id];
+        persist();
+        renderCaseTimes();
+        toast(`Tijden van ${row.id} gewist.`, {
+          label: 'Ongedaan',
+          run: () => {
+            play().cases[casesGroup] ||= {};
+            play().cases[casesGroup][row.id] = had;
+            persist();
+            renderCaseTimes();
+          }
+        });
+      });
+      again.append(forget);
+      item.append(again);
+    }
+
+    list.append(item);
+  }
+  el.casesBody.replaceChildren(list);
+}
+
+async function openCaseTimes(group = null) {
+  if (group) casesGroup = group;
+  try {
+    await loadCases();
+  } catch {
+    // The pictures and the names need the library; the times do not, so this
+    // still opens without them rather than not opening at all.
+  }
+  renderCaseTimes();
+  openSheet(el.casesSheet);
+}
+
+el.casesClose.addEventListener('click', () => el.casesSheet.close());
+
+/* ---------- the drill itself ---------- */
+
 function renderDrill() {
   const { cases, dropped, GROUPS } = caseSet;
   const parts = [];
 
   const picker = document.createElement('div');
-  picker.className = 'mode-list';
+  picker.className = 'chip-row';
   for (const [group, shape] of Object.entries(GROUPS)) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.dataset.active = String(group === drillGroup);
-    const name = document.createElement('b');
-    const many = cases.filter((entry) => entry.group === group).length;
-    name.textContent = `${shape.name} · ${many} gevallen`;
-    const about = document.createElement('small');
-    about.textContent = shape.about;
-    button.append(name, about);
-    button.addEventListener('click', () => { drillGroup = group; renderDrill(); });
-    picker.append(button);
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.dataset.active = String(group === drillGroup);
+    chip.title = shape.about;
+    chip.textContent = `${shape.name} · ${cases.filter((entry) => entry.group === group).length}`;
+    chip.addEventListener('click', () => {
+      drillGroup = group;
+      // A set belongs to its group, so switching group cannot keep pointing at
+      // one from the group you just left.
+      if (drillFocus !== 'spread' && drillFocus !== 'weak') drillFocus = 'spread';
+      renderDrill();
+    });
+    picker.append(chip);
   }
   parts.push(picker);
+  parts.push(line(GROUPS[drillGroup].about, 'import-note'));
 
-  // Spread or weakness. Only offered once there is enough drilled in this group
-  // for "weakest" to mean anything -- before that it would be a guess dressed
-  // up as a plan.
+  // What to serve. Only the spread is always here; your weakest third needs
+  // enough measured for the word to mean anything, and the rest are yours.
   const ranked = rankedCases(drillGroup);
   const focus = document.createElement('div');
   focus.className = 'mode-list tight';
-  for (const [id, label, about] of [
-    ['spread', 'Alles door elkaar', 'Eerst wat je nog niet gehad hebt, daarna willekeurig.'],
-    ['weak', 'Je zwakste derde', ranked >= 6
-      ? `De ${Math.max(3, Math.ceil(ranked / 3))} gevallen waar je het traagst op bent, en niets anders.`
-      : `Nog te weinig gemeten — doe er eerst ${6 - ranked} meer, dan weet hij welke dat zijn.`]
-  ]) {
+
+  const choice = (id, label, about, { off = false } = {}) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.active = String(id === drillFocus);
-    button.disabled = id === 'weak' && ranked < 6;
+    button.disabled = off;
     const name = document.createElement('b');
     name.textContent = label;
     const note = document.createElement('small');
     note.textContent = about;
     button.append(name, note);
     button.addEventListener('click', () => { drillFocus = id; renderDrill(); });
+    return button;
+  };
+
+  focus.append(choice('spread', 'Alles door elkaar',
+    `Eerst wat je nog niet gehad hebt, daarna willekeurig. ${groupCases(drillGroup).length} gevallen.`));
+  focus.append(choice('weak', 'Je zwakste derde', ranked >= 6
+    ? `De ${Math.max(3, Math.ceil(ranked / 3))} gevallen waar je het traagst op bent, en niets anders.`
+    : `Nog te weinig gemeten — doe er eerst ${6 - ranked} meer, dan weet hij welke dat zijn.`,
+  { off: ranked < 6 }));
+
+  for (const set of setsOf(play(), drillGroup)) {
+    const button = choice(set.id, set.name, `${set.cases.length} gevallen, door jou gekozen.`);
+    const edit = document.createElement('span');
+    edit.className = 'set-edit';
+    edit.textContent = 'wijzig';
+    edit.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openSetBuilder(drillGroup, set);
+    });
+    button.append(edit);
     focus.append(button);
   }
+
+  const make = document.createElement('button');
+  make.type = 'button';
+  make.className = 'make-set';
+  make.textContent = '+  Zelf een reeks samenstellen';
+  make.addEventListener('click', () => openSetBuilder(drillGroup));
+  focus.append(make);
   parts.push(focus);
 
   const actions = document.createElement('div');
@@ -2166,6 +2474,7 @@ function renderDrill() {
   const go = document.createElement('button');
   go.type = 'button';
   go.id = 'drill-go';
+  go.className = 'primary';
   go.textContent = drilling ? 'Volgend geval' : 'Beginnen';
   go.addEventListener('click', () => {
     const entry = nextCase(cases, drillGroup);
@@ -2175,6 +2484,16 @@ function renderDrill() {
     toast(`${entry.id} — draai de opzet en solve dan het geval.`);
   });
   actions.append(go);
+
+  const seeTimes = document.createElement('button');
+  seeTimes.type = 'button';
+  seeTimes.id = 'drill-times';
+  seeTimes.textContent = 'Tijden per geval';
+  seeTimes.addEventListener('click', () => {
+    el.drillSheet.close();
+    openCaseTimes(drillGroup);
+  });
+  actions.append(seeTimes);
 
   if (drilling) {
     const stop = document.createElement('button');
@@ -2196,7 +2515,7 @@ function renderDrill() {
   if (standing.length) {
     const list = document.createElement('div');
     list.className = 'round-lines';
-    for (const row of standing.slice(0, 12)) {
+    for (const row of standing.slice(0, 8)) {
       const line = document.createElement('div');
       const name = document.createElement('b');
       name.textContent = row.id;
@@ -2208,7 +2527,7 @@ function renderDrill() {
     const block = document.createElement('section');
     block.className = 'records-block';
     const heading = document.createElement('h3');
-    heading.textContent = 'Slechtst gekend bovenaan';
+    heading.textContent = `Slechtst gekend bovenaan — ${standing.length} van ${groupCases(drillGroup).length} geoefend`;
     block.append(heading, list);
     parts.push(block);
   }
@@ -2217,10 +2536,12 @@ function renderDrill() {
   note.className = 'import-note';
   note.textContent = dropped.length
     ? `Draai de opzet op een opgeloste kubus; dan staat het geval voor je. ${dropped.length} geval(len) werden bij het inladen afgekeurd en niet aangeboden.`
-    : 'Draai de opzet op een opgeloste kubus, en solve dan alleen dat geval. Je tijden komen in een eigen sessie.';
+    : 'Draai de opzet op een opgeloste kubus, en solve dan alleen dat geval. Je tijden blijven bij het geval en komen niet in je sessie.';
   parts.push(note);
 
-  el.drillTitle.textContent = drilling ? `Trainen — ${drilling.id}` : 'Trainen';
+  el.drillTitle.textContent = drilling
+    ? `Trainen — ${drilling.id}`
+    : `Trainen — ${focusName(drillGroup)}`;
   el.drillBody.replaceChildren(...parts);
 }
 
@@ -6386,6 +6707,73 @@ el.clear.addEventListener('click', () => {
   persist();
   render();
 });
+
+
+/* ---------- everything the app can do, in one list ----------
+
+   Most of this was behind "openen" inside the settings, which is where a
+   feature goes to never be found. The rail is the same list on every screen:
+   always open beside the timer when there is room for it, and a drawer when
+   there is not.
+
+   Nothing new happens here -- each row presses the button that already exists,
+   so there is one handler per feature and not two that can drift apart. */
+
+const WIDE = matchMedia('(min-width: 1180px)');
+
+/** What each row of the rail actually does. */
+const RAIL = {
+  'drill-open': () => openDrill(),
+  'cases-times': () => openCaseTimes(),
+  'mode-open': () => el.modeOpen.click(),
+  'metro-open': () => el.metroOpen.click(),
+  stats: () => el.statsButton.click(),
+  records: () => { el.statsButton.click(); el.recordsOpen.click(); },
+  'solves-open': () => el.solvesOpen.click(),
+  closing: () => { el.statsButton.click(); el.closingOpen.click(); },
+  share: () => { el.statsButton.click(); el.shareOpen.click(); },
+  'look-open': () => el.cameraLook.click(),
+  'big-open': () => el.bigOpen.click(),
+  'keys-open': () => el.keysOpen.click(),
+  'transfer-open': () => el.transferOpen.click(),
+  'paste-open': () => el.pasteOpen.click(),
+  'settings-open': () => el.settingsOpen.click()
+};
+
+function showRail(open) {
+  el.rail.dataset.open = String(open);
+  el.railShade.hidden = !open || WIDE.matches;
+  el.railOpen.setAttribute('aria-expanded', String(open));
+  document.body.dataset.rail = WIDE.matches ? 'beside' : open ? 'over' : 'away';
+}
+
+/** Wide enough and it simply stands there; narrow and it is a drawer. */
+function fitRail() {
+  showRail(WIDE.matches);
+}
+
+el.railOpen.addEventListener('click', () => {
+  el.railOpen.blur();
+  showRail(el.rail.dataset.open !== 'true');
+});
+el.railClose.addEventListener('click', () => showRail(false));
+el.railShade.addEventListener('click', () => showRail(false));
+WIDE.addEventListener('change', fitRail);
+
+for (const button of el.rail.querySelectorAll('[data-go]')) {
+  button.addEventListener('click', () => {
+    const go = RAIL[button.dataset.go];
+    if (!go) return;
+    // On a narrow screen the drawer is over the page, so it gets out of the way
+    // before whatever it opened appears underneath it.
+    if (!WIDE.matches) showRail(false);
+    // Anything already open would sit under the new sheet; only one at a time.
+    for (const sheet of document.querySelectorAll('dialog[open]')) sheet.close();
+    go();
+  });
+}
+
+fitRail();
 
 /* ---------- init ---------- */
 

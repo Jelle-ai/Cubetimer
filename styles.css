@@ -2568,3 +2568,246 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
   color: var(--ink-soft, var(--muted));
 }
 .welcome-note:last-child { margin-bottom: 0; }
+
+/* ---------- last-layer pictures ---------- */
+
+/* A case is recognised by its shape long before its name, so every list that
+   names one shows it too. */
+.ll-diagram { display: block; width: 100%; height: 100%; }
+
+.case-thumb {
+  display: block;
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  padding: 2px;
+}
+
+/* Choosing which cases go in a set: everything in the group at once, so you can
+   see what you are picking from rather than read a list of names. */
+.case-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr));
+  gap: .4rem;
+  margin: .2rem 0 .8rem;
+}
+
+.case-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .15rem;
+  padding: .4rem .25rem .3rem;
+  border-radius: 10px;
+  background: var(--sunken);
+  border: 2px solid transparent;
+  text-align: center;
+  color: var(--ink);
+}
+
+.case-tile:hover { background: var(--hover); }
+.case-tile[data-on='true'] {
+  border-color: var(--led);
+  background: color-mix(in srgb, var(--led) 14%, var(--sunken));
+}
+
+.case-tile .case-thumb { width: 2.9rem; height: 2.9rem; background: none; }
+.case-tile b { font-size: .74rem; font-weight: 600; }
+.case-tile small {
+  font-size: .62rem;
+  line-height: 1.15;
+  color: var(--muted);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.set-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .7rem;
+  margin: .2rem 0 .1rem;
+}
+
+.set-count { margin-left: auto; font-size: .78rem; color: var(--muted); }
+
+/* A chip row picks one of a few things without taking a whole block to do it. */
+.chip-row { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .5rem; }
+
+.chip {
+  min-height: 32px;
+  padding: 0 .7rem;
+  border-radius: 999px;
+  background: var(--sunken);
+  font-size: .8rem;
+  color: var(--ink-soft);
+}
+
+.chip:hover { background: var(--hover); }
+.chip[data-active='true'] { background: var(--led); color: #fff; }
+
+/* "wijzig" hangs on the right of a set's own row. */
+.mode-list button { position: relative; }
+.set-edit {
+  position: absolute;
+  top: .5rem;
+  right: .7rem;
+  font-size: .72rem;
+  color: var(--muted);
+  text-decoration: underline;
+}
+.set-edit:hover { color: var(--led); }
+
+.make-set {
+  border: 1px dashed var(--edge, rgba(0, 0, 0, .16)) !important;
+  background: none !important;
+  color: var(--ink-soft) !important;
+  font-size: .84rem;
+  align-items: center !important;
+}
+.make-set:hover { background: var(--sunken) !important; }
+
+/* ---------- times per case ---------- */
+
+.case-rows { display: flex; flex-direction: column; gap: .3rem; }
+
+.case-row { border-radius: 12px; background: var(--sunken); overflow: hidden; }
+
+.case-head {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  padding: .45rem .6rem;
+  text-align: left;
+  color: var(--ink);
+}
+
+.case-head:hover { background: var(--hover); }
+.case-head > span:nth-of-type(1) { display: flex; flex-direction: column; }
+.case-head b { font-size: .9rem; font-weight: 600; }
+.case-head small { font-size: .72rem; color: var(--muted); }
+
+.case-figure {
+  margin-left: auto;
+  font-size: .78rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.case-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem;
+  padding: .1rem .6rem .5rem;
+}
+
+.case-times span {
+  padding: .1rem .4rem;
+  border-radius: 6px;
+  background: var(--card-solid, #fff);
+  font-size: .74rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+.case-times span[data-best='true'] { color: var(--record); font-weight: 600; }
+
+.case-row .detail-actions { padding: 0 .6rem .5rem; margin: 0; }
+
+/* ---------- the rail ----------
+
+   One list of everything the app can do. Beside the timer when the screen is
+   wide enough to spare the room, a drawer over it when it is not -- the same
+   markup either way, so there is nothing to keep in step. */
+
+.rail {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 17.5rem;
+  max-width: 86vw;
+  z-index: 40;
+  background: var(--card-solid, #fff);
+  border-right: 1px solid var(--edge, rgba(0, 0, 0, .08));
+  transform: translateX(-100%);
+  transition: transform .22s ease;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.rail[data-open='true'] { transform: none; }
+
+.rail-inner {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  padding: .8rem .7rem 2rem;
+  padding-top: max(.8rem, env(safe-area-inset-top));
+}
+
+.rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .1rem .3rem .4rem;
+}
+
+.rail-head b { font-size: 1rem; letter-spacing: .01em; }
+
+.rail h3 {
+  margin: .7rem 0 .15rem;
+  padding: 0 .3rem;
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rail [data-go] {
+  display: grid;
+  grid-template-columns: 1.5rem 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0 .5rem;
+  padding: .45rem .5rem;
+  border-radius: 10px;
+  text-align: left;
+  color: var(--ink);
+}
+
+.rail [data-go]:hover { background: var(--sunken); }
+.rail [data-go] span { grid-row: 1 / span 2; font-size: 1.05rem; line-height: 1; }
+.rail [data-go] b { font-size: .87rem; font-weight: 600; }
+.rail [data-go] small {
+  grid-column: 2;
+  font-size: .73rem;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+.rail-shade {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: rgba(6, 20, 28, .38);
+}
+
+/* Wide: the rail stands there and the page moves over to make room, so nothing
+   ever sits underneath it. */
+@media (min-width: 1180px) {
+  body[data-rail='beside'] .bar,
+  body[data-rail='beside'] .shell { padding-left: 18.2rem; }
+  body[data-rail='beside'] .rail-toggle,
+  body[data-rail='beside'] #rail-close { display: none; }
+  .rail { top: 0; }
+}
+
+@media (max-width: 1179px) {
+  .rail { box-shadow: 0 0 40px -8px rgba(0, 0, 0, .35); }
+}
