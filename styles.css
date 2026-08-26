@@ -2002,6 +2002,35 @@ body[data-big="true"] .hint { font-size: 1rem; }
 
 #metro-toggle[data-active="true"] { background: color-mix(in srgb, var(--led) 20%, transparent); color: var(--ink); }
 
+/* ---------- skins ---------- */
+
+.skins { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .4rem; }
+
+.skin {
+  --chip: var(--led);
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 36px;
+  padding: 0 .75rem;
+  border-radius: 999px;
+  background: var(--sunken);
+  font-size: .82rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.skin::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--chip);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .18);
+}
+
+.skin[data-active="true"] { background: var(--hover); color: var(--ink); font-weight: 600; }
+
 /* ---------- the ring that keeps up ----------
 
    A feeling rather than a reading: how the glow leans says whether you are

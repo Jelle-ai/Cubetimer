@@ -523,6 +523,49 @@ dertig dagen die de reeks meegaat. De dag zelf telt niet als gehaald — de reek
 alleen overheen. Nagemeten: vijf op rij blijft vijf, een gat op dag drie geeft zes in
 plaats van drie, en twee gaten kort na elkaar stopt bij het tweede.
 
+## Hoe zwaar was die scramble
+
+Elke timer bewaart je scramble; geen enkele kijkt ernaar. De puzzelmotor die je scrambles
+maakt zit hier al, dus "hoe kort kon de cross" is gewoon een vraag die te beantwoorden is
+— voor alle zes de kleuren tegelijk.
+
+Zet **de cross die je miste** aan en na elke solve staat er: *"cross kon in 5 op geel, maar
+in 3 op blauw."* Pas achteraf, want als je vooraf weet dat de cross vier zetten is, kijk je
+anders naar de scramble. Achteraf is het het enige moment dat de scramble nog vers genoeg
+is om te blijven hangen.
+
+Bij **records en terugblik** staat wat dat over je hele sessie zegt, en dat is het getal
+waar cubers eindeloos over discussiëren zonder ooit hun eigen cijfer te zien:
+
+> Jouw kleur geel · 6,0 zetten · Kortste kleur 4,5 · **Je laat 1,5 zetten per solve liggen**
+> · 3 of meer korter: 2 van 6
+
+### Hoe dat kan zonder solver
+
+De hele crosstoestand is vier randen: waar ze liggen en hoe ze liggen. Dat zijn 190.080
+mogelijkheden, dus in plaats van per scramble te zoeken wordt één keer de afstand van
+opgelost naar élke stand uitgerekend en daarna alleen nog opgezocht — 0,2 milliseconde per
+scramble. Het bouwen kost een paar seconden en gebeurt stilletjes zodra de pagina niets te
+doen heeft.
+
+Onderweg ging er één ding grondig mis, en het is het vermelden waard omdat het er
+plausibel uitzag: ik draaide de kubus om een andere kleur onder te krijgen, maar las de
+stand nog steeds af als "waar ligt rand nummer vier". Een omgedraaide opgeloste kubus is
+dan niet opgelost — vijf van de zes kleuren kregen een verkeerd antwoord op een kubus die
+niet eens gescrambeld was. Nu wordt er gelezen tegen een meegedraaide referentie: *welk
+stuk hoort in dit gaatje en ligt het er goed in*. Getest tegen dingen die vast staan: een
+opgeloste kubus geeft nul voor alle zes, na `D'` is geel 1 en wit 0, en na `U'` andersom.
+
+## Sfeer
+
+Bij de instellingen kies je niet alleen een accentkleur maar een hele **sfeer**: het
+papier, de inkt en de gloed samen. *Blauw matje*, *wedstrijdzaal*, *neon*, *papier*. Elke
+sfeer kiest ook zijn eigen lettertype en stelt zijn accentkleur één keer in, waarna je hem
+gewoon zelf kunt veranderen.
+
+Een donkere sfeer zet ook het donkere thema aan. Dat leek eerst niet nodig en gaf een zwarte
+ring die op wit papier zweefde.
+
 ## Delen
 
 Twee manieren, allebei zonder server.

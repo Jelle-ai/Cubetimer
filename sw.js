@@ -1,5 +1,5 @@
 // Offline shell. Bump CACHE when the files below change.
-const CACHE = 'cubetimer-v42';
+const CACHE = 'cubetimer-v43';
 
 // The scrambler is vendored, so it has to be cached too or offline use falls
 // back to random-move scrambles.
@@ -20,6 +20,7 @@ const SHELL = [
   './src/play.js',
   './src/badges.js',
   './src/share.js',
+  './src/cross.js',
   './src/settings.js',
   './src/feedback.js',
   './src/preview.js',

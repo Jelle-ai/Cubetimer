@@ -20,10 +20,64 @@ export const LED_COLORS = [
   { id: 'amber', label: 'Amber', color: '#fbbf24' }
 ];
 
+/**
+ * A skin rather than an accent colour: the paper, the ink and the glow together,
+ * so the app can feel like a blue GAN mat or like a sheet of paper instead of
+ * like the same app with a different highlight.
+ */
+export const SKINS = [
+  { id: 'default', label: 'Standaard', font: null, vars: null },
+  {
+    id: 'mat',
+    label: 'Blauw matje',
+    font: 'rounded',
+    vars: {
+      '--page': 'linear-gradient(160deg, #dceaf7, #f2f8fd 55%)',
+      '--paper': '#eef6fb', '--card-solid': '#ffffff', '--sunken': '#e4eef7',
+      '--hover': '#d8e7f4', '--ink': '#0d2c44', '--ink-soft': '#3c6a92',
+      '--led': '#2f6cc0'
+    }
+  },
+  {
+    id: 'hall',
+    label: 'Wedstrijdzaal',
+    font: 'system',
+    vars: {
+      '--page': 'linear-gradient(180deg, #fafaf8, #f0f0ec)',
+      '--paper': '#f7f7f5', '--card-solid': '#ffffff', '--sunken': '#eeeeea',
+      '--hover': '#e4e4de', '--ink': '#1c1c1a', '--led': '#c8890a'
+    }
+  },
+  {
+    id: 'neon',
+    label: 'Neon',
+    font: 'mono',
+    dark: true,
+    vars: {
+      '--page': 'radial-gradient(circle at 20% 0%, #1a0f2e, #05050c 60%)',
+      '--paper': '#0a0a12', '--card-solid': '#12121f', '--sunken': '#1a1a2c',
+      '--hover': '#24243a', '--ink': '#e8e8ff', '--ink-soft': '#a0a0c8',
+      '--edge': 'rgba(160,160,220,.18)', '--led': '#ff3cac',
+      '--muted': '#8888b0', '--shadow': '0 12px 40px -12px rgba(0,0,0,.7)'
+    }
+  },
+  {
+    id: 'paper',
+    label: 'Papier',
+    font: 'system',
+    vars: {
+      '--page': 'linear-gradient(180deg, #f8f3e8, #efe7d7)',
+      '--paper': '#f6f1e6', '--card-solid': '#fffdf7', '--sunken': '#ece5d6',
+      '--hover': '#e2d9c6', '--ink': '#2b2418', '--led': '#8a6a3a'
+    }
+  }
+];
+
 const DEFAULTS = {
   led: 'ice',
   colors: { led: '#4fc3f7', ready: '#21c274', hold: '#f4515b', record: '#c8890a' },
   theme: 'light',
+  skin: 'default',
   inspection: true,
   hideTime: true,
   decimals: 2,
@@ -38,7 +92,10 @@ const DEFAULTS = {
   camera: false,
   splits: false,
   pace: true,
+  crossTip: false,
+  crossFace: 'D',
   wonBadges: [],
+  badgesSeeded: false,
   cubes: [],
   cube: '',
   shareName: '',
@@ -66,7 +123,7 @@ const SWITCHES = ['inspection', 'hideTime', 'pace', 'sound', 'haptics', 'celebra
 
 // Switches that start off rather than on, so "anything but false is true" --
 // the rule the ones above use -- would turn them on by mistake.
-const OPT_IN = ['camera', 'splits'];
+const OPT_IN = ['camera', 'splits', 'crossTip', 'badgesSeeded'];
 
 function clampNumber(value, low, high, fallback) {
   const number = Math.round(Number(value));
@@ -116,6 +173,7 @@ export function loadSettings() {
     if (settings.decimals !== 2 && settings.decimals !== 3) settings.decimals = DEFAULTS.decimals;
     if (![250, 400, 550].includes(settings.holdMs)) settings.holdMs = DEFAULTS.holdMs;
     if (!['light', 'dark', 'auto'].includes(settings.theme)) settings.theme = DEFAULTS.theme;
+    if (!SKINS.some((skin) => skin.id === settings.skin)) settings.skin = DEFAULTS.skin;
     if (!FONTS.includes(settings.font)) settings.font = DEFAULTS.font;
     if (!['time', 'solves'].includes(settings.goalKind)) settings.goalKind = DEFAULTS.goalKind;
     settings.goalMinutes = clampNumber(settings.goalMinutes, 1, 600, DEFAULTS.goalMinutes);
@@ -130,6 +188,7 @@ export function loadSettings() {
       : [];
     settings.cube = settings.cubes.includes(settings.cube) ? settings.cube : '';
     settings.shareName = typeof settings.shareName === 'string' ? settings.shareName.slice(0, 24) : '';
+    if (!['U', 'D', 'F', 'B', 'R', 'L'].includes(settings.crossFace)) settings.crossFace = DEFAULTS.crossFace;
     settings.wonBadges = Array.isArray(settings.wonBadges)
       ? settings.wonBadges.filter((id) => typeof id === 'string').slice(0, 200)
       : [];

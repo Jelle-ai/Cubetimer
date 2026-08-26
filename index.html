@@ -707,6 +707,18 @@
       <button type="button" class="switch" id="set-hide" role="switch" aria-checked="true" aria-label="Tijd tijdens solve"><span></span></button>
     </section>
 
+    <section class="setting stacked">
+      <div class="setting-label">
+        <span>De cross die je miste</span>
+        <small>Na elke solve rekent hij uit hoe kort de cross had gekund, op jouw kleur en
+          op de andere vijf. Pas achteraf, want vooraf verandert het hoe je kijkt</small>
+      </div>
+      <div class="move-new">
+        <select id="cross-face" aria-label="Kleur waarop je solvet"></select>
+        <button type="button" class="switch" id="set-crosstip" role="switch" aria-checked="false" aria-label="Cross-tip"><span></span></button>
+      </div>
+    </section>
+
     <section class="setting">
       <div class="setting-label">
         <span>Ring leeft mee</span>
@@ -853,6 +865,14 @@
         <small>Markeer ze in de lijst</small>
       </div>
       <button type="button" class="switch" id="set-highlight" role="switch" aria-checked="true" aria-label="Beste en slechtste"><span></span></button>
+    </section>
+
+    <section class="setting stacked">
+      <div class="setting-label">
+        <span>Sfeer</span>
+        <small>Niet alleen een accentkleur maar het papier, de inkt en de gloed samen</small>
+      </div>
+      <div id="skins" class="skins" role="group"></div>
     </section>
 
     <section class="setting stacked">

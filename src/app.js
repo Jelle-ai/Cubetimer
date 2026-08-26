@@ -17,7 +17,7 @@ import {
   bestOf, caseStanding, cleanPlay, dailyHistory, dailyStreak, dayStamp, duelTally,
   recordCase, recordDaily, recordDuel, recordRun, runsOf, scoreOf, spellScore
 } from './play.js';
-import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
+import { COLOR_SLOTS, LED_COLORS, SKINS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
 import {
@@ -82,6 +82,8 @@ const el = {
   cubeName: document.getElementById('cube-name'),
   cubeAdd: document.getElementById('cube-add'),
   cubeList: document.getElementById('cube-list'),
+  crossFace: document.getElementById('cross-face'),
+  skins: document.getElementById('skins'),
   statsTitle: document.getElementById('stats-title'),
   statsList: document.getElementById('stats-list'),
   selectMode: document.getElementById('select-mode'),
@@ -2236,6 +2238,118 @@ el.keysOpen.addEventListener('click', () => {
 
 el.keysClose.addEventListener('click', () => el.keysSheet.close());
 
+/* ---------- how hard was that scramble ----------
+
+   Every timer stores your scramble; none of them look at it. The puzzle engine
+   is already here, so "how short was the cross" is a question that can simply
+   be answered -- for all six colours at once, which puts a number on your own
+   colour neutrality that nobody has ever been able to give you.
+
+   The table takes a few seconds to work out and is only worth having if you ask
+   for it, so it is built the first time you look and kept for the session. */
+
+let crossKit = null;
+let crossBusy = null;
+
+async function loadCross() {
+  if (crossKit) return crossKit;
+  if (crossBusy) return crossBusy;
+
+  crossBusy = (async () => {
+    const [{ puzzles }, { Alg }, cross] = await Promise.all([
+      import('../vendor/cubing/puzzles/index.js'),
+      import('../vendor/cubing/alg/index.js'),
+      import('./cross.js')
+    ]);
+    const kpuzzle = await puzzles['3x3x3'].kpuzzle();
+    const table = cross.buildTable(kpuzzle, Alg);
+    crossKit = { kpuzzle, Alg, table, cross };
+    return crossKit;
+  })();
+  return crossBusy;
+}
+
+/** The scrambles of this session, newest first, that are 3x3 and were kept. */
+function scramblesHere(most = 200) {
+  if (currentSession().puzzle !== '333') return [];
+  return counting(solves).slice(-most).map((solve) => solve.scramble).filter(Boolean);
+}
+
+function crossBlock(kit) {
+  const scrambles = scramblesHere();
+  if (scrambles.length < 5) return null;
+
+  const shape = kit.cross.neutrality(scrambles, settings.crossFace, kit.kpuzzle, kit.Alg, kit.table);
+  if (!shape) return null;
+
+  const face = kit.cross.FACES.find((entry) => entry.id === settings.crossFace);
+  const list = document.createElement('div');
+  list.className = 'round-lines';
+  for (const [label, value] of [
+    ['Jouw kleur', `${face?.name || settings.crossFace} · ${shape.mine.toFixed(1)} zetten`],
+    ['Kortste kleur', `${shape.shortest.toFixed(1)} zetten`],
+    ['Je laat liggen', `${shape.lost.toFixed(1)} zetten per solve`],
+    ['3 of meer korter', `${shape.muchBetter} van ${shape.counted}`]
+  ]) {
+    const row = document.createElement('div');
+    const name = document.createElement('span');
+    name.textContent = label;
+    const figure = document.createElement('b');
+    figure.textContent = value;
+    row.append(name, figure);
+    list.append(row);
+  }
+
+  const note = line(shape.lost < 0.4
+    ? 'Er valt hier weinig te winnen: op jouw kleur zit je zo goed als altijd al op de kortste.'
+    : `Over ${shape.counted} scrambles was een andere kleur gemiddeld ${shape.lost.toFixed(1)} zetten korter. Dat is wat kleurneutraal zijn je zou schelen.`,
+  'records-aside');
+
+  return recordBlock('Je scrambles', [list, note]);
+}
+
+/** Which colour you solve on, so the comparison means something. */
+function renderCrossFace() {
+  if (!el.crossFace) return;
+  el.crossFace.replaceChildren(...[
+    { id: 'D', name: 'geel' }, { id: 'U', name: 'wit' }, { id: 'F', name: 'groen' },
+    { id: 'B', name: 'blauw' }, { id: 'R', name: 'rood' }, { id: 'L', name: 'oranje' }
+  ].map((face) => {
+    const option = document.createElement('option');
+    option.value = face.id;
+    option.textContent = face.name;
+    option.selected = face.id === settings.crossFace;
+    return option;
+  }));
+}
+
+/**
+ * The cross you missed, said once the solve is over.
+ *
+ * Before would spoil it -- knowing the cross is four moves changes how you look
+ * at the scramble. Afterwards it is the only moment the scramble is still fresh
+ * enough for the answer to stick.
+ */
+async function sayCross(usedScramble) {
+  if (!settings.crossTip || currentSession().puzzle !== '333' || !usedScramble) return;
+  let kit;
+  try {
+    kit = await loadCross();
+  } catch {
+    return;
+  }
+  const lengths = kit.cross.crossLengths(usedScramble, kit.kpuzzle, kit.Alg, kit.table);
+  if (!lengths.length) return;
+
+  const mine = lengths.find((entry) => entry.id === settings.crossFace);
+  const best = lengths[0];
+  if (!mine) return;
+
+  toast(best.moves < mine.moves
+    ? `Cross kon in ${mine.moves} op ${kit.cross.FACES.find((f) => f.id === settings.crossFace)?.name}, maar in ${best.moves} op ${best.name}.`
+    : `Cross kon in ${mine.moves} zetten.`);
+}
+
 /* ---------- sharing ----------
 
    A card, because a screenshot of a list of numbers is not something anyone
@@ -2369,6 +2483,24 @@ function renderCubes() {
       settings.cube = settings.cube === name ? '' : name;
       storeSettings();
       renderCubes();
+renderCrossFace();
+renderSkins();
+
+// Working the table out takes a few seconds, so it is started quietly the
+// moment the page is idle rather than the moment you first want an answer.
+if (settings.crossTip) {
+  const warm = () => loadCross().catch(() => {});
+  if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 4000 });
+  else setTimeout(warm, 1500);
+}
+
+// The cabinet is filled in once without a fuss, so a history that already
+// earned things does not throw eighteen parties on first open.
+celebrateBadges({ quietly: true });
+el.crossFace.addEventListener('change', () => {
+  settings.crossFace = el.crossFace.value;
+  storeSettings();
+});
     });
 
     const drop = document.createElement('span');
@@ -2381,6 +2513,24 @@ function renderCubes() {
       if (settings.cube === name) settings.cube = '';
       storeSettings();
       renderCubes();
+renderCrossFace();
+renderSkins();
+
+// Working the table out takes a few seconds, so it is started quietly the
+// moment the page is idle rather than the moment you first want an answer.
+if (settings.crossTip) {
+  const warm = () => loadCross().catch(() => {});
+  if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 4000 });
+  else setTimeout(warm, 1500);
+}
+
+// The cabinet is filled in once without a fuss, so a history that already
+// earned things does not throw eighteen parties on first open.
+celebrateBadges({ quietly: true });
+el.crossFace.addEventListener('change', () => {
+  settings.crossFace = el.crossFace.value;
+  storeSettings();
+});
     });
     button.append(drop);
     return button;
@@ -2395,6 +2545,24 @@ el.cubeAdd.addEventListener('click', () => {
   el.cubeName.value = '';
   storeSettings();
   renderCubes();
+renderCrossFace();
+renderSkins();
+
+// Working the table out takes a few seconds, so it is started quietly the
+// moment the page is idle rather than the moment you first want an answer.
+if (settings.crossTip) {
+  const warm = () => loadCross().catch(() => {});
+  if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 4000 });
+  else setTimeout(warm, 1500);
+}
+
+// The cabinet is filled in once without a fuss, so a history that already
+// earned things does not throw eighteen parties on first open.
+celebrateBadges({ quietly: true });
+el.crossFace.addEventListener('change', () => {
+  settings.crossFace = el.crossFace.value;
+  storeSettings();
+});
 });
 
 /** How each cube has gone, over everything you have. */
@@ -2712,12 +2880,12 @@ function diaryBlock() {
   return recordBlock('Dagboek', list);
 }
 
-function renderRecords() {
+function renderRecords(kit = crossKit) {
   el.recordsTitle.textContent = `Records — ${currentSession().name}`;
   const blocks = [
     todayBlock(), podiumBlock(), badgesBlock(), calendarBlock(), splitsBlock(),
-    recordHistoryBlock(), runsBlock(), cubesBlock(), whatIfBlock(), diaryBlock(),
-    longAgoBlock(), counterBlock()
+    recordHistoryBlock(), runsBlock(), kit ? crossBlock(kit) : null, cubesBlock(),
+    whatIfBlock(), diaryBlock(), longAgoBlock(), counterBlock()
   ].filter(Boolean);
 
   el.recordsBody.replaceChildren(...(blocks.length ? blocks
@@ -2732,11 +2900,25 @@ el.shareOpen.addEventListener('click', () => {
   openShare(five.length === 5 ? 'ao5' : `laatste ${five.length}`, five);
 });
 
-el.recordsOpen.addEventListener('click', () => {
+el.recordsOpen.addEventListener('click', async () => {
   el.recordsOpen.blur();
   el.statsSheet.close();
   renderRecords();
-  if (!openSheet(el.recordsSheet)) toast('Dit venster gaat niet open in deze browser.');
+  if (!openSheet(el.recordsSheet)) {
+    toast('Dit venster gaat niet open in deze browser.');
+    return;
+  }
+
+  // The scramble table takes a few seconds to work out, so the sheet opens
+  // first and that block arrives when it is ready.
+  if (scramblesHere().length >= 5) {
+    try {
+      const kit = await loadCross();
+      if (el.recordsSheet.open) renderRecords(kit);
+    } catch (error) {
+      console.error('Scrambles:', error);
+    }
+  }
 });
 
 el.recordsClose.addEventListener('click', () => el.recordsSheet.close());
@@ -3216,6 +3398,7 @@ function addSolve(ms, marks = []) {
   judgeSolve(previousBest);
 
   if (rematchWas) sayHowThatWent(rematchWas, solves[solves.length - 1]);
+  else sayCross(solve.scramble);
   celebrateBadges();
 
   // The check comes after the celebration, so a record still gets its party
@@ -4105,12 +4288,18 @@ function cameraLost() {
  * closing the app cannot make one go by unnoticed, and re-earning cannot make
  * the same party happen twice.
  */
-function celebrateBadges() {
+function celebrateBadges({ quietly = false } = {}) {
   const list = badges(saveFile.sessions, play());
   const fresh = newlyWon(list, settings.wonBadges || []);
   settings.wonBadges = wonIds(list);
+
+  // The first time the cabinet is worked out, everything already earned is
+  // "new". Somebody who has been solving for a year does not want eighteen
+  // parties at once for things they did in March.
+  const firstLook = !settings.badgesSeeded;
+  settings.badgesSeeded = true;
   storeSettings();
-  if (!fresh.length) return;
+  if (!fresh.length || quietly || firstLook) return;
 
   const [first] = fresh;
   cue('record');
@@ -4768,8 +4957,64 @@ window.addEventListener('pagehide', () => releaseCamera());
 
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
+/**
+ * A skin sets the paper, the ink and the glow at once. It is applied over the
+ * theme rather than instead of it, so light and dark still work: anything the
+ * skin does not name keeps whatever the theme said.
+ */
+function applySkin() {
+  const skin = SKINS.find((entry) => entry.id === settings.skin) || SKINS[0];
+  const style = document.documentElement.style;
+
+  for (const other of SKINS) {
+    for (const name of Object.keys(other.vars || {})) style.removeProperty(name);
+  }
+  for (const [name, value] of Object.entries(skin.vars || {})) {
+    if (name === '--led') continue; // the colour picker owns this one
+    style.setProperty(name, value);
+  }
+
+  el.body.dataset.skin = skin.id;
+  if (skin.font) el.body.dataset.font = skin.font;
+}
+
+function renderSkins() {
+  if (!el.skins) return;
+  el.skins.replaceChildren(...SKINS.map((skin) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'skin';
+    button.dataset.value = skin.id;
+    button.dataset.active = String(skin.id === settings.skin);
+    button.textContent = skin.label;
+    if (skin.vars?.['--led']) button.style.setProperty('--chip', skin.vars['--led']);
+    button.addEventListener('click', () => {
+      settings.skin = skin.id;
+      // A skin proposes its glow rather than fighting the colour picker for it:
+      // it is set once, here, and the picker can change it afterwards.
+      const glow = skin.vars?.['--led'];
+      if (glow) {
+        settings.colors = { ...settings.colors, led: glow };
+        settings.led = LED_COLORS.find((entry) => entry.color === glow)?.id ?? settings.led;
+      }
+      storeSettings();
+      renderSkins();
+      buildLedSwatches();
+      buildColorSlots();
+      applySettings();
+    });
+    return button;
+  }));
+}
+
 function applyTheme() {
-  const dark = settings.theme === 'dark' || (settings.theme === 'auto' && darkQuery.matches);
+  // A dark skin is a dark theme with a different palette on top, not a light
+  // page with dark bits scattered over it -- which is what leaving the theme
+  // alone gave: a black ring floating on white paper.
+  const skin = SKINS.find((entry) => entry.id === settings.skin);
+  const dark = skin?.dark
+    || settings.theme === 'dark'
+    || (settings.theme === 'auto' && darkQuery.matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', dark ? 'dark' : 'light');
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0b1a22' : '#bfe3f5');
@@ -4782,6 +5027,7 @@ darkQuery.addEventListener('change', () => {
 function applySettings() {
   applyTheme();
   el.body.dataset.font = settings.font;
+  applySkin();
   for (const { key } of COLOR_SLOTS) {
     document.documentElement.style.setProperty(`--${key}`, settings.colors[key]);
   }
@@ -4912,6 +5158,7 @@ const switches = [
   bindSwitch('set-camera', 'camera'),
   bindSwitch('set-splits', 'splits'),
   bindSwitch('set-pace', 'pace'),
+  bindSwitch('set-crosstip', 'crossTip'),
   bindSwitch('set-practice', 'practice')
 ];
 
@@ -5547,6 +5794,24 @@ setPhase('idle');
 renderScramble();
 applySettings(); // sets the ring colour, decimals, hint and renders the session
 renderCubes();
+renderCrossFace();
+renderSkins();
+
+// Working the table out takes a few seconds, so it is started quietly the
+// moment the page is idle rather than the moment you first want an answer.
+if (settings.crossTip) {
+  const warm = () => loadCross().catch(() => {});
+  if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 4000 });
+  else setTimeout(warm, 1500);
+}
+
+// The cabinet is filled in once without a fuss, so a history that already
+// earned things does not throw eighteen parties on first open.
+celebrateBadges({ quietly: true });
+el.crossFace.addEventListener('change', () => {
+  settings.crossFace = el.crossFace.value;
+  storeSettings();
+});
 newScramble(); // replaces the stand-in with an official one as soon as it is ready
 
 // A link somebody sent lands here. Shown, never kept: it is their afternoon.
