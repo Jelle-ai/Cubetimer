@@ -196,6 +196,11 @@ const el = {
   modeStart: document.getElementById('mode-start'),
   modeStrip: document.getElementById('mode-strip'),
   split: document.getElementById('split'),
+  drillOpen: document.getElementById('drill-open'),
+  drillSheet: document.getElementById('drill-sheet'),
+  drillTitle: document.getElementById('drill-title'),
+  drillClose: document.getElementById('drill-close'),
+  drillBody: document.getElementById('drill-body'),
   splitsSwitch: document.getElementById('set-splits'),
   metroOpen: document.getElementById('metro-open'),
   metroSheet: document.getElementById('metro-sheet'),
@@ -993,6 +998,10 @@ function renderSessions() {
 }
 
 function useSession(index) {
+  // Picking a session by hand is how you stop drilling; startCase sets it again
+  // straight afterwards.
+  drilling = null;
+  keepScramble = false;
   saveFile.active = index;
   syncTargetUi();
   solves = currentSession().solves;
@@ -1557,6 +1566,200 @@ el.modeStart.addEventListener('click', () => {
   watchRunClock();
   toast(`${MODES[picked].name} begonnen.`);
 });
+
+/* ---------- drilling one case at a time ----------
+
+   The setup for a case is its algorithm turned back to front: do that to a
+   solved cube and the case is looking at you. Which is also why nothing in the
+   list is trusted -- src/cases.js puts every one on a real cube before it is
+   offered, so an algorithm typed wrong here is dropped rather than drilled.
+
+   The times land in a session of their own, as ordinary solves with the name of
+   the case on them, so every list, average, export and record already works. */
+
+let caseSet = null;   // the verified cases, loaded once
+let drillGroup = 'pll';
+let drilling = null;  // the case being drilled right now
+
+const DRILL_SESSION = { pll: 'PLL trainen', oll: 'OLL trainen' };
+
+async function loadCases() {
+  if (caseSet) return caseSet;
+  const [{ puzzles }, { Alg }, { usableCases, GROUPS, AUF }] = await Promise.all([
+    import('../vendor/cubing/puzzles/index.js'),
+    import('../vendor/cubing/alg/index.js'),
+    import('./cases.js')
+  ]);
+  const kpuzzle = await puzzles['3x3x3'].kpuzzle();
+  const { cases, dropped } = usableCases(kpuzzle, Alg);
+  if (dropped.length) console.warn('Gevallen afgekeurd:', dropped);
+  caseSet = { cases, dropped, GROUPS, AUF };
+  return caseSet;
+}
+
+/** The session these times belong in, made the first time it is needed. */
+function drillSession(group) {
+  const name = DRILL_SESSION[group];
+  let index = saveFile.sessions.findIndex((session) => session.name === name && session.puzzle === '333');
+  if (index < 0) {
+    saveFile.sessions.push({ name, puzzle: '333', target: null, solves: [] });
+    index = saveFile.sessions.length - 1;
+  }
+  return index;
+}
+
+/** How you are doing per case, worst first -- which is the whole point. */
+function caseStanding(group) {
+  const name = DRILL_SESSION[group];
+  const session = saveFile.sessions.find((s) => s.name === name && s.puzzle === '333');
+  const perCase = new Map();
+
+  for (const solve of counting(session?.solves || [])) {
+    if (!solve.case) continue;
+    const value = effective(solve);
+    if (!Number.isFinite(value)) continue;
+    const seen = perCase.get(solve.case) || { times: [], best: Infinity };
+    seen.times.push(value);
+    seen.best = Math.min(seen.best, value);
+    perCase.set(solve.case, seen);
+  }
+
+  return [...perCase.entries()]
+    .map(([id, seen]) => ({
+      id,
+      count: seen.times.length,
+      best: seen.best,
+      mean: seen.times.reduce((sum, t) => sum + t, 0) / seen.times.length
+    }))
+    .sort((a, b) => b.mean - a.mean);
+}
+
+/** Pick the next case: the ones you have done least, then the slowest. */
+function nextCase(cases, group) {
+  const mine = cases.filter((entry) => entry.group === group);
+  const standing = new Map(caseStanding(group).map((row) => [row.id, row]));
+  const untried = mine.filter((entry) => !standing.has(entry.id));
+  const pool = untried.length ? untried : mine;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function startCase(entry) {
+  // The session first: switching sessions is how you leave the drill, so it
+  // clears `drilling`, and setting it before would undo itself.
+  useSession(drillSession(entry.group));
+  drilling = entry;
+  const turn = caseSet.AUF[Math.floor(Math.random() * caseSet.AUF.length)];
+  scramble = `${entry.setup}${turn ? ` ${turn}` : ''}`.trim();
+  scrambleToken++;
+  keepScramble = true; // finishing one solve must not fetch an ordinary scramble
+  delete el.scramble.dataset.loading;
+  el.scramble.dataset.official = 'true';
+  rematch = null;
+  renderRematch();
+  renderScramble();
+  renderDrill();
+}
+
+function renderDrill() {
+  const { cases, dropped, GROUPS } = caseSet;
+  const parts = [];
+
+  const picker = document.createElement('div');
+  picker.className = 'mode-list';
+  for (const [group, shape] of Object.entries(GROUPS)) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.active = String(group === drillGroup);
+    const name = document.createElement('b');
+    const many = cases.filter((entry) => entry.group === group).length;
+    name.textContent = `${shape.name} · ${many} gevallen`;
+    const about = document.createElement('small');
+    about.textContent = shape.about;
+    button.append(name, about);
+    button.addEventListener('click', () => { drillGroup = group; renderDrill(); });
+    picker.append(button);
+  }
+  parts.push(picker);
+
+  const actions = document.createElement('div');
+  actions.className = 'detail-actions';
+
+  const go = document.createElement('button');
+  go.type = 'button';
+  go.id = 'drill-go';
+  go.textContent = drilling ? 'Volgend geval' : 'Beginnen';
+  go.addEventListener('click', () => {
+    const entry = nextCase(cases, drillGroup);
+    if (!entry) return;
+    startCase(entry);
+    el.drillSheet.close();
+    toast(`${entry.id} — draai de opzet en solve dan het geval.`);
+  });
+  actions.append(go);
+
+  if (drilling) {
+    const stop = document.createElement('button');
+    stop.type = 'button';
+    stop.id = 'drill-stop';
+    stop.textContent = 'Stoppen';
+    stop.addEventListener('click', () => {
+      drilling = null;
+      keepScramble = false;
+      newScramble();
+      el.drillSheet.close();
+      toast('Trainen gestopt.');
+    });
+    actions.append(stop);
+  }
+  parts.push(actions);
+
+  const standing = caseStanding(drillGroup);
+  if (standing.length) {
+    const list = document.createElement('div');
+    list.className = 'round-lines';
+    for (const row of standing.slice(0, 12)) {
+      const line = document.createElement('div');
+      const name = document.createElement('b');
+      name.textContent = row.id;
+      const figure = document.createElement('span');
+      figure.textContent = `${formatTime(row.mean)} gem · ${formatTime(row.best)} best · ${row.count}×`;
+      line.append(name, figure);
+      list.append(line);
+    }
+    const block = document.createElement('section');
+    block.className = 'records-block';
+    const heading = document.createElement('h3');
+    heading.textContent = 'Slechtst gekend bovenaan';
+    block.append(heading, list);
+    parts.push(block);
+  }
+
+  const note = document.createElement('p');
+  note.className = 'import-note';
+  note.textContent = dropped.length
+    ? `Draai de opzet op een opgeloste kubus; dan staat het geval voor je. ${dropped.length} geval(len) werden bij het inladen afgekeurd en niet aangeboden.`
+    : 'Draai de opzet op een opgeloste kubus, en solve dan alleen dat geval. Je tijden komen in een eigen sessie.';
+  parts.push(note);
+
+  el.drillTitle.textContent = drilling ? `Trainen — ${drilling.id}` : 'Trainen';
+  el.drillBody.replaceChildren(...parts);
+}
+
+el.drillOpen.addEventListener('click', async () => {
+  el.drillOpen.blur();
+  el.settings.close();
+  try {
+    await loadCases();
+  } catch (error) {
+    toast('De gevallen konden niet geladen worden.');
+    console.error('Trainen:', error);
+    return;
+  }
+  renderDrill();
+  openSheet(el.drillSheet);
+});
+
+el.drillClose.addEventListener('click', () => el.drillSheet.close());
 
 /* ---------- splits ----------
 
@@ -2409,6 +2612,7 @@ function addSolve(ms, marks = []) {
   const previousBest = best(counting(solves));
   const solve = { ms, penalty: pendingPenalty, scramble, at: Date.now() };
   if (marks.length) solve.splits = marks;
+  if (drilling) solve.case = drilling.id;
   solves.push(solve);
   pendingPenalty = 'none';
   persist();
@@ -2425,6 +2629,12 @@ function addSolve(ms, marks = []) {
   judgeSolve(previousBest);
 
   if (rematchWas) sayHowThatWent(rematchWas, solves[solves.length - 1]);
+
+  // Straight on to the next case, so drilling is one press per repetition.
+  if (drilling && caseSet) {
+    const entry = nextCase(caseSet.cases, drilling.group);
+    if (entry) startCase(entry);
+  }
 
   // The check comes after the celebration, so a record still gets its party
   // even when the camera is about to turn it into a DNF.

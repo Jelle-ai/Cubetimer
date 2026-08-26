@@ -407,6 +407,16 @@
   </div>
 </dialog>
 
+<dialog id="drill-sheet" class="sheet sheet-tall" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="drill-title">Trainen</h2>
+      <button type="button" id="drill-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+    <div id="drill-body"></div>
+  </div>
+</dialog>
+
 <dialog id="metro-sheet" class="sheet" tabindex="-1">
   <div class="sheet-inner">
     <header class="sheet-head">
@@ -789,6 +799,15 @@
         <small>Markeer ze in de lijst</small>
       </div>
       <button type="button" class="switch" id="set-highlight" role="switch" aria-checked="true" aria-label="Beste en slechtste"><span></span></button>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Trainen op losse gevallen</span>
+        <small>PLL en OLL apart oefenen. Elk geval krijgt een opzet die je op je opgeloste
+          kubus draait, en je ziet daarna welke je het slechtst kent</small>
+      </div>
+      <button type="button" id="drill-open" class="text-button">openen</button>
     </section>
 
     <section class="setting">

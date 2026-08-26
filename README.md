@@ -436,6 +436,40 @@ kies een tweede sessie en elke waarde krijgt een kolom per sessie.
 Tijden uit een oudere versie van de app worden bij het eerste bezoek automatisch als
 "Sessie 1" overgenomen.
 
+## Trainen op losse gevallen
+
+**Instellingen → trainen op losse gevallen.** Kies PLL of OLL, druk op beginnen, en je
+krijgt een **opzet**: draai die op je opgeloste kubus en het geval ligt voor je. Solve
+alleen dat stukje. Zodra je stopt staat het volgende geval er al, dus drillen is één druk
+per herhaling.
+
+Bovenaan staat welke je het **slechtst kent**, op gemiddelde. Gevallen die je nog nooit
+gedaan hebt komen eerst aan de beurt; daarna wordt er willekeurig gekozen. Je tijden komen
+in een eigen sessie (*PLL trainen*, *OLL trainen*) als gewone solves met de naam van het
+geval erop, dus je lijst, je gemiddelden, je export en je records werken er allemaal
+gewoon op.
+
+Er zitten 21 PLL-gevallen in en 10 voor OLL in twee stappen — eerst het gele kruis, dan de
+hoeken.
+
+### Waarom er niets uit die lijst zomaar geloofd wordt
+
+Een opzet is het algoritme achterstevoren: doe dat op een opgeloste kubus en je kijkt naar
+het geval. Dat betekent ook dat een verkeerd getypt algoritme een verkeerd geval oplevert,
+en dat je dat oefent zonder het ooit te horen.
+
+Dus wordt elk geval bij het inladen op een echte kubus gelegd — de puzzelmotor die ook je
+scrambles maakt — en pas aangeboden als het landt waar een geval van die soort hoort te
+landen. Drie dingen moeten kloppen, en elk vangt een ander soort fout: de middenstukjes
+mogen niet bewogen zijn (anders staat je hele kubus gedraaid en is de opzet niet af te
+lezen), de eerste twee lagen moeten heel zijn (dat breekt als eerste bij een typefout), en
+de laatste laag moet fout staan op de manier die bij die soort hoort — een PLL alleen
+verzet, een OLL minstens deels verkeerd om.
+
+Dat is geen theorie: bij het schrijven ging er meteen één door de mand. Mijn Z-perm miste
+een `U'` aan het eind, waardoor hij ook de hoeken verschoof. De controle zei *"verzet ook
+hoeken"* en het geval werd geweigerd tot het klopte. Nu komen alle 31 er door.
+
 ## Splits
 
 Zet **splits** aan in de instellingen en er verschijnt tijdens je solve een knopje onder
