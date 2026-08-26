@@ -1490,6 +1490,32 @@ body[data-miss] .halo {
   overflow: hidden;
 }
 
+/**
+ * The one part of a tall sheet that scrolls.
+ *
+ * The sheet itself is a fixed height with its overflow hidden so the heading
+ * can stay put -- which means anything past the fold was simply gone, with no
+ * way to reach it. On a phone that took most of the games sheet and nearly all
+ * of the look-back sheet with it. Whatever carries this class is the scroller.
+ */
+.sheet-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* A flick that runs out of list must not carry on and scroll the page behind. */
+  overscroll-behavior: contain;
+  /* Room for the last row to clear the rounded corner and the home bar. */
+  padding-bottom: .4rem;
+}
+
+/* A scroller that is also a flex column keeps its own spacing -- and its
+   children must not be allowed to shrink to fit, which is what a flex column
+   does by default and which quietly squashed every block in the look-back sheet
+   instead of letting the list run past the fold and scroll. */
+.sheet-scroll.records-body { gap: 1.1rem; }
+.sheet-scroll > * { flex-shrink: 0; }
+
 .solves-slot {
   flex: 1;
   min-height: 0;

@@ -4741,8 +4741,15 @@ function endHold() {
     setPhase('idle');
   } else if (phase === 'holding') {
     // A tap that started inspection keeps it; tapping again calls it off.
+    //
+    // And with inspection switched off there is neither to do -- which is what
+    // this was missing. cancelInspection returns at once when no inspection is
+    // running, so a tap too short to arm the timer left the phase on 'holding'
+    // for good, and beginHold only starts from 'idle' or 'inspecting': the
+    // timer was dead until the page was reloaded. Easy to do with a thumb.
     if (inspectionJustStarted) setPhase('inspecting');
-    else cancelInspection();
+    else if (inspectionStartedAt !== null) cancelInspection();
+    else setPhase('idle');
   }
 }
 

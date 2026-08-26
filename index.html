@@ -370,8 +370,10 @@
       <h2 id="picked-title">Solves</h2>
       <button type="button" id="picked-close" class="icon-button" aria-label="Sluiten">✕</button>
     </header>
-    <p id="picked-note" class="import-note"></p>
-    <ol id="picked-list" class="solves picked-list"></ol>
+    <div class="sheet-scroll">
+      <p id="picked-note" class="import-note"></p>
+      <ol id="picked-list" class="solves picked-list"></ol>
+    </div>
   </div>
 </dialog>
 
@@ -446,6 +448,7 @@
       <button type="button" id="mode-close" class="icon-button" aria-label="Sluiten">✕</button>
     </header>
 
+    <div class="sheet-scroll">
     <div id="daily-card" class="daily-card"></div>
 
     <h3 class="transfer-head">Uitdagingen</h3>
@@ -474,6 +477,7 @@
       <button type="button" id="roulette">Verras me</button>
     </div>
     <p id="duel-note" class="import-note"></p>
+    </div>
   </div>
 </dialog>
 
@@ -524,7 +528,7 @@
       <button type="button" id="set-slow" class="link">mijn traagste tien</button>
       <span id="set-count" class="set-count">0 gekozen</span>
     </div>
-    <div id="set-grid" class="case-grid"></div>
+    <div id="set-grid" class="case-grid sheet-scroll"></div>
     <div class="detail-actions">
       <button type="button" id="set-drop" class="danger" hidden>Verwijderen</button>
       <button type="button" id="set-save" class="primary">Bewaren</button>
@@ -540,7 +544,7 @@
       <button type="button" id="cases-close" class="icon-button" aria-label="Sluiten">✕</button>
     </header>
     <div id="cases-groups" class="chip-row"></div>
-    <div id="cases-body"></div>
+    <div id="cases-body" class="sheet-scroll"></div>
   </div>
 </dialog>
 
@@ -550,7 +554,7 @@
       <h2 id="drill-title">Trainen</h2>
       <button type="button" id="drill-close" class="icon-button" aria-label="Sluiten">✕</button>
     </header>
-    <div id="drill-body"></div>
+    <div id="drill-body" class="sheet-scroll"></div>
   </div>
 </dialog>
 
@@ -718,7 +722,7 @@
       <h2 id="records-title">Records</h2>
       <button type="button" id="records-close" class="icon-button" aria-label="Sluiten">✕</button>
     </header>
-    <div id="records-body" class="records-body"></div>
+    <div id="records-body" class="records-body sheet-scroll"></div>
   </div>
 </dialog>
 
