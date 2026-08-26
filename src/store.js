@@ -5,6 +5,8 @@
 export const KEY = 'cubetimer.sessions.v2';
 const LEGACY_KEY = 'cubetimer.session.v1';
 
+import { cleanPlay, emptyPlay } from './play.js';
+
 const isSolve = (solve) => typeof solve?.ms === 'number';
 
 // Imported times used to carry a note saying where they came from; it added
@@ -20,7 +22,11 @@ function tidy(solve) {
 }
 
 function emptyState(solves = []) {
-  return { active: 0, sessions: [{ name: '3x3', puzzle: '333', solves, target: null }] };
+  return {
+    active: 0,
+    sessions: [{ name: '3x3', puzzle: '333', solves, target: null }],
+    play: emptyPlay()
+  };
 }
 
 /**
@@ -43,9 +49,11 @@ function clean(state) {
       solves: session.solves.filter(isSolve).map(tidy)
     }));
 
-  if (!sessions.length) return emptyState();
+  if (!sessions.length) return { ...emptyState(), play: cleanPlay(state.play) };
   const active = Number.isInteger(state.active) ? Math.min(Math.max(state.active, 0), sessions.length - 1) : 0;
-  return { active, sessions };
+  // What the games remember lives beside the sessions rather than inside one:
+  // a marathon streak is not a solve you did on a Tuesday.
+  return { active, sessions, play: cleanPlay(state.play) };
 }
 
 export function load() {

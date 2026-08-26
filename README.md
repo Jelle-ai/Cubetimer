@@ -444,10 +444,9 @@ alleen dat stukje. Zodra je stopt staat het volgende geval er al, dus drillen is
 per herhaling.
 
 Bovenaan staat welke je het **slechtst kent**, op gemiddelde. Gevallen die je nog nooit
-gedaan hebt komen eerst aan de beurt; daarna wordt er willekeurig gekozen. Je tijden komen
-in een eigen sessie (*PLL trainen*, *OLL trainen*) als gewone solves met de naam van het
-geval erop, dus je lijst, je gemiddelden, je export en je records werken er allemaal
-gewoon op.
+gedaan hebt komen eerst aan de beurt; daarna wordt er willekeurig gekozen. Je tijden per geval worden apart bewaard, bij het
+spel en niet bij je sessies — een PLL-drill van anderhalve seconde hoort niet tussen je
+3x3-gemiddelden.
 
 Er zitten 21 PLL-gevallen in en 10 voor OLL in twee stappen — eerst het gele kruis, dan de
 hoeken.
@@ -500,12 +499,45 @@ dat je aan de andere kant van de kamer nog leest. Escape brengt je terug.
 **Toetsen en gebaren** — een overzichtje van wat spatie, escape, je matje en een veeg
 allemaal doen.
 
-## Modi
+## Spelen
+
+Het knopje met het zonnetje in de balk. **Niets hiervan komt in je sessies terecht.** Een
+marathonreeks en een sprint van vijf minuten zijn geen solves die je op een dinsdagmiddag
+deed; ze horen bij het spel en nergens anders. Ze staan naast je tijden opgeslagen, je ziet
+ze alleen binnen het spel waar ze bij horen, en ze reizen wel mee in je back-upbestand.
+
+### Scramble van de dag
+
+Eén scramble, één poging, en voor iedereen die de app vandaag opent dezelfde. Er is geen
+server: de datum is het zaadje, en hetzelfde zaadje geeft op elk toestel dezelfde zetten.
+Je kunt dus gewoon met een vriend je tijd vergelijken zonder accounts of internet.
+
+Dat maakt het wel een *random-move* scramble in plaats van een random-state, en dat is een
+echt verschil — sommige standen komen vaker voor dan andere. De officiële scrambler werkt
+door een willekeurige stand op te lossen en zijn antwoord is niet twee keer hetzelfde te
+krijgen, dus voor iets dat gedeeld moet worden is dit de eerlijke ruil.
+
+Onder de kaart staat hoe je dagen gegaan zijn en hoeveel dagen op rij je hem gedaan hebt.
+Gisteren telt nog mee: de dag is pas voorbij als hij voorbij is.
+
+### Duel
+
+Twee namen, om de beurt solven op hetzelfde toestel, best of vijf. Boven de ring staat wie
+aan zet is en hoe het staat. Aan het eind een uitslag, en hoe het onderling tussen die twee
+namen staat over alle duels heen — welke kant je de namen ook intypt.
+
+### Verras me
+
+Een willekeurige puzzel met een willekeurige opdracht erbij: met één hand, zonder naar de
+tijd te kijken, drie keer achter elkaar. Voor als je niet weet wat je wil oefenen en gewoon
+zin hebt om te draaien.
+
+### Uitdagingen
 
 Het knopje met het zonnetje in de balk. Een sessie zonder einde is de juiste
-standaardinstelling en een matig spel; deze geven een reeks een vorm. Ze veranderen niets
-aan waar je tijden terechtkomen — ze bepalen alleen wat er boven de ring staat en wanneer
-er iets afgelopen is, dus je kunt er altijd uitstappen zonder iets kwijt te raken.
+standaardinstelling en een matig spel; deze geven een reeks een vorm. Ze houden hun eigen tijden bij, los van je
+sessies, dus je kunt er altijd uitstappen zonder dat je gemiddelden iets gemerkt hebben.
+Onderin de spelhoek staan je vijf beste pogingen per spel.
 
 **Marathon.** Hoeveel achter elkaar onder jouw drempel? Er staat een rij bolletjes bij die
 langer wordt. Eén erover en je begint opnieuw — maar je langste reeks blijft staan.

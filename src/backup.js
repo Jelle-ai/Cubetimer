@@ -5,6 +5,8 @@
 // carry either file to the other, and both days are there -- which a straight
 // overwrite would quietly cost you half of.
 
+import { cleanPlay, mergePlay } from './play.js';
+
 const MARK = 'cubetimer';
 const VERSION = 1;
 
@@ -37,6 +39,9 @@ export function buildBackup(saveFile, settings) {
       target: session.target ?? null,
       solves: session.solves.map((solve) => ({ ...solve }))
     })),
+    // Games remember their own things, and a new phone should not start over
+    // on a streak you have been keeping for a month.
+    play: saveFile.play || null,
     settings: carried
   };
 }
@@ -150,6 +155,7 @@ export function readBackup(text) {
 
   return {
     sessions,
+    play: data.play && typeof data.play === 'object' ? data.play : null,
     settings: data.settings && typeof data.settings === 'object' ? data.settings : {},
     saved: typeof data.saved === 'string' ? data.saved : null
   };
@@ -195,6 +201,7 @@ export function foldIn(saveFile, incoming, how = 'merge') {
   if (how === 'replace') {
     return {
       sessions: incoming.sessions.map((session) => ({ ...session, solves: inOrder(session.solves) })),
+      play: cleanPlay(incoming.play),
       active: 0,
       added: incoming.sessions.reduce((sum, session) => sum + session.solves.length, 0),
       known: 0,
@@ -230,6 +237,7 @@ export function foldIn(saveFile, incoming, how = 'merge') {
 
   return {
     sessions,
+    play: mergePlay(saveFile.play, incoming.play),
     active: Math.min(saveFile.active, sessions.length - 1),
     added,
     known,

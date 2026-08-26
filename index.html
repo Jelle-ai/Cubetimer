@@ -385,13 +385,16 @@
   </form>
 </dialog>
 
-<dialog id="mode-sheet" class="sheet" tabindex="-1">
+<dialog id="mode-sheet" class="sheet sheet-tall" tabindex="-1">
   <div class="sheet-inner">
     <header class="sheet-head">
-      <h2>Modus</h2>
+      <h2>Spelen</h2>
       <button type="button" id="mode-close" class="icon-button" aria-label="Sluiten">✕</button>
     </header>
 
+    <div id="daily-card" class="daily-card"></div>
+
+    <h3 class="transfer-head">Uitdagingen</h3>
     <div id="mode-list" class="mode-list"></div>
 
     <label class="field" id="mode-number-field" hidden>
@@ -399,11 +402,24 @@
       <input type="text" id="mode-number" inputmode="decimal" autocomplete="off">
     </label>
 
+    <div id="mode-records" class="mode-records"></div>
+
     <p id="mode-note" class="import-note"></p>
 
     <div class="detail-actions">
       <button type="button" id="mode-start">Beginnen</button>
     </div>
+
+    <h3 class="transfer-head">Met zijn tweeën</h3>
+    <div class="move-new">
+      <input type="text" id="duel-one" maxlength="20" autocomplete="off" placeholder="Naam">
+      <input type="text" id="duel-two" maxlength="20" autocomplete="off" placeholder="Naam">
+    </div>
+    <div class="detail-actions">
+      <button type="button" id="duel-start">Duel beginnen</button>
+      <button type="button" id="roulette">Verras me</button>
+    </div>
+    <p id="duel-note" class="import-note"></p>
   </div>
 </dialog>
 

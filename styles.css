@@ -2002,6 +2002,38 @@ body[data-big="true"] .hint { font-size: 1rem; }
 
 #metro-toggle[data-active="true"] { background: color-mix(in srgb, var(--led) 20%, transparent); color: var(--ink); }
 
+/* ---------- the games hub ---------- */
+
+.daily-card {
+  padding: .8rem .9rem;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--led) 10%, var(--sunken));
+  margin-bottom: .3rem;
+}
+
+.daily-head { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }
+.daily-head b { font-size: 1rem; }
+.daily-head small { font-size: .78rem; color: var(--muted); }
+
+.daily-go {
+  width: 100%;
+  min-height: 44px;
+  margin: .5rem 0 .4rem;
+  border-radius: 12px;
+  background: var(--led);
+  font-size: .9rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.daily-go:disabled { background: var(--sunken); color: var(--muted); }
+
+.mode-records:not(:empty) { margin-bottom: .4rem; }
+
+.mode-strip[data-kind="duel"] { color: var(--record); }
+.mode-strip[data-kind="daily"] { color: var(--led); }
+.mode-strip[data-kind="drill"] { color: var(--ready); }
+
 /* ---------- modes ---------- */
 
 .mode-strip {

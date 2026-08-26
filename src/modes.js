@@ -2,9 +2,12 @@
 //
 // A session with no end is the right default and a poor game. These give a run
 // a shape: something to keep alive, a clock to beat, or a stretch you are not
-// allowed to look at. None of them change what a solve is or where it is
-// stored -- they only decide what the strip above the ring says, and when
-// something is over.
+// allowed to look at.
+//
+// A run keeps its own solves. They do not go into a session and never did
+// belong in one -- what happens in a game is only worth seeing inside that
+// game, and putting it in your list moved your averages around for reasons
+// that had nothing to do with how you are solving.
 
 import { averageOf, best, effective, formatTime } from './stats.js';
 
@@ -35,16 +38,22 @@ export const MODES = {
   }
 };
 
-/** A run that has just begun. Modes hold no solves of their own -- they point
-    at where in the session they started, so nothing can drift apart. */
-export function begin(kind, number, at, from) {
+/**
+ * A run that has just begun.
+ *
+ * It keeps its own solves. They used to be appended to whatever session was
+ * open, which moved your averages about for reasons that had nothing to do with
+ * how you are solving -- a five-minute sprint is not twelve solves you did on a
+ * Tuesday. What happens in a game stays in the game.
+ */
+export function begin(kind, number) {
   const shape = MODES[kind];
   if (!shape || kind === 'normal') return null;
   return {
     kind,
     number: Number.isFinite(number) ? number : shape.number.fallback,
-    startedAt: at,
-    from,          // index into the session's solves where this run begins
+    startedAt: Date.now(),
+    solves: [],
     streak: 0,     // marathon only: how many are alive right now
     bestStreak: 0,
     over: false
@@ -52,15 +61,19 @@ export function begin(kind, number, at, from) {
 }
 
 /** The solves this run has collected so far. */
-export const runSolves = (run, solves) => (run ? solves.slice(run.from) : []);
+export const runSolves = (run) => (run ? run.solves : []);
+
+/** Whether this game keeps its solves rather than the session. */
+export const ownsSolves = (run) => Boolean(run && !run.over);
 
 /**
  * Fold one finished solve into the run.
  * @returns {{ended: boolean, broke: boolean}} whether the run is over, and
  * whether this solve was the one that broke a marathon.
  */
-export function absorb(run, solve, solves) {
+export function absorb(run, solve) {
   if (!run || run.over) return { ended: false, broke: false };
+  run.solves.push(solve);
 
   if (run.kind === 'marathon') {
     const value = effective(solve);
@@ -75,7 +88,7 @@ export function absorb(run, solve, solves) {
     return { ended: false, broke: had > 0 };
   }
 
-  const done = runSolves(run, solves).length;
+  const done = run.solves.length;
   if (run.kind === 'round' && done >= run.number) {
     run.over = true;
     return { ended: true, broke: false };
@@ -97,9 +110,9 @@ export function expired(run, now) {
 export const hushed = (run) => Boolean(run && run.kind === 'blind' && !run.over);
 
 /** One line for the strip above the ring. */
-export function describe(run, solves, now) {
+export function describe(run, now) {
   if (!run) return '';
-  const done = runSolves(run, solves).length;
+  const done = run.solves.length;
 
   if (run.kind === 'marathon') {
     const bar = run.streak ? ' ' + '•'.repeat(Math.min(run.streak, 12)) : '';
@@ -135,8 +148,8 @@ export function describe(run, solves, now) {
  * What a finished run comes to.
  * @returns {{lines: [string, string][], headline: string}}
  */
-export function result(run, solves) {
-  const mine = runSolves(run, solves);
+export function result(run) {
+  const mine = run.solves;
   const shape = MODES[run.kind];
   const lines = [];
 

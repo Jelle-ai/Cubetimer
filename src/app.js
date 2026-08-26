@@ -1,4 +1,4 @@
-import { PUZZLES, nextScramble, puzzleById, randomMoveScramble, warmUp } from './scramble.js';
+import { PUZZLES, nextScramble, puzzleById, randomMoveScramble, seeded, warmUp } from './scramble.js';
 import { bluetoothAvailable, connectGanTimer, isSupported, TimerState } from './gan-timer.js';
 import {
   averageOf, best, bestAverageAt, bestAverageOf, bestMeanAt, bestMeanOf, counting, counts,
@@ -9,7 +9,11 @@ import { backupName, buildBackup, foldIn, inOrder, readBackup, summarise } from 
 import {
   bestRuns, byDay, fastest, onThisDay, recordAge, records, spellDuration, totals, without
 } from './history.js';
-import { MODES, absorb, begin, describe, expired, hushed, result, runSolves } from './modes.js';
+import { MODES, absorb, begin, describe, expired, hushed, ownsSolves, result, runSolves } from './modes.js';
+import {
+  bestOf, caseStanding, cleanPlay, dailyHistory, dailyStreak, dayStamp, duelTally,
+  recordCase, recordDaily, recordDuel, recordRun, runsOf, scoreOf, spellScore
+} from './play.js';
 import { COLOR_SLOTS, LED_COLORS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
@@ -195,6 +199,13 @@ const el = {
   modeNote: document.getElementById('mode-note'),
   modeStart: document.getElementById('mode-start'),
   modeStrip: document.getElementById('mode-strip'),
+  modeRecords: document.getElementById('mode-records'),
+  dailyCard: document.getElementById('daily-card'),
+  duelOne: document.getElementById('duel-one'),
+  duelTwo: document.getElementById('duel-two'),
+  duelStart: document.getElementById('duel-start'),
+  duelNote: document.getElementById('duel-note'),
+  roulette: document.getElementById('roulette'),
   split: document.getElementById('split'),
   drillOpen: document.getElementById('drill-open'),
   drillSheet: document.getElementById('drill-sheet'),
@@ -616,7 +627,7 @@ function renderSolves() {
   el.solves.innerHTML = '';
   if (hushed(run)) {
     el.empty.hidden = false;
-    el.empty.textContent = `Verrassingsmodus — nog ${Math.max(0, run.number - runSolves(run, solves).length)} te gaan.`;
+    el.empty.textContent = `Verrassingsmodus — nog ${Math.max(0, run.number - runSolves(run).length)} te gaan.`;
     return;
   }
 
@@ -998,10 +1009,6 @@ function renderSessions() {
 }
 
 function useSession(index) {
-  // Picking a session by hand is how you stop drilling; startCase sets it again
-  // straight afterwards.
-  drilling = null;
-  keepScramble = false;
   saveFile.active = index;
   syncTargetUi();
   solves = currentSession().solves;
@@ -1397,6 +1404,246 @@ function sayHowThatWent(then, now) {
     : `Deze scramble deed je op ${when} in ${formatTime(before)} — ${gap} trager nu.`);
 }
 
+/* ---------- games ----------
+
+   Everything under this heading keeps its own times. None of it goes into a
+   session, and none of it is visible anywhere but the game it belongs to. */
+
+const play = () => saveFile.play;
+
+/** Where a game solve lands: on the run, and in the strip above the ring. */
+function finishGameSolve(solve) {
+  const { ended, broke } = absorb(run, solve);
+  if (broke) cue('miss');
+  renderMode();
+  showTime(effective(solve));
+  if (!keepScramble) newScramble(); else keepScramble = false;
+
+  if (!ended) return;
+  clearInterval(runTicker);
+  runTicker = null;
+  keepRun();
+  showResult();
+}
+
+/** A finished run, remembered under its own game. */
+function keepRun() {
+  if (!run) return;
+  const score = scoreOf(run.kind, run.solves, run.bestStreak);
+  recordRun(play(), run.kind, run.number, run.solves, score);
+  persist();
+}
+
+/* ---------- the scramble of the day ----------
+
+   One scramble, one attempt, the same for everyone who opens the app today. No
+   server: the date is the seed, and the same seed gives the same moves on every
+   device. That makes it a random-move scramble rather than a random-state one,
+   which is a real difference -- some positions turn up more often than others.
+   The official scrambler works by solving a random position and its answer
+   cannot be made to come out the same twice, so for a thing that has to be
+   shared this is the honest trade. */
+
+let dailyRun = false;
+
+const dailyScramble = (day) => randomMoveScramble('333', seeded(`cubetimer:${day}`));
+
+function startDaily() {
+  const day = dayStamp();
+  if (play().daily[day]) { toast('Je hebt hem vandaag al gedaan.'); return; }
+
+  stopRun(true);
+  drilling = null;
+  duel = null;
+  dailyRun = true;
+  scramble = dailyScramble(day);
+  scrambleToken++;
+  keepScramble = true;
+  delete el.scramble.dataset.loading;
+  el.scramble.dataset.official = 'false';
+  rematch = null;
+  renderRematch();
+  renderScramble();
+  renderMode();
+  el.modeSheet.close();
+  toast('Scramble van de dag — je hebt één poging.');
+}
+
+function finishDaily(solve) {
+  dailyRun = false;
+  keepScramble = false;
+  const day = dayStamp();
+  recordDaily(play(), day, solve);
+  persist();
+  showTime(effective(solve));
+  newScramble();
+  renderMode();
+
+  const streak = dailyStreak(play());
+  cue('record');
+  if (settings.celebrate) confetti('burst');
+  toast(`${formatSolve(solve)} voor vandaag — ${streak} ${streak === 1 ? 'dag' : 'dagen'} op rij.`);
+}
+
+function renderDaily() {
+  const day = dayStamp();
+  const done = play().daily[day];
+  const streak = dailyStreak(play());
+  const history = dailyHistory(play(), 10);
+
+  const card = document.createElement('div');
+  const head = document.createElement('div');
+  head.className = 'daily-head';
+  const title = document.createElement('b');
+  title.textContent = 'Scramble van de dag';
+  const run = document.createElement('small');
+  run.textContent = streak ? `${streak} ${streak === 1 ? 'dag' : 'dagen'} op rij` : 'nog niet begonnen';
+  head.append(title, run);
+
+  const body = document.createElement('p');
+  body.className = 'records-line';
+  body.textContent = done
+    ? `Vandaag: ${formatSolve(done)}. Morgen weer een nieuwe.`
+    : 'Eén scramble, één poging, voor iedereen dezelfde. Vergelijk gerust met een vriend.';
+
+  const action = document.createElement('button');
+  action.type = 'button';
+  action.className = 'daily-go';
+  action.textContent = done ? 'Al gedaan vandaag' : 'Doe de dagscramble';
+  action.disabled = Boolean(done);
+  action.addEventListener('click', startDaily);
+
+  card.append(head, body, action);
+
+  if (history.length) {
+    const list = document.createElement('div');
+    list.className = 'round-lines';
+    for (const entry of history) {
+      const row = document.createElement('div');
+      const when = document.createElement('span');
+      const date = new Date(`${entry.day}T12:00:00`);
+      when.textContent = entry.day === day ? 'vandaag' : date.toLocaleDateString('nl-BE');
+      const figure = document.createElement('b');
+      figure.textContent = formatSolve(entry);
+      row.append(when, figure);
+      list.append(row);
+    }
+    card.append(list);
+  }
+
+  el.dailyCard.replaceChildren(card);
+}
+
+/* ---------- duel ----------
+
+   Two people, one device, taking turns. Nothing of it touches either person's
+   times: it is a game, and the only thing worth keeping is who won. */
+
+let duel = null;
+
+function startDuel() {
+  const names = [el.duelOne.value.trim() || 'Jij', el.duelTwo.value.trim() || 'De ander'];
+  stopRun(true);
+  drilling = null;
+  dailyRun = false;
+  duel = { names, turn: 0, score: [0, 0], best: [null, null], round: 1, of: 5 };
+  keepScramble = false;
+  newScramble();
+  renderMode();
+  el.modeSheet.close();
+  toast(`${names[0]} begint. Best of ${duel.of}.`);
+}
+
+function finishDuelSolve(solve) {
+  const who = duel.turn;
+  const value = effective(solve);
+  if (Number.isFinite(value) && (duel.best[who] === null || value < duel.best[who])) {
+    duel.best[who] = value;
+  }
+  duel.pending = duel.pending || [];
+  duel.pending[who] = value;
+
+  showTime(value);
+  newScramble();
+
+  // Both have gone: whoever was quicker takes the round.
+  if (who === 1) {
+    const [a, b] = duel.pending;
+    if (Number.isFinite(a) && Number.isFinite(b) && a !== b) duel.score[a < b ? 0 : 1]++;
+    duel.pending = [];
+    duel.round++;
+    duel.turn = 0;
+  } else {
+    duel.turn = 1;
+  }
+
+  const needed = Math.floor(duel.of / 2) + 1;
+  if (duel.score[0] >= needed || duel.score[1] >= needed || duel.round > duel.of) {
+    endDuel();
+    return;
+  }
+  renderMode();
+}
+
+function endDuel() {
+  const { names, score, best } = duel;
+  recordDuel(play(), names, score, best);
+  persist();
+  const tally = duelTally(play(), names);
+  const winner = score[0] === score[1] ? null : names[score[0] > score[1] ? 0 : 1];
+  duel = null;
+  renderMode();
+
+  el.roundTitle.textContent = 'Duel';
+  const big = document.createElement('p');
+  big.className = 'round-headline';
+  big.textContent = `${score[0]} – ${score[1]}`;
+
+  const list = document.createElement('div');
+  list.className = 'round-lines';
+  for (const [label, value] of [
+    ['Winnaar', winner || 'gelijkspel'],
+    [`Beste van ${names[0]}`, formatTime(best[0])],
+    [`Beste van ${names[1]}`, formatTime(best[1])],
+    ['Onderling', `${tally[0]} – ${tally[1]}`]
+  ]) {
+    const row = document.createElement('div');
+    const name = document.createElement('span');
+    name.textContent = label;
+    const figure = document.createElement('b');
+    figure.textContent = value;
+    row.append(name, figure);
+    list.append(row);
+  }
+
+  el.roundBody.replaceChildren(big, list);
+  cue('record');
+  if (settings.celebrate) confetti('party');
+  openSheet(el.roundSheet);
+}
+
+el.duelStart.addEventListener('click', startDuel);
+
+/* ---------- roulette ----------
+
+   For when you do not know what to practise and just feel like turning. */
+
+const DARES = [
+  'met één hand', 'zonder je pols te draaien', 'met je ogen dicht na de inspectie',
+  'zo langzaam mogelijk zonder te stoppen', 'drie keer achter elkaar, dezelfde scramble',
+  'met de kubus op je knie', 'zonder naar de tijd te kijken', 'zo snel als je durft'
+];
+
+el.roulette.addEventListener('click', () => {
+  el.roulette.blur();
+  const puzzle = PUZZLES[Math.floor(Math.random() * PUZZLES.length)];
+  const dare = DARES[Math.floor(Math.random() * DARES.length)];
+  if (puzzle.id !== currentSession().puzzle) usePuzzle(puzzle.id);
+  else newScramble();
+  el.modeSheet.close();
+  toast(`${puzzle.name}, ${dare}.`);
+});
+
 /* ---------- modes ----------
 
    A run is a shape laid over the ordinary session: the solves land where they
@@ -1409,11 +1656,24 @@ let runTicker = null;
 let picked = 'normal';
 
 function renderMode() {
-  const text = describe(run, solves, Date.now());
+  let text = describe(run, Date.now());
+  let kind = run?.kind || '';
+
+  if (duel) {
+    text = `${duel.names[duel.turn]} is aan zet — ${duel.score[0]}–${duel.score[1]}, ronde ${duel.round} van ${duel.of}`;
+    kind = 'duel';
+  } else if (dailyRun) {
+    text = 'Scramble van de dag — één poging';
+    kind = 'daily';
+  } else if (drilling) {
+    text = `Trainen — ${drilling.id}`;
+    kind = 'drill';
+  }
+
   el.modeStrip.textContent = text;
   el.modeStrip.hidden = !text;
-  el.modeStrip.dataset.kind = run?.kind || '';
-  el.modeOpen.dataset.active = String(Boolean(run));
+  el.modeStrip.dataset.kind = kind;
+  el.modeOpen.dataset.active = String(Boolean(run || duel || dailyRun));
   el.body.dataset.hushed = String(hushed(run));
 }
 
@@ -1429,6 +1689,7 @@ function watchRunClock() {
       clearInterval(runTicker);
       runTicker = null;
       renderMode();
+      keepRun();
       render();
       showResult();
       return;
@@ -1440,8 +1701,11 @@ function watchRunClock() {
 
 function showResult() {
   if (!run) return;
-  const { headline, lines } = result(run, solves);
+  const { headline, lines } = result(run);
   el.roundTitle.textContent = MODES[run.kind].name;
+
+  const record = bestOf(play(), run.kind);
+  const mine = scoreOf(run.kind, run.solves, run.bestStreak);
 
   const big = document.createElement('p');
   big.className = 'round-headline';
@@ -1459,9 +1723,19 @@ function showResult() {
     list.append(row);
   }
 
+  if (record) {
+    const row = document.createElement('div');
+    const name = document.createElement('span');
+    name.textContent = 'Beste ooit';
+    const figure = document.createElement('b');
+    figure.textContent = spellScore(run.kind, record.score);
+    row.append(name, figure);
+    list.append(row);
+  }
+
   const solvesLine = document.createElement('p');
   solvesLine.className = 'records-aside';
-  solvesLine.textContent = runSolves(run, solves).map(formatSolve).join('   ');
+  solvesLine.textContent = runSolves(run).map(formatSolve).join('   ');
 
   el.roundBody.replaceChildren(big, list, solvesLine);
   cue('record');
@@ -1471,31 +1745,15 @@ function showResult() {
 
 function stopRun(quietly = false) {
   const had = run;
+  // A run given up halfway is still worth keeping: a marathon of nine is a
+  // marathon of nine whether or not you carried on afterwards.
+  if (had && !had.over && had.solves.length) keepRun();
   run = null;
   clearInterval(runTicker);
   runTicker = null;
   renderMode();
   render();
   if (had && !quietly) toast(`${MODES[had.kind].name} gestopt.`);
-}
-
-/** Called once for every solve that lands, before anything is drawn. */
-function runAbsorb(solve) {
-  if (!run || run.over) return;
-  const { ended, broke } = absorb(run, solve, solves);
-  if (broke) cue('miss');
-  renderMode();
-  if (!ended) return;
-
-  clearInterval(runTicker);
-  runTicker = null;
-  // The run being over is the moment verrassingsmodus stops hiding things, and
-  // the screen was last drawn while it still was -- so it is drawn again before
-  // the result goes up over it.
-  render();
-  const last = solves[solves.length - 1];
-  if (last) showTime(effective(last));
-  showResult();
 }
 
 function renderModeList() {
@@ -1517,7 +1775,32 @@ function renderModeList() {
   }));
 }
 
+/** What this game has ever come to, inside the game and nowhere else. */
+function renderModeRecords() {
+  const kind = picked;
+  const runs = kind === 'normal' ? [] : runsOf(play(), kind).slice(0, 5);
+  if (!runs.length) { el.modeRecords.replaceChildren(); return; }
+
+  const list = document.createElement('div');
+  list.className = 'round-lines';
+  runs.forEach((entry, place) => {
+    const row = document.createElement('div');
+    const when = document.createElement('span');
+    when.textContent = `${place + 1}e · ${new Date(entry.at).toLocaleDateString('nl-BE')}`;
+    const figure = document.createElement('b');
+    figure.textContent = spellScore(kind, entry.score);
+    row.append(when, figure);
+    list.append(row);
+  });
+
+  const heading = document.createElement('h3');
+  heading.className = 'transfer-head';
+  heading.textContent = 'Je beste pogingen';
+  el.modeRecords.replaceChildren(heading, list);
+}
+
 function renderModeFields() {
+  renderModeRecords();
   const shape = MODES[picked];
   const number = shape.number || null;
   el.modeNumberField.hidden = !number;
@@ -1547,20 +1830,48 @@ el.repeatScramble.addEventListener('click', () => {
 el.modeOpen.addEventListener('click', () => {
   el.modeOpen.blur();
   picked = run?.kind || 'normal';
+  renderDaily();
   renderModeList();
   renderModeFields();
+  renderDuelNote();
   el.modeSheet.showModal();
 });
+
+function renderDuelNote() {
+  const names = [el.duelOne.value.trim(), el.duelTwo.value.trim()];
+  if (!names[0] || !names[1]) {
+    el.duelNote.textContent = 'Twee namen, om de beurt solven op hetzelfde toestel. Best of vijf.';
+    return;
+  }
+  const tally = duelTally(play(), names);
+  el.duelNote.textContent = tally[0] || tally[1]
+    ? `Onderling staat het ${tally[0]}–${tally[1]}.`
+    : 'Nog nooit tegen elkaar gespeeld.';
+}
+
+el.duelOne.addEventListener('input', renderDuelNote);
+el.duelTwo.addEventListener('input', renderDuelNote);
 
 el.modeClose.addEventListener('click', () => el.modeSheet.close());
 el.roundClose.addEventListener('click', () => el.roundSheet.close());
 
 el.modeStart.addEventListener('click', () => {
   el.modeSheet.close();
-  if (picked === 'normal') { stopRun(); return; }
+  if (picked === 'normal') {
+    drilling = null;
+    duel = null;
+    dailyRun = false;
+    keepScramble = false;
+    stopRun();
+    newScramble();
+    return;
+  }
 
   const number = Number(String(el.modeNumber.value).replace(',', '.'));
-  run = begin(picked, number, Date.now(), solves.length);
+  drilling = null;
+  duel = null;
+  dailyRun = false;
+  run = begin(picked, number);
   renderMode();
   render();
   watchRunClock();
@@ -1581,8 +1892,6 @@ let caseSet = null;   // the verified cases, loaded once
 let drillGroup = 'pll';
 let drilling = null;  // the case being drilled right now
 
-const DRILL_SESSION = { pll: 'PLL trainen', oll: 'OLL trainen' };
-
 async function loadCases() {
   if (caseSet) return caseSet;
   const [{ puzzles }, { Alg }, { usableCases, GROUPS, AUF }] = await Promise.all([
@@ -1597,56 +1906,31 @@ async function loadCases() {
   return caseSet;
 }
 
-/** The session these times belong in, made the first time it is needed. */
-function drillSession(group) {
-  const name = DRILL_SESSION[group];
-  let index = saveFile.sessions.findIndex((session) => session.name === name && session.puzzle === '333');
-  if (index < 0) {
-    saveFile.sessions.push({ name, puzzle: '333', target: null, solves: [] });
-    index = saveFile.sessions.length - 1;
-  }
-  return index;
-}
-
-/** How you are doing per case, worst first -- which is the whole point. */
-function caseStanding(group) {
-  const name = DRILL_SESSION[group];
-  const session = saveFile.sessions.find((s) => s.name === name && s.puzzle === '333');
-  const perCase = new Map();
-
-  for (const solve of counting(session?.solves || [])) {
-    if (!solve.case) continue;
-    const value = effective(solve);
-    if (!Number.isFinite(value)) continue;
-    const seen = perCase.get(solve.case) || { times: [], best: Infinity };
-    seen.times.push(value);
-    seen.best = Math.min(seen.best, value);
-    perCase.set(solve.case, seen);
-  }
-
-  return [...perCase.entries()]
-    .map(([id, seen]) => ({
-      id,
-      count: seen.times.length,
-      best: seen.best,
-      mean: seen.times.reduce((sum, t) => sum + t, 0) / seen.times.length
-    }))
-    .sort((a, b) => b.mean - a.mean);
-}
-
 /** Pick the next case: the ones you have done least, then the slowest. */
 function nextCase(cases, group) {
   const mine = cases.filter((entry) => entry.group === group);
-  const standing = new Map(caseStanding(group).map((row) => [row.id, row]));
+  const standing = new Map(caseStanding(play(), group).map((row) => [row.id, row]));
   const untried = mine.filter((entry) => !standing.has(entry.id));
   const pool = untried.length ? untried : mine;
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+/** Drill times belong to the drill, not to whatever session was open. */
+function finishDrill(solve) {
+  const entry = drilling;
+  recordCase(play(), entry.group, entry.id, solve);
+  persist();
+  showTime(effective(solve));
+  renderMode();
+
+  const next = caseSet && nextCase(caseSet.cases, entry.group);
+  if (next) startCase(next);
+}
+
 function startCase(entry) {
-  // The session first: switching sessions is how you leave the drill, so it
-  // clears `drilling`, and setting it before would undo itself.
-  useSession(drillSession(entry.group));
+  stopRun(true);
+  duel = null;
+  dailyRun = false;
   drilling = entry;
   const turn = caseSet.AUF[Math.floor(Math.random() * caseSet.AUF.length)];
   scramble = `${entry.setup}${turn ? ` ${turn}` : ''}`.trim();
@@ -1713,7 +1997,7 @@ function renderDrill() {
   }
   parts.push(actions);
 
-  const standing = caseStanding(drillGroup);
+  const standing = caseStanding(play(), drillGroup);
   if (standing.length) {
     const list = document.createElement('div');
     list.className = 'round-lines';
@@ -2608,13 +2892,26 @@ function persist() {
   toast('Deze browser bewaart niets (privémodus?). Je tijden blijven staan tot je de pagina herlaadt.');
 }
 
+/**
+ * Where a finished solve goes.
+ *
+ * A game, a drill or the daily challenge keeps its own; only ordinary solving
+ * touches your session. It used to all land in whatever session was open, which
+ * moved your averages about for reasons that had nothing to do with how you are
+ * solving.
+ */
 function addSolve(ms, marks = []) {
-  const previousBest = best(counting(solves));
   const solve = { ms, penalty: pendingPenalty, scramble, at: Date.now() };
   if (marks.length) solve.splits = marks;
-  if (drilling) solve.case = drilling.id;
-  solves.push(solve);
   pendingPenalty = 'none';
+
+  if (drilling) { finishDrill(solve); return; }
+  if (dailyRun) { finishDaily(solve); return; }
+  if (duel) { finishDuelSolve(solve); return; }
+  if (ownsSolves(run)) { finishGameSolve(solve); return; }
+
+  const previousBest = best(counting(solves));
+  solves.push(solve);
   persist();
   if (keepScramble) keepScramble = false;
   else newScramble();
@@ -2625,16 +2922,9 @@ function addSolve(ms, marks = []) {
   renderRematch();
   delete el.repeatScramble.dataset.active;
 
-  runAbsorb(solves[solves.length - 1]);
   judgeSolve(previousBest);
 
   if (rematchWas) sayHowThatWent(rematchWas, solves[solves.length - 1]);
-
-  // Straight on to the next case, so drilling is one press per repetition.
-  if (drilling && caseSet) {
-    const entry = nextCase(caseSet.cases, drilling.group);
-    if (entry) startCase(entry);
-  }
 
   // The check comes after the celebration, so a record still gets its party
   // even when the camera is about to turn it into a DNF.
