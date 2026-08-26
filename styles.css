@@ -1945,6 +1945,32 @@ body[data-miss] .halo {
 
 .transfer-head:first-of-type { margin-top: .6rem; }
 
+/* ---------- splits ----------
+
+   Under the ring rather than on it: reaching for it must never be reaching for
+   the thing that stops the clock. */
+
+.split {
+  position: absolute;
+  left: 50%;
+  bottom: -1.6rem;
+  transform: translateX(-50%);
+  min-height: 40px;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  background: var(--card-solid);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--edge);
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  z-index: 3;
+}
+
+.split:disabled { opacity: .45; }
+.detail-splits { margin: .5rem 0 .2rem; }
+
 /* ---------- the big display ----------
 
    For a table across a room: the scramble and the time, and nothing to read

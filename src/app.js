@@ -195,6 +195,8 @@ const el = {
   modeNote: document.getElementById('mode-note'),
   modeStart: document.getElementById('mode-start'),
   modeStrip: document.getElementById('mode-strip'),
+  split: document.getElementById('split'),
+  splitsSwitch: document.getElementById('set-splits'),
   metroOpen: document.getElementById('metro-open'),
   metroSheet: document.getElementById('metro-sheet'),
   metroClose: document.getElementById('metro-close'),
@@ -228,6 +230,7 @@ const el = {
   quickMove: document.getElementById('quick-move'),
   detailMove: document.getElementById('detail-move'),
   detailSkip: document.getElementById('detail-skip'),
+  detailSplits: document.getElementById('detail-splits'),
   detailStar: document.getElementById('detail-star'),
   quickSkip: document.getElementById('quick-skip'),
   quickStar: document.getElementById('quick-star'),
@@ -399,6 +402,7 @@ function cue(name) {
 function setPhase(next) {
   phase = next;
   el.body.dataset.phase = next;
+  renderSplit();
 }
 
 function showTime(ms) {
@@ -1554,6 +1558,60 @@ el.modeStart.addEventListener('click', () => {
   toast(`${MODES[picked].name} begonnen.`);
 });
 
+/* ---------- splits ----------
+
+   Four stretches of one solve, timed by tapping between them. Only possible
+   when you are timing by hand: on the mat, taking a hand off to mark a stage is
+   the same gesture as stopping. */
+
+const PHASES = {
+  333: ['cross', 'F2L', 'OLL', 'PLL'],
+  other: ['deel 1', 'deel 2', 'deel 3', 'deel 4']
+};
+
+const phaseNames = (puzzle) => PHASES[puzzle] || PHASES.other;
+
+let splitTimes = [];
+
+function renderSplit() {
+  const on = settings.splits && phase === 'running' && !device;
+  el.split.hidden = !on;
+  if (!on) return;
+  const names = phaseNames(currentSession().puzzle);
+  el.split.textContent = splitTimes.length < names.length - 1
+    ? `${names[splitTimes.length]} klaar`
+    : names[names.length - 1];
+  el.split.disabled = splitTimes.length >= names.length - 1;
+}
+
+function takeSplit() {
+  if (!settings.splits || phase !== 'running' || device) return;
+  const names = phaseNames(currentSession().puzzle);
+  if (splitTimes.length >= names.length - 1) return;
+  splitTimes.push(performance.now() - startedAt);
+  tone(880, 0.04, 0.05);
+  renderSplit();
+}
+
+el.split.addEventListener('pointerdown', (event) => {
+  event.stopPropagation();
+  event.preventDefault();
+  takeSplit();
+});
+
+/** How long each stretch took, from the marks and the total. */
+function phaseSpans(solve, puzzle) {
+  if (!Array.isArray(solve.splits) || !solve.splits.length) return [];
+  const names = phaseNames(puzzle);
+  const marks = [...solve.splits, solve.ms];
+  let previous = 0;
+  return marks.map((mark, index) => {
+    const span = mark - previous;
+    previous = mark;
+    return { name: names[index] || `deel ${index + 1}`, ms: span };
+  });
+}
+
 /* ---------- metronome ----------
 
    A tick at a fixed tempo, to hear whether your turning is even. It carries on
@@ -1860,10 +1918,36 @@ function todayBlock() {
   return recordBlock('Vandaag', [strip, versus]);
 }
 
+/** What each stretch usually costs you, over every solve that has marks. */
+function splitsBlock() {
+  const puzzle = currentSession().puzzle;
+  const rows = counting(solves).map((solve) => phaseSpans(solve, puzzle)).filter((spans) => spans.length);
+  if (rows.length < 3) return null;
+
+  const names = phaseNames(puzzle);
+  const list = document.createElement('div');
+  list.className = 'round-lines';
+
+  names.forEach((name, index) => {
+    const times = rows.map((spans) => spans[index]?.ms).filter(Number.isFinite);
+    if (!times.length) return;
+    const mean = times.reduce((sum, t) => sum + t, 0) / times.length;
+    const row = document.createElement('div');
+    const label = document.createElement('span');
+    label.textContent = name;
+    const figure = document.createElement('b');
+    figure.textContent = formatTime(mean);
+    row.append(label, figure);
+    list.append(row);
+  });
+
+  return recordBlock(`Gemiddeld per deel (${rows.length} solves)`, list);
+}
+
 function renderRecords() {
   el.recordsTitle.textContent = `Records — ${currentSession().name}`;
   const blocks = [
-    todayBlock(), podiumBlock(), recordHistoryBlock(), runsBlock(),
+    todayBlock(), podiumBlock(), splitsBlock(), recordHistoryBlock(), runsBlock(),
     whatIfBlock(), longAgoBlock(), counterBlock()
   ].filter(Boolean);
 
@@ -2114,6 +2198,18 @@ function fillDetail() {
   el.detailTime.textContent = formatSolve(solve);
   el.detailMeta.textContent = describeMoment(solve.at);
   el.detailScramble.textContent = solve.scramble || 'Niet bewaard bij deze tijd.';
+
+  const spans = phaseSpans(solve, currentSession().puzzle);
+  el.detailSplits.hidden = !spans.length;
+  el.detailSplits.replaceChildren(...spans.map(({ name, ms }) => {
+    const row = document.createElement('div');
+    const label = document.createElement('span');
+    label.textContent = name;
+    const figure = document.createElement('b');
+    figure.textContent = formatTime(ms);
+    row.append(label, figure);
+    return row;
+  }));
   el.detailNote.value = solve.note || '';
   el.detailPlus2.dataset.active = String(solve.penalty === '+2');
   el.detailDnf.dataset.active = String(solve.penalty === 'DNF');
@@ -2309,9 +2405,11 @@ function persist() {
   toast('Deze browser bewaart niets (privémodus?). Je tijden blijven staan tot je de pagina herlaadt.');
 }
 
-function addSolve(ms) {
+function addSolve(ms, marks = []) {
   const previousBest = best(counting(solves));
-  solves.push({ ms, penalty: pendingPenalty, scramble, at: Date.now() });
+  const solve = { ms, penalty: pendingPenalty, scramble, at: Date.now() };
+  if (marks.length) solve.splits = marks;
+  solves.push(solve);
   pendingPenalty = 'none';
   persist();
   if (keepScramble) keepScramble = false;
@@ -2678,6 +2776,8 @@ function startRunning() {
   settleInspection();
   setPhase('running');
   startedAt = performance.now();
+  splitTimes = [];
+  renderSplit();
 
   // Opened now so it is ready the moment the cube lands; a solve is long enough
   // that nobody waits for it.
@@ -2716,7 +2816,11 @@ function stopRunning(ms) {
   if (settings.countUp && elapsed > 500) countUpTo(elapsed);
   else showTime(elapsed);
 
-  addSolve(Math.round(elapsed));
+  // Marks past the finish are a slip of the finger, not a stage.
+  const marks = splitTimes.filter((mark) => mark < elapsed).map(Math.round);
+  splitTimes = [];
+  renderSplit();
+  addSolve(Math.round(elapsed), marks);
 }
 
 function beginHold() {
@@ -2799,6 +2903,11 @@ document.addEventListener('keydown', (event) => {
     if (selecting) setSelecting(false);
     disarmDelete();
     cancelInspection();
+    return;
+  }
+  if (event.code === 'Enter' && phase === 'running') {
+    event.preventDefault();
+    takeSplit();
     return;
   }
   if (event.code !== 'Space' || event.repeat) return;
@@ -3834,6 +3943,7 @@ function applySettings() {
   else letSleep();
   setDecimals(settings.decimals);
   if (!settings.inspection) cancelInspection();
+  renderSplit();
   renderScramble();
   setHint(currentHint());
   if (phase === 'idle' && !deleteArmed) showTime(0);
@@ -3954,6 +4064,7 @@ const switches = [
   bindSwitch('set-celebrate', 'celebrate'),
   bindSwitch('set-highlight', 'highlight'),
   bindSwitch('set-camera', 'camera'),
+  bindSwitch('set-splits', 'splits'),
   bindSwitch('set-practice', 'practice')
 ];
 

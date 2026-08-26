@@ -436,6 +436,22 @@ kies een tweede sessie en elke waarde krijgt een kolom per sessie.
 Tijden uit een oudere versie van de app worden bij het eerste bezoek automatisch als
 "Sessie 1" overgenomen.
 
+## Splits
+
+Zet **splits** aan in de instellingen en er verschijnt tijdens je solve een knopje onder
+de ring. Tik het (of druk op enter) als je cross klaar is, als je F2L klaar is, en als je
+OLL klaar is. De vierde streep is het stoppen zelf.
+
+Het knopje staat onder de ring en niet erop, want grijpen naar de splitknop mag nooit
+grijpen naar het ding zijn dat de klok stopt. Een tik erop laat de tijd gewoon doorlopen.
+
+Achteraf staan de vier stukken in het detailvenster van die solve, en bij **records en
+terugblik** staat wat elk deel je gemiddeld kost over alle solves waarin je gesplitst hebt.
+Op een andere puzzel dan 3x3 heten ze deel 1 tot en met 4.
+
+Dit werkt alleen als je zelf timet. Op je matje is een hand optillen om een fase te
+markeren precies hetzelfde gebaar als stoppen, dus daar is het uit.
+
 ## Metronoom, grote weergave, toetsen
 
 Drie kleine dingen, alle drie in de instellingen.

@@ -69,6 +69,7 @@
         <circle id="progress" class="halo-progress-arc" cx="50" cy="50" r="47"/>
       </svg>
       <div id="time" class="time">0.00</div>
+      <button type="button" id="split" class="split" hidden></button>
     </div>
 
     <p id="hint" class="hint"></p>
@@ -568,6 +569,7 @@
     <div class="detail-block">
       <span class="detail-label">Scramble</span>
       <p id="detail-scramble" class="detail-scramble">–</p>
+      <div id="detail-splits" class="round-lines detail-splits" hidden></div>
     </div>
 
     <label class="field">
@@ -648,6 +650,15 @@
         <small>Verbergen achter drie bolletjes</small>
       </div>
       <button type="button" class="switch" id="set-hide" role="switch" aria-checked="true" aria-label="Tijd tijdens solve"><span></span></button>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Splits</span>
+        <small>Tik tijdens je solve op de knop of druk op enter om cross, F2L, OLL en PLL
+          apart te meten. Werkt alleen als je zelf timet, niet met je matje</small>
+      </div>
+      <button type="button" class="switch" id="set-splits" role="switch" aria-checked="false" aria-label="Splits"><span></span></button>
     </section>
 
     <section class="setting">

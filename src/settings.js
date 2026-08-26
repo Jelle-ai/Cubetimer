@@ -36,6 +36,7 @@ const DEFAULTS = {
   countUp: true,
   wakeLock: true,
   camera: false,
+  splits: false,
   // The four corners of the mat in the camera's picture, clockwise from the
   // top left. A square by default, because a camera pointed straight down at a
   // mat sees a square; every other angle sees a trapezium, so the corners move
@@ -60,7 +61,7 @@ const SWITCHES = ['inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'hi
 
 // Switches that start off rather than on, so "anything but false is true" --
 // the rule the ones above use -- would turn them on by mistake.
-const OPT_IN = ['camera'];
+const OPT_IN = ['camera', 'splits'];
 
 function clampNumber(value, low, high, fallback) {
   const number = Math.round(Number(value));
