@@ -1945,6 +1945,37 @@ body[data-miss] .halo {
 
 .transfer-head:first-of-type { margin-top: .6rem; }
 
+/* ---------- the big display ----------
+
+   For a table across a room: the scramble and the time, and nothing to read
+   that is not one of those two. */
+
+body[data-big="true"] .bar,
+body[data-big="true"] #panel,
+body[data-big="true"] .puzzles,
+body[data-big="true"] .preview,
+body[data-big="true"] .insight,
+body[data-big="true"] .mode-strip,
+body[data-big="true"] .scramble-tools { display: none !important; }
+
+body[data-big="true"] .shell { grid-template-columns: 1fr; padding: 1rem; }
+body[data-big="true"] .stage { max-width: none; }
+body[data-big="true"] .scramble { font-size: clamp(1.1rem, 3.2vw, 2.4rem); line-height: 1.35; }
+/* The ring is sized by `width`, not `max-width`, so raising the cap alone left
+   it at its everyday 300px while the digits grew past it. Both are set here,
+   from the same two numbers, and the digits at a fraction of the ring so "0.00"
+   stays inside the circle at any shape of screen. */
+body[data-big="true"] .halo { width: min(84vw, 66vh); max-width: none; }
+body[data-big="true"] .time { font-size: min(29vw, 23vh); }
+body[data-big="true"] .hint { font-size: 1rem; }
+
+.keys-body { display: flex; flex-direction: column; gap: 1rem; }
+.keys-body .round-lines div { align-items: baseline; }
+.keys-body .round-lines b { flex: 0 0 auto; }
+.keys-body .round-lines span { text-align: right; color: var(--muted); font-size: .82rem; }
+
+#metro-toggle[data-active="true"] { background: color-mix(in srgb, var(--led) 20%, transparent); color: var(--ink); }
+
 /* ---------- modes ---------- */
 
 .mode-strip {

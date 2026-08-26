@@ -199,7 +199,7 @@
     </div>
 
     <h3 class="transfer-head">Van een ander toestel</h3>
-    <p id="transfer-there" class="import-note">Kies het bestand dat je op je andere toestel bewaard hebt.</p>
+    <p id="transfer-there" class="import-note">Kies het bestand dat je op je andere toestel bewaard hebt. Een export uit csTimer werkt hier ook.</p>
     <input type="file" id="transfer-file" accept=".json,application/json,text/plain" class="visually-hidden">
     <div class="detail-actions">
       <button type="button" id="transfer-pick">Bestand kiezen</button>
@@ -403,6 +403,39 @@
     <div class="detail-actions">
       <button type="button" id="mode-start">Beginnen</button>
     </div>
+  </div>
+</dialog>
+
+<dialog id="metro-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Metronoom</h2>
+      <button type="button" id="metro-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+
+    <p class="detail-meta">Een tik op een vast tempo, om je draaisnelheid gelijkmatig te
+      leren houden. Loopt door terwijl je solvet.</p>
+
+    <p id="metro-figure" class="round-headline">120</p>
+    <label class="crop-row">
+      <span>Tempo</span>
+      <input type="range" id="metro-speed" min="30" max="300" step="5" value="120" aria-label="Tikken per minuut">
+      <output id="metro-unit">tpm</output>
+    </label>
+
+    <div class="detail-actions">
+      <button type="button" id="metro-toggle">Aanzetten</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="keys-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Toetsen en gebaren</h2>
+      <button type="button" id="keys-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+    <div id="keys-body" class="keys-body"></div>
   </div>
 </dialog>
 
@@ -749,9 +782,35 @@
 
     <section class="setting">
       <div class="setting-label">
+        <span>Metronoom</span>
+        <small>Een tik op een vast tempo terwijl je draait</small>
+      </div>
+      <button type="button" id="metro-open" class="text-button">openen</button>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Grote weergave</span>
+        <small>Alleen de scramble en de tijd, groot genoeg voor aan de andere kant van de
+          kamer. Escape brengt je terug</small>
+      </div>
+      <button type="button" id="big-open" class="text-button">aanzetten</button>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
+        <span>Toetsen en gebaren</span>
+        <small>Wat spatie, escape en een veeg allemaal doen</small>
+      </div>
+      <button type="button" id="keys-open" class="text-button">bekijken</button>
+    </section>
+
+    <section class="setting">
+      <div class="setting-label">
         <span>Naar een ander toestel</span>
         <small>Alles in één bestand: sessies, tijden, scrambles en voorkeuren. Samenvoegen
-          in plaats van overschrijven, dus je kunt heen en weer</small>
+          in plaats van overschrijven, dus je kunt heen en weer. Leest ook een export uit
+          csTimer</small>
       </div>
       <button type="button" id="transfer-open" class="text-button">openen</button>
     </section>

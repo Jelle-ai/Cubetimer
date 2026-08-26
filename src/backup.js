@@ -50,8 +50,71 @@ export function backupName(when = new Date()) {
 const isSolve = (solve) => solve && typeof solve.ms === 'number' && Number.isFinite(solve.ms);
 
 /**
+ * csTimer names its puzzles its own way. Only the ones this app has a session
+ * for are worth translating; the rest land on 3x3, which is wrong but visible
+ * and one tap to correct.
+ */
+const CSTIMER_PUZZLES = {
+  '333': '333', '222': '222', '444': '444',
+  pyrm: 'pyra', pyra: 'pyra', skb: 'skewb', mgmp: 'minx', minx: 'minx'
+};
+
+/**
+ * A csTimer export, which is a different shape entirely: one array per session
+ * named session1, session2, and the names hidden in a JSON string inside the
+ * properties -- csTimer's doing rather than ours.
+ *
+ * @returns {object|null} null when this is simply not one of those.
+ */
+function readCsTimer(data) {
+  const keys = Object.keys(data).filter((key) => /^session\d+$/.test(key));
+  if (!keys.length) return null;
+
+  let named = {};
+  try {
+    named = JSON.parse(data.properties?.sessionData || '{}');
+  } catch { /* names are a nicety; the times are the point */ }
+
+  const sessions = [];
+  for (const key of keys.sort((a, b) => Number(a.slice(7)) - Number(b.slice(7)))) {
+    const rows = Array.isArray(data[key]) ? data[key] : [];
+    if (!rows.length) continue;
+
+    const number = key.slice(7);
+    const about = named[number] || {};
+    const solves = [];
+
+    for (const row of rows) {
+      const [mark, scramble, note, seconds] = row;
+      const penaltyMs = Number(mark?.[0]);
+      const ms = Number(mark?.[1]);
+      if (!Number.isFinite(ms)) continue;
+
+      const solve = { ms, penalty: penaltyMs === -1 ? 'DNF' : penaltyMs === 2000 ? '+2' : 'none' };
+      if (typeof scramble === 'string' && scramble.trim()) solve.scramble = scramble.trim();
+      if (typeof note === 'string' && note.trim()) solve.note = note.trim().slice(0, 80);
+      if (Number.isFinite(Number(seconds)) && Number(seconds) > 0) solve.at = Number(seconds) * 1000;
+      solves.push(solve);
+    }
+    if (!solves.length) continue;
+
+    sessions.push({
+      name: String(about.name || `csTimer ${number}`).slice(0, 40),
+      puzzle: CSTIMER_PUZZLES[about.opt?.scrType] || '333',
+      target: null,
+      solves
+    });
+  }
+  return sessions.length ? { sessions, settings: {}, saved: null } : null;
+}
+
+/**
  * Read a file back, and be plain about what is wrong with it rather than
  * throwing something a person cannot act on.
+ *
+ * A csTimer export is understood too: someone moving over should not have to
+ * retype a year of times, and it arrives here rather than at a second door
+ * because from where you stand it is the same errand.
  *
  * @returns {{sessions: object[], settings: object, saved: string|null}}
  * @throws {Error} with a sentence worth showing
@@ -65,7 +128,11 @@ export function readBackup(text) {
   }
 
   if (!data || typeof data !== 'object') throw new Error('Dit is geen leesbaar cubetimer-bestand.');
-  if (!(MARK in data)) throw new Error('Dit bestand komt niet uit Cubetimer.');
+  if (!(MARK in data)) {
+    const fromCsTimer = readCsTimer(data);
+    if (fromCsTimer) return fromCsTimer;
+    throw new Error('Dit bestand komt niet uit Cubetimer of csTimer.');
+  }
   if (Number(data[MARK]) > VERSION) {
     throw new Error('Dit bestand komt uit een nieuwere versie van de app. Werk deze eerst bij.');
   }

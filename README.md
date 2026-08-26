@@ -401,6 +401,11 @@ kun je het bestand heen en weer sturen en heb je aan beide kanten alles. Hetzelf
 twee keer inlezen verandert niets — een tijd wordt herkend aan het moment waarop hij
 gestopt is, tot op de milliseconde.
 
+Diezelfde bestandskiezer leest ook een **export uit csTimer**. Sessienamen, scrambles,
+notities, +2's, DNF's en de momenten komen mee; de puzzel wordt overgenomen waar csTimer
+hem meestuurt en valt anders terug op 3x3, wat dan zichtbaar fout staat en met één tik te
+verplaatsen is. Wie overstapt hoeft dus geen jaar tijden over te typen.
+
 Wat niet meegaat: wat de camera van je matje en je kubus geleerd heeft. De vier hoeken zijn
 tegen één camera in één kamer getekend en de zes kleuren zijn onder één lamp geleerd; die
 aan een nieuw toestel geven is het drie instellingen geven die niet kloppen. Je thema,
@@ -430,6 +435,20 @@ kies een tweede sessie en elke waarde krijgt een kolom per sessie.
 
 Tijden uit een oudere versie van de app worden bij het eerste bezoek automatisch als
 "Sessie 1" overgenomen.
+
+## Metronoom, grote weergave, toetsen
+
+Drie kleine dingen, alle drie in de instellingen.
+
+**Metronoom** — een tik op een instelbaar tempo, tussen 30 en 300 per minuut, die
+doorloopt terwijl je solvet. Dat is het enige moment waarop je er iets aan hebt. Hij stopt
+vanzelf als je de pagina wegklikt.
+
+**Grote weergave** — alles van het scherm behalve de scramble en de tijd, op een formaat
+dat je aan de andere kant van de kamer nog leest. Escape brengt je terug.
+
+**Toetsen en gebaren** — een overzichtje van wat spatie, escape, je matje en een veeg
+allemaal doen.
 
 ## Modi
 

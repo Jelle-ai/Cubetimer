@@ -195,6 +195,17 @@ const el = {
   modeNote: document.getElementById('mode-note'),
   modeStart: document.getElementById('mode-start'),
   modeStrip: document.getElementById('mode-strip'),
+  metroOpen: document.getElementById('metro-open'),
+  metroSheet: document.getElementById('metro-sheet'),
+  metroClose: document.getElementById('metro-close'),
+  metroSpeed: document.getElementById('metro-speed'),
+  metroFigure: document.getElementById('metro-figure'),
+  metroToggle: document.getElementById('metro-toggle'),
+  bigOpen: document.getElementById('big-open'),
+  keysOpen: document.getElementById('keys-open'),
+  keysSheet: document.getElementById('keys-sheet'),
+  keysClose: document.getElementById('keys-close'),
+  keysBody: document.getElementById('keys-body'),
   roundSheet: document.getElementById('round-sheet'),
   roundTitle: document.getElementById('round-title'),
   roundClose: document.getElementById('round-close'),
@@ -1543,6 +1554,128 @@ el.modeStart.addEventListener('click', () => {
   toast(`${MODES[picked].name} begonnen.`);
 });
 
+/* ---------- metronome ----------
+
+   A tick at a fixed tempo, to hear whether your turning is even. It carries on
+   through a solve on purpose -- that is the only time it is any use. */
+
+let metroTimer = null;
+
+function metroRunning() { return metroTimer !== null; }
+
+function renderMetro() {
+  const speed = Number(el.metroSpeed.value);
+  el.metroFigure.textContent = String(speed);
+  el.metroToggle.textContent = metroRunning() ? 'Uitzetten' : 'Aanzetten';
+  el.metroToggle.dataset.active = String(metroRunning());
+}
+
+function stopMetro() {
+  clearInterval(metroTimer);
+  metroTimer = null;
+  renderMetro();
+}
+
+function startMetro() {
+  stopMetro();
+  const every = 60000 / Number(el.metroSpeed.value);
+  // The first tick right away, so pressing the button is the downbeat.
+  tone(1180, 0.035, 0.05, 'square');
+  metroTimer = setInterval(() => tone(1180, 0.035, 0.05, 'square'), every);
+  renderMetro();
+}
+
+el.metroOpen.addEventListener('click', () => {
+  el.metroOpen.blur();
+  renderMetro();
+  el.metroSheet.showModal();
+});
+
+el.metroClose.addEventListener('click', () => el.metroSheet.close());
+el.metroToggle.addEventListener('click', () => (metroRunning() ? stopMetro() : startMetro()));
+el.metroSpeed.addEventListener('input', () => {
+  renderMetro();
+  if (metroRunning()) startMetro(); // retimed at once, so you hear what you drag
+});
+
+// A metronome nobody can hear the page for is worse than none.
+window.addEventListener('pagehide', stopMetro);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') stopMetro();
+});
+
+/* ---------- the big display ----------
+
+   Everything off the screen except the scramble and the time, at a size that
+   reads from the other side of a room. */
+
+function setBig(on) {
+  el.body.dataset.big = String(on);
+  if (on) {
+    el.settings.close();
+    toast('Grote weergave — druk op escape om terug te gaan.');
+  }
+}
+
+el.bigOpen.addEventListener('click', () => {
+  el.bigOpen.blur();
+  setBig(true);
+});
+
+/* ---------- what the keys and gestures do ---------- */
+
+const KEYS = [
+  ['Timer', [
+    ['Spatie vasthouden', 'Klaarzetten; loslaten start de tijd'],
+    ['Spatie', 'Stopt een lopende tijd'],
+    ['Spatie kort tikken', 'Start de inspectie, als die aanstaat'],
+    ['Escape', 'Inspectie afbreken, selectie sluiten, grote weergave uit'],
+    ['Tikken op het scherm', 'Hetzelfde als spatie, op een telefoon']
+  ]],
+  ['Op je matje', [
+    ['Handen erop en er meteen af', 'Eén keer: inspectie. Twee keer snel: laatste tijd wissen'],
+    ['Handen erop tot groen', 'Gewone start; telt nooit als een tik'],
+    ['Resetknop op de timer', 'De app volgt, maar onderbreekt nooit een lopende solve']
+  ]],
+  ['In de lijst met tijden', [
+    ['Tikken', 'Details van die solve'],
+    ['Vasthouden', 'Snelacties: +2, DNF, ★, telt niet, verplaatsen, wissen'],
+    ['Naar links vegen', 'Naar de vuilbak'],
+    ['Naar rechts vegen', 'Kort: +2. Verder door: DNF'],
+    ['selecteer', 'Meerdere tegelijk straffen, verplaatsen of wissen']
+  ]]
+];
+
+function renderKeys() {
+  el.keysBody.replaceChildren(...KEYS.map(([title, rows]) => {
+    const block = document.createElement('section');
+    block.className = 'records-block';
+    const heading = document.createElement('h3');
+    heading.textContent = title;
+    const list = document.createElement('div');
+    list.className = 'round-lines';
+    for (const [key, what] of rows) {
+      const row = document.createElement('div');
+      const name = document.createElement('b');
+      name.textContent = key;
+      const detail = document.createElement('span');
+      detail.textContent = what;
+      row.append(name, detail);
+      list.append(row);
+    }
+    block.append(heading, list);
+    return block;
+  }));
+}
+
+el.keysOpen.addEventListener('click', () => {
+  el.keysOpen.blur();
+  renderKeys();
+  el.keysSheet.showModal();
+});
+
+el.keysClose.addEventListener('click', () => el.keysSheet.close());
+
 /* ---------- records and looking back ----------
 
    Everything here is already in the save file; none of it is worth a number on
@@ -2662,6 +2795,7 @@ document.addEventListener('keydown', (event) => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
+    if (el.body.dataset.big === 'true') setBig(false);
     if (selecting) setSelecting(false);
     disarmDelete();
     cancelInspection();
@@ -4220,8 +4354,8 @@ el.pasteFile.addEventListener('change', async () => {
 
   // A whole-app backup picked here is not what this sheet is for, and reading
   // it as a list of times would find nothing. Say where it belongs instead.
-  if (/"cubetimer"\s*:/.test(picked.text)) {
-    el.pasteNote.textContent = 'Dit is een heel Cubetimer-bestand. Gebruik "naar een ander toestel" — daar blijven je sessies en scrambles heel.';
+  if (/"cubetimer"\s*:/.test(picked.text) || /"session1"\s*:/.test(picked.text)) {
+    el.pasteNote.textContent = 'Dit is een heel bestand met sessies erin. Gebruik "naar een ander toestel" — daar blijven je sessies, scrambles en notities heel.';
     return;
   }
 
