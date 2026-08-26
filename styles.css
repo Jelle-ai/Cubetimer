@@ -806,10 +806,23 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
 .device-details code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .device-hint { margin: .6rem 0 0; color: var(--muted); line-height: 1.45; }
 
-/* Stack label and control once the row gets cramped. */
+/* Stack label and control once the row gets cramped -- but only the rows whose
+   control actually needs the width. Stacking every one of them made a plain
+   on/off setting three rows tall, and a list of twenty of those is most of why
+   the settings were unreadable on a phone. A switch sits beside its label. */
 @media (max-width: 480px) {
-  .setting { flex-direction: column; align-items: stretch; gap: .55rem; }
   .setting-label small { display: block; }
+  .setting:has(.segmented),
+  .setting:has(.swatches),
+  .setting:has(select),
+  .setting:has(input[type='text']),
+  .setting:has(input[type='number']),
+  .setting:has(.color-slots),
+  .setting:has(.move-new) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: .55rem;
+  }
   .segmented, .swatches { align-self: flex-start; }
 }
 
@@ -2836,4 +2849,157 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
 
 @media (max-width: 1179px) {
   .rail { box-shadow: 0 0 40px -8px rgba(0, 0, 0, .35); }
+}
+
+/* ---------- a slider you can actually drag ----------
+
+   The metronome's speed was a bare native range: sixteen pixels tall and half
+   the width of the sheet, which is a fiddle with a mouse and close to
+   impossible with a thumb. */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2.2rem;
+  background: none;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: .45rem;
+  border-radius: 999px;
+  background: var(--sunken);
+}
+
+input[type='range']::-moz-range-track {
+  height: .45rem;
+  border-radius: 999px;
+  background: var(--sunken);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: -.53rem;
+  border-radius: 50%;
+  background: var(--led);
+  border: 3px solid var(--card-solid, #fff);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, .28);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--led);
+  border: 3px solid var(--card-solid, #fff);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, .28);
+}
+
+input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offset: 4px; }
+
+/* ---------- room for a thumb ----------
+
+   Measured rather than guessed: everything interactive was swept on an
+   emulated phone and anything under forty pixels either way is grown here.
+   Only on a touch screen -- with a mouse the same controls are fine small, and
+   growing them everywhere would push the desktop layout about for nothing. */
+@media (pointer: coarse) {
+  .icon-button { width: 44px; min-width: 44px; height: 44px; }
+  .pill { min-height: 42px; }
+
+  /* The metronome slider and the mat's corner handles are dragged, not tapped,
+     so they get more room than a tap target would need. */
+  input[type='range'] { height: 2.75rem; }
+  .crop-handle { width: 42px; height: 42px; margin: -21px 0 0 -21px; }
+
+  /* Rows of small choosers: theme, font, skin, and the colour wells beside
+     them. */
+  .choice button,
+  .segmented button { min-height: 42px; }
+  .colour-field input[type='color'],
+  input[type='color'] { min-height: 40px; }
+  .swatch { width: 40px; height: 40px; }
+
+  /* Full-width rows are easy to hit sideways, but still want a thumb's height. */
+  .make-set,
+  .record-run button,
+  .records-block .stats-row,
+  .stats-row { min-height: 42px; }
+
+  /* The little word-buttons: under the scramble, over the times list, and in
+     the set builder's tools. Padding rather than height, so they stay words. */
+  .scramble-tools .link,
+  .session-tools .link,
+  .set-tools .link,
+  .text-button {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    padding: .3rem .55rem;
+  }
+
+  .session-tools { gap: .1rem; }
+
+  .field-select,
+  select { min-height: 42px; }
+
+  .chip, .cube-chip { min-height: 40px; }
+  .colour-swatches i { width: 30px; height: 30px; }
+
+  /* Buttons that sit inside a list row, like "nog eens" on a bad solve. */
+  .worst-row .tiny { min-height: 36px; padding: .3rem .6rem; }
+
+  /* A row of the times list is a tap target in its own right. */
+  .solves-slot .solve { min-height: 52px; }
+}
+
+/* ---------- settings in groups ----------
+
+   The tabs stay put while the group under them scrolls, so you can always see
+   which handful of settings you are looking at and step sideways to another. */
+.settings-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -1.25rem .2rem;
+  padding: .1rem 1.25rem .5rem;
+  background: linear-gradient(var(--card-solid) 76%, transparent);
+  /* One line that slides sideways rather than three lines of chips: the tabs
+     are meant to cost a strip of the sheet, not a third of it. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.settings-tabs::-webkit-scrollbar { display: none; }
+.settings-tabs .chip { flex: 0 0 auto; }
+
+/* The sheet is a flex column, so without this the strip is the thing that gives
+   way when the settings under it are tall -- and it was being squashed to a row
+   of chip-tops. */
+.settings-tabs { flex: 0 0 auto; }
+
+.settings-about {
+  margin: .1rem 0 0;
+  font-size: .76rem;
+  color: var(--muted);
+}
+
+/* The first setting of a group has nothing above it to be divided from. */
+.settings-group > .setting:first-of-type { border-top: 0; }
+
+/* With every group shown at once they need telling apart again. */
+.settings-groups[data-all='true'] .settings-group + .settings-group {
+  margin-top: 1.1rem;
+  padding-top: .5rem;
+  border-top: 2px solid var(--line);
+}
+
+.settings-groups[data-all='true'] .settings-about {
+  font-weight: 600;
+  color: var(--ink-soft, var(--muted));
 }

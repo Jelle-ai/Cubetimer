@@ -764,341 +764,334 @@
       <h2>Instellingen</h2>
       <button value="close" class="icon-button" aria-label="Sluiten">✕</button>
     </header>
+    <div id="settings-tabs" class="chip-row settings-tabs"></div>
+    <div id="settings-groups" class="settings-groups">
+      <section class="settings-group" data-group="timer" data-name="Timer">
+        <p class="settings-about">Hoe de klok zich gedraagt</p>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Inspectie</span>
+                <small>15 seconden, met +2 en DNF</small>
+              </div>
+              <button type="button" class="switch" id="set-inspection" role="switch" aria-checked="true" aria-label="Inspectie"><span></span></button>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Vasthoudtijd</span>
+                <small>Hoe lang voor de timer op groen springt</small>
+              </div>
+              <div class="segmented" id="set-hold" role="group">
+                <button type="button" data-value="250">kort</button>
+                <button type="button" data-value="400">normaal</button>
+                <button type="button" data-value="550">lang</button>
+              </div>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Tijd tijdens solve</span>
+                <small>Verbergen achter drie bolletjes</small>
+              </div>
+              <button type="button" class="switch" id="set-hide" role="switch" aria-checked="true" aria-label="Tijd tijdens solve"><span></span></button>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Tijd laten oplopen</span>
+                <small>Het eindgetal telt op na het stoppen</small>
+              </div>
+              <button type="button" class="switch" id="set-countUp" role="switch" aria-checked="true" aria-label="Tijd laten oplopen"><span></span></button>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Decimalen</span>
+                <small>Zoals het display van je timer</small>
+              </div>
+              <div class="segmented" id="set-decimals" role="group">
+                <button type="button" data-value="2">0.00</button>
+                <button type="button" data-value="3">0.000</button>
+              </div>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Splits</span>
+                <small>Tik tijdens je solve op de knop of druk op enter om cross, F2L, OLL en PLL
+                  apart te meten. Werkt alleen als je zelf timet, niet met je matje</small>
+              </div>
+              <button type="button" class="switch" id="set-splits" role="switch" aria-checked="false" aria-label="Splits"><span></span></button>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Ring leeft mee</span>
+                <small>Tijdens je solve kleurt de ring warm als je voorligt op je gewone tempo en
+                  koel als je achterloopt. Geen cijfers, ook niet als je de tijd verbergt</small>
+              </div>
+              <button type="button" class="switch" id="set-pace" role="switch" aria-checked="true" aria-label="Ring leeft mee"><span></span></button>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Scherm wakker houden</span>
+                <small>Voorkomt dat je telefoon in slaap valt</small>
+              </div>
+              <button type="button" class="switch" id="set-wakeLock" role="switch" aria-checked="true" aria-label="Scherm wakker houden"><span></span></button>
+            </section>
+      </section>
+      <section class="settings-group" data-group="scramble" data-name="Scramble">
+        <p class="settings-about">Wat je te solven krijgt</p>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Voorbeeld</span>
+                <small>Plaatje van de gescramblede puzzel, naast de scramble</small>
+              </div>
+              <button type="button" class="switch" id="set-preview" role="switch" aria-checked="true" aria-label="Voorbeeld"><span></span></button>
+            </section>
+        <section class="setting stacked">
+              <div class="setting-label">
+                <span>Scrambles op maat</span>
+                <small>Officiële scrambles, maar gezeefd op hoe lang het kruis wordt op jouw kleur.
+                  Een reeks vlotte om je snel te voelen, een reeks lastige om beter te worden in
+                  precies wat je het minst graag krijgt</small>
+              </div>
+              <div class="move-new">
+                <select id="taste-pick" aria-label="Scrambles op maat"></select>
+              </div>
+            </section>
+        <section class="setting stacked">
+              <div class="setting-label">
+                <span>De cross die je miste</span>
+                <small>Na elke solve rekent hij uit hoe kort de cross had gekund, op jouw kleur en
+                  op de andere vijf. Pas achteraf, want vooraf verandert het hoe je kijkt</small>
+              </div>
+              <div class="move-new">
+                <select id="cross-face" aria-label="Kleur waarop je solvet"></select>
+                <button type="button" class="switch" id="set-crosstip" role="switch" aria-checked="false" aria-label="Cross-tip"><span></span></button>
+              </div>
+            </section>
+      </section>
+      <section class="settings-group" data-group="look" data-name="Uiterlijk">
+        <p class="settings-about">Hoe de app eruitziet</p>
+        <section class="setting stacked">
+              <div class="setting-label">
+                <span>Sfeer</span>
+                <small>Niet alleen een accentkleur maar het papier, de inkt en de gloed samen</small>
+              </div>
+              <div id="skins" class="skins" role="group"></div>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Thema</span>
+                <small>Licht, donker of volg je toestel</small>
+              </div>
+              <div class="segmented" id="set-theme" role="group">
+                <button type="button" data-value="light">licht</button>
+                <button type="button" data-value="dark">donker</button>
+                <button type="button" data-value="auto">auto</button>
+              </div>
+            </section>
+        <section class="setting stacked">
+              <div class="setting-label">
+                <span>Kleuren</span>
+                <small>Snelkeuze voor de ring, of stel elke kleur zelf in</small>
+              </div>
+              <div id="led-colors" class="swatches"></div>
+              <div id="color-slots" class="color-slots"></div>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Cijfers</span>
+                <small>Het lettertype van de timer en je tijden</small>
+              </div>
+              <div class="segmented" id="set-font" role="group">
+                <button type="button" data-value="rounded">rond</button>
+                <button type="button" data-value="system">strak</button>
+                <button type="button" data-value="mono">mono</button>
+              </div>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Beste en slechtste</span>
+                <small>Markeer ze in de lijst</small>
+              </div>
+              <button type="button" class="switch" id="set-highlight" role="switch" aria-checked="true" aria-label="Beste en slechtste"><span></span></button>
+            </section>
+      </section>
+      <section class="settings-group" data-group="feel" data-name="Reactie">
+        <p class="settings-about">Wat je hoort en voelt</p>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Geluid</span>
+                <small>Piep op 8 en 12 seconden inspectie, klik bij start en stop</small>
+              </div>
+              <button type="button" class="switch" id="set-sound" role="switch" aria-checked="true" aria-label="Geluid"><span></span></button>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Trillen</span>
+                <small>Korte tik bij groen, start en stop</small>
+              </div>
+              <button type="button" class="switch" id="set-haptics" role="switch" aria-checked="true" aria-label="Trillen"><span></span></button>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Vieren</span>
+                <small>Confetti onder je doeltijd, een feest bij een record</small>
+              </div>
+              <button type="button" class="switch" id="set-celebrate" role="switch" aria-checked="true" aria-label="Record vieren"><span></span></button>
+            </section>
+      </section>
+      <section class="settings-group" data-group="practice" data-name="Oefenen">
+        <p class="settings-about">Doelen en je oefenreeks</p>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Oefenreeks</span>
+                <small>Houdt bij hoeveel je per dag solvet, en telt de dagen op rij</small>
+              </div>
+              <button type="button" class="switch" id="set-practice" role="switch" aria-checked="true" aria-label="Oefenreeks"><span></span></button>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Dagdoel</span>
+                <small id="goal-note">Wat een dag moet halen om de vlam brandend te houden</small>
+              </div>
+              <div class="setting-control">
+                <div class="segmented" id="set-goalKind" role="group">
+                  <button type="button" data-value="time">tijd</button>
+                  <button type="button" data-value="solves">solves</button>
+                </div>
+                <input id="set-goal-value" class="number-input" type="number" min="1" max="600" step="1" inputmode="numeric">
+              </div>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Doeltijd</span>
+                <small id="target-note">Markeer solves die er onder blijven</small>
+              </div>
+              <div class="setting-control">
+                <input id="set-target-value" class="number-input" type="number" min="1" max="600" step="0.5" inputmode="decimal">
+                <button type="button" class="switch" id="set-target" role="switch" aria-checked="false" aria-label="Doeltijd"><span></span></button>
+              </div>
+            </section>
+      </section>
+      <section class="settings-group" data-group="cube" data-name="Kubus">
+        <p class="settings-about">Je kubussen, de camera en de timer</p>
+        <section class="setting stacked">
+              <div class="setting-label">
+                <span>Je kubussen</span>
+                <small>Geef ze een naam en kies welke er ligt. Elke solve onthoudt het, en je ziet
+                  per kubus je beste tijd en gemiddelde</small>
+              </div>
+              <div class="move-new">
+                <input type="text" id="cube-name" maxlength="24" autocomplete="off" placeholder="Naam van een kubus">
+                <button type="button" id="cube-add" class="text-button">toevoegen</button>
+              </div>
+              <div id="cube-list" class="cube-list"></div>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Kubus controleren</span>
+                <small id="camera-blurb">Zodra de tijd stopt zoekt de camera de kubus op het matje. Leer hem
+                  eerst de kleuren van je kubus bij "wat de camera ziet" — dan ziet hij een +2 en een
+                  DNF zelf. Zonder dat kan hij alleen gokken, en dan vraagt hij het</small>
+              </div>
+              <button type="button" class="switch" id="set-camera" role="switch" aria-checked="false" aria-label="Kubus controleren"><span></span></button>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Wat de camera ziet</span>
+                <small>Kijk live mee, snijd het beeld bij op je matje, en leer hem je kleuren</small>
+              </div>
+              <button type="button" id="camera-look" class="text-button">bekijken</button>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Toestemming</span>
+                <small id="camera-state">Wordt gevraagd zodra je iets aanraakt.</small>
+              </div>
+              <button type="button" id="camera-allow" class="text-button">opnieuw vragen</button>
+            </section>
+        <section class="setting stacked">
+              <div class="setting-label">
+                <span>Je timer</span>
+                <small id="device-note">Nog geen timer verbonden.</small>
+              </div>
 
-    <section class="setting stacked">
-      <div class="setting-label">
-        <span>Kleuren</span>
-        <small>Snelkeuze voor de ring, of stel elke kleur zelf in</small>
-      </div>
-      <div id="led-colors" class="swatches"></div>
-      <div id="color-slots" class="color-slots"></div>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Thema</span>
-        <small>Licht, donker of volg je toestel</small>
-      </div>
-      <div class="segmented" id="set-theme" role="group">
-        <button type="button" data-value="light">licht</button>
-        <button type="button" data-value="dark">donker</button>
-        <button type="button" data-value="auto">auto</button>
-      </div>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Cijfers</span>
-        <small>Het lettertype van de timer en je tijden</small>
-      </div>
-      <div class="segmented" id="set-font" role="group">
-        <button type="button" data-value="rounded">rond</button>
-        <button type="button" data-value="system">strak</button>
-        <button type="button" data-value="mono">mono</button>
-      </div>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Inspectie</span>
-        <small>15 seconden, met +2 en DNF</small>
-      </div>
-      <button type="button" class="switch" id="set-inspection" role="switch" aria-checked="true" aria-label="Inspectie"><span></span></button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Voorbeeld</span>
-        <small>Plaatje van de gescramblede puzzel, naast de scramble</small>
-      </div>
-      <button type="button" class="switch" id="set-preview" role="switch" aria-checked="true" aria-label="Voorbeeld"><span></span></button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Tijd tijdens solve</span>
-        <small>Verbergen achter drie bolletjes</small>
-      </div>
-      <button type="button" class="switch" id="set-hide" role="switch" aria-checked="true" aria-label="Tijd tijdens solve"><span></span></button>
-    </section>
-
-    <section class="setting stacked">
-      <div class="setting-label">
-        <span>De cross die je miste</span>
-        <small>Na elke solve rekent hij uit hoe kort de cross had gekund, op jouw kleur en
-          op de andere vijf. Pas achteraf, want vooraf verandert het hoe je kijkt</small>
-      </div>
-      <div class="move-new">
-        <select id="cross-face" aria-label="Kleur waarop je solvet"></select>
-        <button type="button" class="switch" id="set-crosstip" role="switch" aria-checked="false" aria-label="Cross-tip"><span></span></button>
-      </div>
-    </section>
-
-    <section class="setting stacked">
-      <div class="setting-label">
-        <span>Scrambles op maat</span>
-        <small>Officiële scrambles, maar gezeefd op hoe lang het kruis wordt op jouw kleur.
-          Een reeks vlotte om je snel te voelen, een reeks lastige om beter te worden in
-          precies wat je het minst graag krijgt</small>
-      </div>
-      <div class="move-new">
-        <select id="taste-pick" aria-label="Scrambles op maat"></select>
-      </div>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Ring leeft mee</span>
-        <small>Tijdens je solve kleurt de ring warm als je voorligt op je gewone tempo en
-          koel als je achterloopt. Geen cijfers, ook niet als je de tijd verbergt</small>
-      </div>
-      <button type="button" class="switch" id="set-pace" role="switch" aria-checked="true" aria-label="Ring leeft mee"><span></span></button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Splits</span>
-        <small>Tik tijdens je solve op de knop of druk op enter om cross, F2L, OLL en PLL
-          apart te meten. Werkt alleen als je zelf timet, niet met je matje</small>
-      </div>
-      <button type="button" class="switch" id="set-splits" role="switch" aria-checked="false" aria-label="Splits"><span></span></button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Tijd laten oplopen</span>
-        <small>Het eindgetal telt op na het stoppen</small>
-      </div>
-      <button type="button" class="switch" id="set-countUp" role="switch" aria-checked="true" aria-label="Tijd laten oplopen"><span></span></button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Scherm wakker houden</span>
-        <small>Voorkomt dat je telefoon in slaap valt</small>
-      </div>
-      <button type="button" class="switch" id="set-wakeLock" role="switch" aria-checked="true" aria-label="Scherm wakker houden"><span></span></button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Decimalen</span>
-        <small>Zoals het display van je timer</small>
-      </div>
-      <div class="segmented" id="set-decimals" role="group">
-        <button type="button" data-value="2">0.00</button>
-        <button type="button" data-value="3">0.000</button>
-      </div>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Vasthoudtijd</span>
-        <small>Hoe lang voor de timer op groen springt</small>
-      </div>
-      <div class="segmented" id="set-hold" role="group">
-        <button type="button" data-value="250">kort</button>
-        <button type="button" data-value="400">normaal</button>
-        <button type="button" data-value="550">lang</button>
-      </div>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Geluid</span>
-        <small>Piep op 8 en 12 seconden inspectie, klik bij start en stop</small>
-      </div>
-      <button type="button" class="switch" id="set-sound" role="switch" aria-checked="true" aria-label="Geluid"><span></span></button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Trillen</span>
-        <small>Korte tik bij groen, start en stop</small>
-      </div>
-      <button type="button" class="switch" id="set-haptics" role="switch" aria-checked="true" aria-label="Trillen"><span></span></button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Vieren</span>
-        <small>Confetti onder je doeltijd, een feest bij een record</small>
-      </div>
-      <button type="button" class="switch" id="set-celebrate" role="switch" aria-checked="true" aria-label="Record vieren"><span></span></button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Oefenreeks</span>
-        <small>Houdt bij hoeveel je per dag solvet, en telt de dagen op rij</small>
-      </div>
-      <button type="button" class="switch" id="set-practice" role="switch" aria-checked="true" aria-label="Oefenreeks"><span></span></button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Dagdoel</span>
-        <small id="goal-note">Wat een dag moet halen om de vlam brandend te houden</small>
-      </div>
-      <div class="setting-control">
-        <div class="segmented" id="set-goalKind" role="group">
-          <button type="button" data-value="time">tijd</button>
-          <button type="button" data-value="solves">solves</button>
-        </div>
-        <input id="set-goal-value" class="number-input" type="number" min="1" max="600" step="1" inputmode="numeric">
-      </div>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Doeltijd</span>
-        <small id="target-note">Markeer solves die er onder blijven</small>
-      </div>
-      <div class="setting-control">
-        <input id="set-target-value" class="number-input" type="number" min="1" max="600" step="0.5" inputmode="decimal">
-        <button type="button" class="switch" id="set-target" role="switch" aria-checked="false" aria-label="Doeltijd"><span></span></button>
-      </div>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Kubus controleren</span>
-        <small id="camera-blurb">Zodra de tijd stopt zoekt de camera de kubus op het matje. Leer hem
-          eerst de kleuren van je kubus bij "wat de camera ziet" — dan ziet hij een +2 en een
-          DNF zelf. Zonder dat kan hij alleen gokken, en dan vraagt hij het</small>
-      </div>
-      <button type="button" class="switch" id="set-camera" role="switch" aria-checked="false" aria-label="Kubus controleren"><span></span></button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Wat de camera ziet</span>
-        <small>Kijk live mee, snijd het beeld bij op je matje, en leer hem je kleuren</small>
-      </div>
-      <button type="button" id="camera-look" class="text-button">bekijken</button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Toestemming</span>
-        <small id="camera-state">Wordt gevraagd zodra je iets aanraakt.</small>
-      </div>
-      <button type="button" id="camera-allow" class="text-button">opnieuw vragen</button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Beste en slechtste</span>
-        <small>Markeer ze in de lijst</small>
-      </div>
-      <button type="button" class="switch" id="set-highlight" role="switch" aria-checked="true" aria-label="Beste en slechtste"><span></span></button>
-    </section>
-
-    <section class="setting stacked">
-      <div class="setting-label">
-        <span>Sfeer</span>
-        <small>Niet alleen een accentkleur maar het papier, de inkt en de gloed samen</small>
-      </div>
-      <div id="skins" class="skins" role="group"></div>
-    </section>
-
-    <section class="setting stacked">
-      <div class="setting-label">
-        <span>Je kubussen</span>
-        <small>Geef ze een naam en kies welke er ligt. Elke solve onthoudt het, en je ziet
-          per kubus je beste tijd en gemiddelde</small>
-      </div>
-      <div class="move-new">
-        <input type="text" id="cube-name" maxlength="24" autocomplete="off" placeholder="Naam van een kubus">
-        <button type="button" id="cube-add" class="text-button">toevoegen</button>
-      </div>
-      <div id="cube-list" class="cube-list"></div>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Trainen op losse gevallen</span>
-        <small>PLL en OLL apart oefenen. Elk geval krijgt een opzet die je op je opgeloste
-          kubus draait, en je ziet daarna welke je het slechtst kent</small>
-      </div>
-      <button type="button" id="drill-open" class="text-button">openen</button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Metronoom</span>
-        <small>Een tik op een vast tempo terwijl je draait</small>
-      </div>
-      <button type="button" id="metro-open" class="text-button">openen</button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Grote weergave</span>
-        <small>Alleen de scramble en de tijd, groot genoeg voor aan de andere kant van de
-          kamer. Escape brengt je terug</small>
-      </div>
-      <button type="button" id="big-open" class="text-button">aanzetten</button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Toetsen en gebaren</span>
-        <small>Wat spatie, escape en een veeg allemaal doen</small>
-      </div>
-      <button type="button" id="keys-open" class="text-button">bekijken</button>
-    </section>
-
-    <section class="setting">
-      <div class="setting-label">
-        <span>Naar een ander toestel</span>
-        <small>Alles in één bestand: sessies, tijden, scrambles en voorkeuren. Samenvoegen
-          in plaats van overschrijven, dus je kunt heen en weer. Leest ook een export uit
-          csTimer</small>
-      </div>
-      <button type="button" id="transfer-open" class="text-button">openen</button>
-    </section>
-
-    <section class="setting stacked">
-      <div class="setting-label">
-        <span>Tijden exporteren</span>
-        <small>Deze sessie naar een andere app, in het formaat dat je nodig hebt</small>
-      </div>
-      <div class="segmented" id="export-format" role="group">
-        <button type="button" data-value="text">tekst</button>
-        <button type="button" data-value="csv">csv</button>
-        <button type="button" data-value="cstimer">cstimer</button>
-      </div>
-      <div class="detail-actions">
-        <button type="button" id="export">Kopieer</button>
-        <button type="button" id="export-save">Bewaar bestand</button>
-      </div>
-    </section>
-
-    <section class="setting stacked">
-      <div class="setting-label">
-        <span>Tijden invoeren</span>
-        <small>Plak een lijst uit cstimer, Twisty Timer of gewoon een kladblok</small>
-      </div>
-      <button type="button" id="paste-open" class="text-button">plakken</button>
-    </section>
-
-    <section class="setting stacked">
-      <div class="setting-label">
-        <span>Je timer</span>
-        <small id="device-note">Nog geen timer verbonden.</small>
-      </div>
-
-      <dl class="gestures">
-        <dt>Vasthouden</dt><dd>starten</dd>
-        <dt>1× kort aanraken</dt><dd>inspectie</dd>
-        <dt>2× kort aanraken</dt><dd>laatste tijd wissen — tik 1× om te bevestigen</dd>
-      </dl>
-      <button type="button" id="import-times" class="text-button" hidden>Kijk of er tijden op de timer staan</button>
-      <button type="button" id="connect-any" class="text-button">Toon alle bluetooth-apparaten</button>
-      <p id="connect-any-note" class="device-hint">Staat je timer niet in de lijst? Deze knop laat alles zien wat in de buurt is, zonder te filteren op naam.</p>
-      <div id="device-details" class="device-details" hidden></div>
-    </section>
+              <dl class="gestures">
+                <dt>Vasthouden</dt><dd>starten</dd>
+                <dt>1× kort aanraken</dt><dd>inspectie</dd>
+                <dt>2× kort aanraken</dt><dd>laatste tijd wissen — tik 1× om te bevestigen</dd>
+              </dl>
+              <button type="button" id="import-times" class="text-button" hidden>Kijk of er tijden op de timer staan</button>
+              <button type="button" id="connect-any" class="text-button">Toon alle bluetooth-apparaten</button>
+              <p id="connect-any-note" class="device-hint">Staat je timer niet in de lijst? Deze knop laat alles zien wat in de buurt is, zonder te filteren op naam.</p>
+              <div id="device-details" class="device-details" hidden></div>
+            </section>
+      </section>
+      <section class="settings-group" data-group="tools" data-name="Gereedschap">
+        <p class="settings-about">Ook te vinden in de lijst links</p>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Trainen op losse gevallen</span>
+                <small>PLL en OLL apart oefenen. Elk geval krijgt een opzet die je op je opgeloste
+                  kubus draait, en je ziet daarna welke je het slechtst kent</small>
+              </div>
+              <button type="button" id="drill-open" class="text-button">openen</button>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Metronoom</span>
+                <small>Een tik op een vast tempo terwijl je draait</small>
+              </div>
+              <button type="button" id="metro-open" class="text-button">openen</button>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Grote weergave</span>
+                <small>Alleen de scramble en de tijd, groot genoeg voor aan de andere kant van de
+                  kamer. Escape brengt je terug</small>
+              </div>
+              <button type="button" id="big-open" class="text-button">aanzetten</button>
+            </section>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Toetsen en gebaren</span>
+                <small>Wat spatie, escape en een veeg allemaal doen</small>
+              </div>
+              <button type="button" id="keys-open" class="text-button">bekijken</button>
+            </section>
+      </section>
+      <section class="settings-group" data-group="data" data-name="Je tijden">
+        <p class="settings-about">Bewaren, meenemen, invoeren</p>
+        <section class="setting">
+              <div class="setting-label">
+                <span>Naar een ander toestel</span>
+                <small>Alles in één bestand: sessies, tijden, scrambles en voorkeuren. Samenvoegen
+                  in plaats van overschrijven, dus je kunt heen en weer. Leest ook een export uit
+                  csTimer</small>
+              </div>
+              <button type="button" id="transfer-open" class="text-button">openen</button>
+            </section>
+        <section class="setting stacked">
+              <div class="setting-label">
+                <span>Tijden exporteren</span>
+                <small>Deze sessie naar een andere app, in het formaat dat je nodig hebt</small>
+              </div>
+              <div class="segmented" id="export-format" role="group">
+                <button type="button" data-value="text">tekst</button>
+                <button type="button" data-value="csv">csv</button>
+                <button type="button" data-value="cstimer">cstimer</button>
+              </div>
+              <div class="detail-actions">
+                <button type="button" id="export">Kopieer</button>
+                <button type="button" id="export-save">Bewaar bestand</button>
+              </div>
+            </section>
+        <section class="setting stacked">
+              <div class="setting-label">
+                <span>Tijden invoeren</span>
+                <small>Plak een lijst uit cstimer, Twisty Timer of gewoon een kladblok</small>
+              </div>
+              <button type="button" id="paste-open" class="text-button">plakken</button>
+            </section>
+      </section>
+    </div>
   </form>
 </dialog>
 

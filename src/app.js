@@ -229,6 +229,8 @@ const el = {
   casesGroups: document.getElementById('cases-groups'),
   casesBody: document.getElementById('cases-body'),
   welcome: document.getElementById('welcome'),
+  settingsTabs: document.getElementById('settings-tabs'),
+  settingsGroups: document.getElementById('settings-groups'),
   rail: document.getElementById('rail'),
   railOpen: document.getElementById('rail-open'),
   railClose: document.getElementById('rail-close'),
@@ -6684,6 +6686,7 @@ async function showDeviceDetails() {
 el.settingsOpen.addEventListener('click', () => {
   el.settingsOpen.blur();
   syncSettingsUi();
+  renderSettingsTabs();
   el.settings.showModal();
   el.settings.focus();
 });
@@ -6715,6 +6718,50 @@ el.clear.addEventListener('click', () => {
   render();
 });
 
+
+
+/* ---------- the settings, in groups ----------
+
+   Thirty-four settings in one list is a list nobody reads: you scroll past the
+   thing you came for twice and give up. They are the same settings in the same
+   sheet, sorted into eight named groups with a row of tabs over them, so what
+   is on screen is only ever the handful that belong together.
+
+   Nothing is hidden away: "alles" puts the whole list back, and it is
+   remembered, so anyone who prefers the long list gets it every time. */
+
+let settingsTab = settings.settingsTab || 'timer';
+
+function renderSettingsTabs() {
+  if (!el.settingsTabs) return;
+  const groups = [...el.settingsGroups.querySelectorAll('.settings-group')];
+
+  el.settingsTabs.replaceChildren(...[...groups.map((group) => ({
+    id: group.dataset.group, name: group.dataset.name
+  })), { id: 'all', name: 'Alles' }].map((tab) => {
+    const chip = document.createElement('button');
+    // Inside a dialog form a button submits by default, and submitting closes
+    // the dialog -- so every one of these has to say it is only a button.
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.dataset.active = String(tab.id === settingsTab);
+    chip.textContent = tab.name;
+    chip.addEventListener('click', () => {
+      settingsTab = tab.id;
+      settings.settingsTab = tab.id;
+      storeSettings();
+      renderSettingsTabs();
+      // Back to the top: the new group starts where your eyes already are.
+      el.settings.querySelector('.sheet-inner')?.scrollTo({ top: 0 });
+    });
+    return chip;
+  }));
+
+  for (const group of groups) {
+    group.hidden = settingsTab !== 'all' && group.dataset.group !== settingsTab;
+  }
+  el.settingsGroups.dataset.all = String(settingsTab === 'all');
+}
 
 /* ---------- everything the app can do, in one list ----------
 
