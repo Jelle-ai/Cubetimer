@@ -18,7 +18,7 @@ import {
   recordCase, recordDaily, recordDuel, recordRun, runsOf, scoreOf, spellScore
 } from './play.js';
 import { COLOR_SLOTS, LED_COLORS, SKINS, colorOf, loadSettings, saveSettings } from './settings.js';
-import { chord, confetti, flashMiss, tone, vibrate } from './feedback.js';
+import { chord, confetti, flashMiss, together, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
 import {
   ALL_SIX, CERTAIN, FULL_FRAME, askForCamera, coarse, cropBox, cropShape, findCube, foundPath,
@@ -27,6 +27,9 @@ import {
 import {
   dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
 } from './practice.js';
+import {
+  fairAverage, inspectionPays, sessionShape, trend, weakCase, weakStage, worstSolves
+} from './insight.js';
 
 const TAP_WINDOW_MS = 600;    // window in which a second short touch counts as a double tap
 const DELETE_CONFIRM_MS = 8000; // how long a pending delete waits for its confirming tap
@@ -205,6 +208,15 @@ const el = {
   scrambleSlot: document.getElementById('scramble-slot'),
   scrambleOpen: document.getElementById('scramble-open'),
   scrambleAgain: document.getElementById('scramble-again'),
+  scrambleTaste: document.getElementById('scramble-taste'),
+  closingOpen: document.getElementById('closing-open'),
+  closingSheet: document.getElementById('closing-sheet'),
+  closingTitle: document.getElementById('closing-title'),
+  closingBody: document.getElementById('closing-body'),
+  closingCard: document.getElementById('closing-card'),
+  closingDone: document.getElementById('closing-done'),
+  closingClose: document.getElementById('closing-close'),
+  tastePick: document.getElementById('taste-pick'),
   repeatScramble: document.getElementById('repeat-scramble'),
   modeOpen: document.getElementById('mode-open'),
   modeSheet: document.getElementById('mode-sheet'),
@@ -409,25 +421,38 @@ el.solvesClose.addEventListener('click', () => el.solvesSheet.close());
 
 /* ---------- feedback ---------- */
 
+/**
+ * What each moment sounds like.
+ *
+ * Chosen rather than assigned. The inspection calls are a judge's voice and so
+ * they are flat, dry and identical -- eight is one, twelve is two, nothing
+ * musical about either. Starting and stopping are woodblock knocks a fifth
+ * apart, low going in and higher coming out, so you can hear which one happened
+ * without looking. A record is the only thing here allowed a tune, and it
+ * fades as it rises so it lands as a flourish and not as an alarm.
+ */
+const CUES = {
+  ready: () => tone(760, 0.05, 0.04, 'triangle'),
+  start: () => tone(392, 0.07, 0.075, 'triangle'),
+  stop: () => tone(587.33, 0.1, 0.08, 'triangle'),
+  warn8: () => tone(660, 0.1, 0.07, 'square'),
+  warn12: () => chord([660, 660], 0.14, { duration: 0.1, volume: 0.07, type: 'square' }),
+  record: () => chord([523.25, 659.25, 783.99, 1046.5], 0.085, { duration: 0.3, volume: 0.085, fade: 0.88 }),
+  target: () => together([659.25, 987.77], 0.26, 0.05),
+  miss: () => tone(174.61, 0.28, 0.05, 'triangle'),
+  // A game or a challenge won: brighter than a record is deep, and shorter.
+  win: () => chord([659.25, 880], 0.1, { duration: 0.24, volume: 0.075, fade: 0.9 })
+};
+
+const SHAKES = {
+  ready: 25, start: 12, stop: [15, 40, 15],
+  record: [20, 60, 20, 60, 40], target: [12, 40, 12], miss: 40,
+  win: [18, 50, 18]
+};
+
 function cue(name) {
-  if (settings.sound) {
-    if (name === 'ready') tone(880, .06);
-    else if (name === 'start') tone(660, .05);
-    else if (name === 'stop') chord([784, 1046]);
-    else if (name === 'warn8') tone(520, .12);
-    else if (name === 'warn12') chord([520, 520], .16);
-    else if (name === 'record') chord([784, 988, 1319, 1568], .09);
-    else if (name === 'target') chord([880, 1174], .09);
-    else if (name === 'miss') tone(196, .22, .05, 'triangle');
-  }
-  if (settings.haptics) {
-    if (name === 'ready') vibrate(25);
-    else if (name === 'start') vibrate(12);
-    else if (name === 'stop') vibrate([15, 40, 15]);
-    else if (name === 'record') vibrate([20, 60, 20, 60, 40]);
-    else if (name === 'target') vibrate([12, 40, 12]);
-    else if (name === 'miss') vibrate(40);
-  }
+  if (settings.sound) CUES[name]?.();
+  if (settings.haptics && SHAKES[name] !== undefined) vibrate(SHAKES[name]);
 }
 
 /* ---------- rendering ---------- */
@@ -447,6 +472,7 @@ let previewToken = 0;
 
 function renderScramble() {
   el.scramble.textContent = scramble;
+  renderTaste();
   // A megaminx scramble is seven lines and some seventy tokens; set at the size
   // a 3x3 scramble wants, it wraps to twelve lines and pushes the ring off the
   // screen. Long ones are set smaller and given a wider column.
@@ -959,8 +985,77 @@ function anOldScramble() {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+/* ---------- scrambles to your taste ----------
+
+   A scramble is a draw, and every timer deals you the same deck. But the cross
+   length of a scramble can be worked out here before you ever see it, so the
+   deck can be stacked on purpose: a run of easy crosses when you want to feel
+   fast, a run of awkward ones when you want to get better at the thing you are
+   worst at. The scrambles are still official random-state ones -- they are
+   sifted, never made -- so nothing about them is less real than usual.
+
+   Sifting costs scrambles, so it gives up after a dozen and says so rather
+   than making you wait. */
+
+const TASTES = [
+  { id: 'any', label: 'Alles', about: 'Gewoon wat de scrambler geeft.' },
+  { id: 'easy', label: 'Vlot kruis', about: 'Alleen scrambles met een kruis van 5 zetten of korter.' },
+  { id: 'hard', label: 'Lastig kruis', about: 'Alleen scrambles met een kruis van 7 zetten of langer.' }
+];
+
+const TASTE_TRIES = 12;
+
+/** Whether the last scramble is the one you asked for, or the best of a dozen. */
+let tasteMissed = false;
+
+function fitsTaste(text, kit) {
+  const lengths = kit.cross.crossLengths(text, kit.kpuzzle, kit.Alg, kit.table);
+  const own = lengths.find((entry) => entry.id === settings.crossFace);
+  if (!own) return null;
+  if (settings.taste === 'easy') return own.moves <= 5;
+  if (settings.taste === 'hard') return own.moves >= 7;
+  return true;
+}
+
+/**
+ * Deal until one fits. The token is checked every round: a scramble sifted for
+ * a session you have already left must not land on the screen of the one you
+ * are in now.
+ */
+async function toTaste(text, official, token) {
+  let kit;
+  try {
+    kit = await loadCross();
+  } catch {
+    return { text, official, missed: true };
+  }
+  if (token !== scrambleToken) return { text, official, missed: false };
+
+  let candidate = { text, official };
+  for (let go = 0; go < TASTE_TRIES; go++) {
+    const verdict = fitsTaste(candidate.text, kit);
+    if (verdict === null) return { ...candidate, missed: true };
+    if (verdict) return { ...candidate, missed: false };
+    candidate = await nextScramble('333');
+    if (token !== scrambleToken) return { ...candidate, missed: false };
+  }
+  return { ...candidate, missed: true };
+}
+
 /** The solve this scramble is a rematch of, or null for an ordinary one. */
 let rematch = null;
+
+/** Says which deck this came out of, and admits it when the sifting gave up. */
+function renderTaste() {
+  if (!el.scrambleTaste) return;
+  const taste = TASTES.find((entry) => entry.id === settings.taste);
+  const on = taste && taste.id !== 'any' && currentSession().puzzle === '333';
+  el.scrambleTaste.hidden = !on;
+  if (!on) return;
+  el.scrambleTaste.textContent = tasteMissed
+    ? `${taste.label.toLowerCase()} — geen gevonden in twaalf pogingen, dit is een gewone`
+    : taste.label.toLowerCase();
+}
 
 function renderRematch() {
   el.scrambleAgain.hidden = !rematch;
@@ -968,6 +1063,22 @@ function renderRematch() {
   const when = new Date(rematch.at);
   const month = MONTHS[when.getMonth()];
   el.scrambleAgain.textContent = `deze had je in ${month} ook`;
+}
+
+/**
+ * Put a particular scramble up: one you asked to do again, one from a game, one
+ * off a solve you want another go at. The token is bumped so a scramble already
+ * on its way back from the official scrambler cannot land on top of it.
+ */
+function setScramble(text) {
+  scrambleToken++;
+  rematch = null;
+  scramble = text;
+  delete el.scramble.dataset.loading;
+  el.scramble.dataset.official = 'true';
+  el.scramble.title = 'Klik om te kopiëren';
+  renderScramble();
+  renderRematch();
 }
 
 async function newScramble({ allowRematch = true } = {}) {
@@ -986,8 +1097,18 @@ async function newScramble({ allowRematch = true } = {}) {
   }
 
   el.scramble.dataset.loading = 'true';
-  const { text, official } = await nextScramble(puzzle);
+  let { text, official } = await nextScramble(puzzle);
   if (token !== scrambleToken) return; // a newer request already won
+
+  if (settings.taste !== 'any' && puzzle === '333') {
+    const fitted = await toTaste(text, official, token);
+    if (token !== scrambleToken) return;
+    text = fitted.text;
+    official = fitted.official;
+    tasteMissed = fitted.missed;
+  } else {
+    tasteMissed = false;
+  }
 
   scramble = text;
   delete el.scramble.dataset.loading;
@@ -1497,7 +1618,7 @@ function finishDaily(solve) {
   renderMode();
 
   const streak = dailyStreak(play());
-  cue('record');
+  cue('win');
   if (settings.celebrate) confetti('burst');
   toast(`${formatSolve(solve)} voor vandaag — ${streak} ${streak === 1 ? 'dag' : 'dagen'} op rij.`);
 }
@@ -1634,7 +1755,7 @@ function endDuel() {
   }
 
   el.roundBody.replaceChildren(big, list);
-  cue('record');
+  cue('win');
   if (settings.celebrate) confetti('party');
   openSheet(el.roundSheet);
 }
@@ -1755,7 +1876,7 @@ function showResult() {
   solvesLine.textContent = runSolves(run).map(formatSolve).join('   ');
 
   el.roundBody.replaceChildren(big, list, solvesLine);
-  cue('record');
+  cue('win');
   if (settings.celebrate) confetti('party');
   openSheet(el.roundSheet);
 }
@@ -2308,6 +2429,19 @@ function crossBlock(kit) {
   return recordBlock('Je scrambles', [list, note]);
 }
 
+/** The deck you want dealt from. */
+function renderTastePick() {
+  if (!el.tastePick) return;
+  el.tastePick.replaceChildren(...TASTES.map((taste) => {
+    const option = document.createElement('option');
+    option.value = taste.id;
+    option.textContent = taste.label;
+    option.title = taste.about;
+    option.selected = taste.id === settings.taste;
+    return option;
+  }));
+}
+
 /** Which colour you solve on, so the comparison means something. */
 function renderCrossFace() {
   if (!el.crossFace) return;
@@ -2467,6 +2601,135 @@ function showShared() {
   openSheet(el.pickedSheet);
 }
 
+
+/* ---------- the closing ritual ----------
+
+   A sitting has a beginning -- you pick up the cube -- and no end at all. You
+   drift off, the tab stays open, and the last thing the app ever says to you is
+   a number. So there is a way to close it: what this sitting was, in one place,
+   with one honest sentence about it and a card if you want to keep it.
+
+   It saves nothing and deletes nothing. Rituals do not need state; they need a
+   moment. */
+
+/** The last unbroken run of solving, out of everything in this session. */
+function thisSitting(gapMs = 30 * 60 * 1000) {
+  const scored = counting(solves).filter((solve) => Number.isFinite(solve.at));
+  if (!scored.length) return [];
+  const run = [scored[scored.length - 1]];
+  for (let at = scored.length - 2; at >= 0; at--) {
+    if (run[0].at - scored[at].at > gapMs) break;
+    run.unshift(scored[at]);
+  }
+  return run;
+}
+
+/**
+ * The one sentence. Picked from what actually happened rather than from a list
+ * of nice things to say -- a session that went badly gets told so kindly, which
+ * is the only version of this worth having.
+ */
+function closingWord(run, mine) {
+  const values = run.map(effective).filter(Number.isFinite);
+  if (!values.length) return 'Alleen DNFs. Dat telt ook als een sessie.';
+
+  const quickest = Math.min(...values);
+  const half = Math.ceil(values.length / 2);
+  const early = values.slice(0, half);
+  const late = values.slice(half);
+  const middle = (list) => list.slice().sort((a, b) => a - b)[list.length >> 1];
+  const warmed = middle(early) - middle(late);
+
+  if (mine.record) return `Je record ging eraan. ${formatTime(quickest)} staat vanaf nu op de muur.`;
+  if (values.length >= 10 && warmed > 700) {
+    return `Je bent tijdens deze sessie ${formatTime(warmed)} sneller geworden. Dat is precies waarvoor je ging zitten.`;
+  }
+  if (values.length >= 10 && warmed < -700) {
+    return 'Je liep tegen het eind trager. Dat is moe worden, niet slechter worden — morgen sta je er weer.';
+  }
+  if (values.length <= 5) return 'Kort en klaar. Ook vijf solves is een sessie.';
+  return `${values.length} solves, netjes op je eigen tempo. Zo bouw je het op.`;
+}
+
+let closingPicture = null;
+
+function renderClosing() {
+  const run = thisSitting();
+  el.closingTitle.textContent = `Tot hier — ${currentSession().name}`;
+
+  if (!run.length) {
+    el.closingBody.replaceChildren(line('Nog niets om af te sluiten. Doe eerst een paar solves.'));
+    el.closingCard.hidden = true;
+    closingPicture = null;
+    return;
+  }
+
+  const values = run.map(effective).filter(Number.isFinite);
+  const quickest = values.length ? Math.min(...values) : null;
+  const spent = run.reduce((sum, solve) => sum + (Number.isFinite(solve.ms) ? solve.ms : 0), 0);
+  const five = averageOf(run.slice(-5), 5);
+  // Was anything here the best you have ever done, in this session?
+  const older = counting(solves).slice(0, counting(solves).length - run.length);
+  const standing = best(older);
+  const record = quickest !== null && (standing === null || quickest < standing);
+
+  const rows = [
+    ['Solves', String(run.length)],
+    ['Snelste', quickest === null ? '—' : formatTime(quickest)],
+    ['Laatste ao5', Number.isFinite(five) ? formatTime(five) : '—'],
+    ['Tijd aan de kubus', formatDuration(spent)],
+    ['Begonnen om', new Date(run[0].at).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })]
+  ];
+  if (record) rows.splice(2, 0, ['Persoonlijk record', 'vandaag gezet']);
+
+  const word = closingWord(run, { record });
+  el.closingBody.replaceChildren(figures(rows), line(word, 'records-aside'));
+
+  closingPicture = {
+    title: currentSession().name,
+    headline: quickest === null ? '—' : formatTime(quickest),
+    lines: [
+      `${run.length} solves · ${formatDuration(spent)}`,
+      Number.isFinite(five) ? `ao5 ${formatTime(five)}` : '',
+      word
+    ].filter(Boolean),
+    footer: [settings.shareName, new Date().toLocaleDateString('nl-BE')].filter(Boolean).join(' \u00b7 '),
+    accent: colorOf(settings, 'led'),
+    dark: settings.theme === 'dark'
+  };
+  el.closingCard.hidden = false;
+}
+
+el.closingOpen?.addEventListener('click', () => {
+  el.closingOpen.blur();
+  el.statsSheet.close();
+  renderClosing();
+  openSheet(el.closingSheet);
+});
+
+el.closingClose?.addEventListener('click', () => el.closingSheet.close());
+el.closingDone?.addEventListener('click', () => {
+  el.closingSheet.close();
+  cue('win');
+  if (settings.celebrate) confetti('burst');
+});
+
+el.closingCard?.addEventListener('click', async () => {
+  el.closingCard.blur();
+  if (!closingPicture) return;
+  const canvas = drawCard(closingPicture);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  const address = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = address;
+  link.download = `cubetimer-sessie-${new Date().toISOString().slice(0, 10)}.png`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(address), 20000);
+  toast('Kaartje bewaard.');
+});
+
 /* ---------- your cubes ----------
 
    Which one was on the mat. Two cubes feel different and it is easy to talk
@@ -2483,24 +2746,6 @@ function renderCubes() {
       settings.cube = settings.cube === name ? '' : name;
       storeSettings();
       renderCubes();
-renderCrossFace();
-renderSkins();
-
-// Working the table out takes a few seconds, so it is started quietly the
-// moment the page is idle rather than the moment you first want an answer.
-if (settings.crossTip) {
-  const warm = () => loadCross().catch(() => {});
-  if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 4000 });
-  else setTimeout(warm, 1500);
-}
-
-// The cabinet is filled in once without a fuss, so a history that already
-// earned things does not throw eighteen parties on first open.
-celebrateBadges({ quietly: true });
-el.crossFace.addEventListener('change', () => {
-  settings.crossFace = el.crossFace.value;
-  storeSettings();
-});
     });
 
     const drop = document.createElement('span');
@@ -2513,24 +2758,6 @@ el.crossFace.addEventListener('change', () => {
       if (settings.cube === name) settings.cube = '';
       storeSettings();
       renderCubes();
-renderCrossFace();
-renderSkins();
-
-// Working the table out takes a few seconds, so it is started quietly the
-// moment the page is idle rather than the moment you first want an answer.
-if (settings.crossTip) {
-  const warm = () => loadCross().catch(() => {});
-  if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 4000 });
-  else setTimeout(warm, 1500);
-}
-
-// The cabinet is filled in once without a fuss, so a history that already
-// earned things does not throw eighteen parties on first open.
-celebrateBadges({ quietly: true });
-el.crossFace.addEventListener('change', () => {
-  settings.crossFace = el.crossFace.value;
-  storeSettings();
-});
     });
     button.append(drop);
     return button;
@@ -2545,24 +2772,6 @@ el.cubeAdd.addEventListener('click', () => {
   el.cubeName.value = '';
   storeSettings();
   renderCubes();
-renderCrossFace();
-renderSkins();
-
-// Working the table out takes a few seconds, so it is started quietly the
-// moment the page is idle rather than the moment you first want an answer.
-if (settings.crossTip) {
-  const warm = () => loadCross().catch(() => {});
-  if (window.requestIdleCallback) requestIdleCallback(warm, { timeout: 4000 });
-  else setTimeout(warm, 1500);
-}
-
-// The cabinet is filled in once without a fuss, so a history that already
-// earned things does not throw eighteen parties on first open.
-celebrateBadges({ quietly: true });
-el.crossFace.addEventListener('change', () => {
-  settings.crossFace = el.crossFace.value;
-  storeSettings();
-});
 });
 
 /** How each cube has gone, over everything you have. */
@@ -2880,11 +3089,252 @@ function diaryBlock() {
   return recordBlock('Dagboek', list);
 }
 
+/* ---------- the questions a list of times cannot answer ----------
+
+   Everything above is a fact about what happened. These are the four things
+   people actually argue about -- am I better, when am I quick, does looking
+   longer help, was that average lucky -- and none of them can be read off a
+   graph. They need the numbers compared against chance, against your own
+   middle, or against the difficulty of the scramble you happened to draw. */
+
+/** A small table of label and figure, the way every block here shows one. */
+function figures(rows) {
+  const list = document.createElement('div');
+  list.className = 'round-lines';
+  for (const [label, value] of rows) {
+    const row = document.createElement('div');
+    const name = document.createElement('span');
+    name.textContent = label;
+    const figure = document.createElement('b');
+    figure.textContent = value;
+    row.append(name, figure);
+    list.append(row);
+  }
+  return list;
+}
+
+/** A bar, filled to a share of the row, so a table reads as a shape. */
+function bars(rows) {
+  const list = document.createElement('div');
+  list.className = 'bar-lines';
+  const most = Math.max(...rows.map((row) => row.share), 0.0001);
+  for (const row of rows) {
+    const item = document.createElement('div');
+    item.className = 'bar-line';
+    const name = document.createElement('span');
+    name.textContent = row.name;
+    const track = document.createElement('i');
+    track.style.setProperty('--fill', `${Math.max(4, Math.round((row.share / most) * 100))}%`);
+    if (row.mark) track.dataset.mark = row.mark;
+    const figure = document.createElement('b');
+    figure.textContent = row.value;
+    item.append(name, track, figure);
+    list.append(item);
+  }
+  return list;
+}
+
+/**
+ * Am I really getting better, or did I have a good evening?
+ *
+ * The permutation test is the whole point: it does not ask whether the numbers
+ * went down, it asks how often chance alone moves them this far. An app that
+ * congratulates you on noise teaches you to trust it less.
+ */
+function trendBlock() {
+  const scored = counting(solves);
+  const shape = trend(scored);
+  if (!shape) {
+    // Said rather than hidden: the point of the block is that a hundred solves
+    // is what an honest answer costs, and that is worth knowing in advance.
+    return scored.length >= 20
+      ? recordBlock('Ben je echt beter geworden?', line(
+        `Nog ${100 - scored.length} solves te gaan. Onder de honderd is elk verschil tussen toen en nu even goed toeval, en dan zegt de app het liever niet.`,
+        'records-aside'))
+      : null;
+  }
+
+  const better = shape.gap > 0;
+  const table = figures([
+    ['Eerste 50', formatTime(shape.then)],
+    ['Laatste 50', formatTime(shape.now)],
+    ['Verschil', `${better ? '−' : '+'}${formatTime(Math.abs(shape.gap))}`],
+    ['Toeval haalt dit', `${Math.round(shape.share * 100)}% van de keren`]
+  ]);
+
+  const verdict = shape.sure
+    ? (better
+      ? `Ja. Dit verschil is te groot om toeval te zijn — toeval haalt het maar ${Math.round(shape.share * 100)} keer op de honderd.`
+      : 'Je bent trager geworden, en meer dan toeval kan verklaren. Dat gebeurt: te weinig geslapen, andere kubus, of te veel nieuwe dingen tegelijk.')
+    : `Nog niet te zeggen. Toeval alleen haalt dit verschil in ${Math.round(shape.share * 100)} van de honderd gevallen, dus dit is even goed een goede avond als vooruitgang.`;
+
+  return recordBlock('Ben je echt beter geworden?', [table, line(verdict, 'records-aside')]);
+}
+
+/** When in a sitting you are quick. Everybody has a shape; nobody knows theirs. */
+function shapeBlock() {
+  const shape = sessionShape(saveFile.sessions);
+  if (!shape) return null;
+
+  const quickest = shape.reduce((best, entry) => (entry.share < best.share ? entry : best), shape[0]);
+  const slowest = shape.reduce((worst, entry) => (entry.share > worst.share ? entry : worst), shape[0]);
+
+  const list = bars(shape.map((entry) => ({
+    name: entry.name,
+    share: entry.share,
+    mark: entry === quickest ? 'good' : entry === slowest ? 'bad' : '',
+    value: `${entry.share < 1 ? '−' : '+'}${Math.abs((entry.share - 1) * 100).toFixed(0)}%`
+  })));
+
+  const spread = (slowest.share - quickest.share) * 100;
+  const note = spread < 4
+    ? 'Je bent even snel aan het begin als aan het eind. Dat is zeldzaam en het scheelt je opwarmtijd.'
+    : `Je bent op je snelst bij ${quickest.name}, en ${spread.toFixed(0)}% trager bij ${slowest.name}. ${
+      quickest.name === 'de eerste vijf'
+        ? 'Je stopt dus beter vroeger dan je denkt.'
+        : 'Reken de eerste paar solves van een sessie dus niet mee als je jezelf beoordeelt.'}`;
+
+  return recordBlock('De vorm van je sessie', [list, line(note, 'records-aside')]);
+}
+
+/** Does looking longer pay? Your own numbers, not somebody's advice. */
+function inspectionBlock() {
+  const looks = inspectionPays(saveFile.sessions);
+  if (!looks) return null;
+
+  const quickest = looks.reduce((best, entry) => (entry.middle < best.middle ? entry : best), looks[0]);
+  const list = bars(looks.map((entry) => ({
+    name: entry.name,
+    share: entry.middle,
+    mark: entry === quickest ? 'good' : '',
+    value: `${formatTime(entry.middle)} · ${entry.solves}×${entry.dnf ? ` · ${entry.dnf} DNF` : ''}`
+  })));
+
+  return recordBlock('Loont langer kijken?', [list, line(
+    `Bij jou is ${quickest.name} inspectie het snelst. Dat is geen advies uit een boek — het staat in je eigen tijden.`,
+    'records-aside')]);
+}
+
+/**
+ * An average with the luck of the draw taken out.
+ *
+ * Nobody has ever been able to say whether a good session was a good session or
+ * a soft set of scrambles. The cross length of every scramble you solved is
+ * known here, so the question is answerable rather than arguable.
+ */
+function fairBlock(kit) {
+  if (!kit || currentSession().puzzle !== '333') return null;
+  const face = settings.crossFace;
+  const difficulty = (scramble) => {
+    const lengths = kit.cross.crossLengths(scramble, kit.kpuzzle, kit.Alg, kit.table);
+    return lengths.find((entry) => entry.id === face)?.moves ?? NaN;
+  };
+
+  const fair = fairAverage(counting(solves), difficulty);
+  if (!fair) return null;
+
+  const luckyMs = Math.abs(fair.luck);
+  const luckySeconds = luckyMs / 1000;
+  // A slope of nearly nothing means the cross length is not visible in your
+  // times at all, and then a correction built on it would be made up.
+  const linked = Math.abs(fair.slope) >= 60;
+  const table = figures([
+    ['Je gemiddelde', formatTime(fair.plain)],
+    ['Gecorrigeerd', linked ? formatTime(fair.fair) : '—'],
+    ['Je scrambles waren', `${fair.easy.toFixed(1)} zetten kruis`],
+    ['Elke zet kruis kost je', linked
+      ? `${fair.slope > 0 ? '' : '−'}${formatTime(Math.abs(fair.slope))}`
+      : 'niets meetbaars']
+  ]);
+
+  const note = !linked
+    ? `Over ${fair.counted} solves is er in jouw tijden geen verband te zien tussen de lengte van het kruis en hoe lang je erover deed. Er valt dus ook niets te corrigeren — je gemiddelde is wat het is.`
+    : luckyMs < 150
+      ? `Over ${fair.counted} solves kreeg je een doorsnee set scrambles. Je gemiddelde is wat het is.`
+      : fair.luck > 0
+        ? `Je scrambles waren gemiddeld makkelijker dan gewoon. Op scrambles van normale zwaarte was dit ${luckySeconds.toFixed(2)}s trager geweest.`
+        : `Je scrambles waren zwaarder dan gewoon. Op scrambles van normale zwaarte was dit ${luckySeconds.toFixed(2)}s sneller geweest — je gemiddelde vleit je niet.`;
+
+  return recordBlock('Eerlijk vergelijken', [table, line(note, 'records-aside')]);
+}
+
+/** Where your time goes, and the stretch that is furthest out of step. */
+function weakBlock() {
+  const stage = weakStage(solves);
+  const cases = weakCase(caseStanding(play(), 'pll').concat(caseStanding(play(), 'oll')));
+  if (!stage && !cases) return null;
+
+  const parts = [];
+  if (stage) {
+    parts.push(bars(stage.stages.map((entry) => ({
+      name: entry.name,
+      share: entry.share,
+      mark: entry === stage.worst ? 'bad' : '',
+      value: `${(entry.share * 100).toFixed(0)}% · richtwaarde ${(entry.ideal * 100).toFixed(0)}%`
+    }))));
+    parts.push(line(stage.worst.off < 0.03
+      ? `Je solve is netjes verdeeld over ${stage.counted} gemeten solves. Er springt geen enkel deel uit.`
+      : `${stage.worst.name} neemt ${(stage.worst.off * 100).toFixed(0)}% meer van je solve dan gebruikelijk. Daar ligt je volgende seconde, en nergens anders.`,
+    'records-aside'));
+  }
+  if (cases) {
+    parts.push(line(
+      `Van de gevallen die je geoefend hebt is ${cases.slowest.id} je traagste (${formatTime(cases.slowest.mean)}), en ${cases.quickest.id} je snelste (${formatTime(cases.quickest.mean)}).`,
+      'records-aside'));
+  }
+
+  return recordBlock('Waar je het verliest', parts);
+}
+
+/**
+ * The solves that hurt, and what each one cost.
+ *
+ * Shown with the scramble, because the useful half of a disaster is being able
+ * to set it up again and find out what went wrong.
+ */
+function worstBlock() {
+  const worst = worstSolves(solves, 5);
+  if (worst.length < 3) return null;
+
+  const list = document.createElement('div');
+  list.className = 'round-lines';
+  for (const entry of worst) {
+    const row = document.createElement('div');
+    row.className = 'worst-row';
+    const time = document.createElement('b');
+    time.textContent = formatSolve(entry.solve);
+    const cost = document.createElement('span');
+    cost.textContent = `+${formatTime(entry.cost)} op je ao5`;
+    row.append(time, cost);
+    if (entry.solve.scramble) {
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'ghost tiny';
+      again.textContent = 'Nog eens';
+      again.addEventListener('click', () => {
+        setScramble(entry.solve.scramble);
+        keepScramble = true;
+        el.recordsSheet.close();
+        toast('Diezelfde scramble staat klaar.');
+      });
+      row.append(again);
+    }
+    list.append(row);
+  }
+
+  const total = worst.reduce((sum, entry) => sum + entry.cost, 0);
+  return recordBlock('De vijf die pijn deden', [list, line(
+    `Samen kostten deze vijf je ${formatTime(total)} aan gemiddelden. Ze staan er met hun scramble bij, zodat je ze opnieuw kunt leggen.`,
+    'records-aside')]);
+}
+
 function renderRecords(kit = crossKit) {
   el.recordsTitle.textContent = `Records — ${currentSession().name}`;
   const blocks = [
-    todayBlock(), podiumBlock(), badgesBlock(), calendarBlock(), splitsBlock(),
-    recordHistoryBlock(), runsBlock(), kit ? crossBlock(kit) : null, cubesBlock(),
+    todayBlock(), podiumBlock(), trendBlock(), shapeBlock(), inspectionBlock(),
+    badgesBlock(), calendarBlock(), splitsBlock(), weakBlock(),
+    recordHistoryBlock(), runsBlock(), kit ? crossBlock(kit) : null,
+    kit ? fairBlock(kit) : null, cubesBlock(), worstBlock(),
     whatIfBlock(), diaryBlock(), longAgoBlock(), counterBlock()
   ].filter(Boolean);
 
@@ -3376,7 +3826,9 @@ function addSolve(ms, marks = []) {
   const solve = { ms, penalty: pendingPenalty, scramble, at: Date.now() };
   if (marks.length) solve.splits = marks;
   if (settings.cube) solve.cube = settings.cube;
+  if (Number.isFinite(lastInspection)) solve.inspect = lastInspection;
   pendingPenalty = 'none';
+  lastInspection = null;
 
   if (drilling) { finishDrill(solve); return; }
   if (dailyRun) { finishDaily(solve); return; }
@@ -3733,11 +4185,18 @@ function settleInspection() {
   const startedInspection = stopInspection();
   if (startedInspection === null) {
     pendingPenalty = 'none';
+    lastInspection = null;
     return;
   }
   const elapsed = performance.now() - startedInspection;
+  // Kept on the solve, because "does looking longer pay" is a question only
+  // your own numbers can answer, and only if somebody wrote them down.
+  lastInspection = Math.round(elapsed);
   pendingPenalty = elapsed < INSPECTION_MS ? 'none' : elapsed < PLUS_TWO_MS ? '+2' : 'DNF';
 }
+
+/** How long inspection ran for the solve now finishing. */
+let lastInspection = null;
 
 /* ---------- timing ---------- */
 
@@ -5795,6 +6254,7 @@ renderScramble();
 applySettings(); // sets the ring colour, decimals, hint and renders the session
 renderCubes();
 renderCrossFace();
+renderTastePick();
 renderSkins();
 
 // Working the table out takes a few seconds, so it is started quietly the
@@ -5808,6 +6268,18 @@ if (settings.crossTip) {
 // The cabinet is filled in once without a fuss, so a history that already
 // earned things does not throw eighteen parties on first open.
 celebrateBadges({ quietly: true });
+el.tastePick?.addEventListener('change', () => {
+  settings.taste = el.tastePick.value;
+  storeSettings();
+  renderTaste();
+  // Sifting needs the table, and building it takes a few seconds -- better
+  // started now than in the pause after your next solve.
+  if (settings.taste !== 'any') {
+    loadCross().catch(() => {});
+    toast('Vanaf de volgende scramble.');
+  }
+});
+
 el.crossFace.addEventListener('change', () => {
   settings.crossFace = el.crossFace.value;
   storeSettings();

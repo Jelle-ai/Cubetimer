@@ -11,30 +11,67 @@ function context() {
   return audio;
 }
 
-/** Short blip. Called straight after user input, so autoplay rules are met. */
-export function tone(frequency, duration = 0.09, volume = 0.06, type = 'sine') {
+/**
+ * One note.
+ *
+ * The first version of this was a bare oscillator switched on and off, which is
+ * a click, a tone and another click -- and that is what made the app sound
+ * cheap. What costs nothing and changes everything is the envelope: a few
+ * milliseconds of attack so the note starts rather than appears, and an
+ * exponential tail so it stops rather than is cut off.
+ *
+ * @param {number} [at] when to play, on the audio clock. Scheduling ahead is
+ *   sample-accurate; setTimeout is not, and a two-note figure timed with it
+ *   arrives as two separate noises rather than as one shape.
+ */
+export function tone(frequency, duration = 0.09, volume = 0.06, type = 'sine', at = null) {
   const ctx = context();
   if (!ctx) return;
 
+  const start = at ?? ctx.currentTime;
   const oscillator = ctx.createOscillator();
   const gain = ctx.createGain();
   oscillator.type = type;
-  oscillator.frequency.value = frequency;
+  oscillator.frequency.setValueAtTime(frequency, start);
 
-  const now = ctx.currentTime;
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(volume, now + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  // Exponential ramps cannot touch zero, so they start and end just above it.
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(volume, start + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
   oscillator.connect(gain).connect(ctx.destination);
-  oscillator.start(now);
-  oscillator.stop(now + duration + 0.02);
+  oscillator.start(start);
+  oscillator.stop(start + duration + 0.02);
 }
 
-export function chord(frequencies, gap = 0.12) {
+/**
+ * Notes one after another, laid on the audio clock rather than on timers, so
+ * the figure keeps its rhythm even while the page is busy drawing a result.
+ *
+ * @param {number[]} frequencies
+ * @param {{gap: number, duration: number, volume: number, type: string, fade: number}} [shape]
+ *   fade below 1 makes each note quieter than the last, which is what stops a
+ *   four-note flourish from sounding like an alarm.
+ */
+export function chord(frequencies, gap = 0.12, shape = {}) {
+  const ctx = context();
+  if (!ctx) return;
+  const { duration = 0.22, volume = 0.07, type = 'sine', fade = 1 } = shape;
+
   frequencies.forEach((frequency, index) => {
-    setTimeout(() => tone(frequency), index * gap * 1000);
+    tone(frequency, duration, volume * fade ** index, type, ctx.currentTime + index * gap);
   });
+}
+
+/**
+ * Two notes at once rather than in a row: a small interval sounds like one
+ * sound with a colour to it, where the same two in sequence sound like two
+ * beeps.
+ */
+export function together(frequencies, duration = 0.2, volume = 0.055, type = 'sine') {
+  const ctx = context();
+  if (!ctx) return;
+  for (const frequency of frequencies) tone(frequency, duration, volume, type, ctx.currentTime);
 }
 
 export function vibrate(pattern) {

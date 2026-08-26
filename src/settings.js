@@ -94,6 +94,8 @@ const DEFAULTS = {
   pace: true,
   crossTip: false,
   crossFace: 'D',
+  // Which scrambles you want dealt: everything, only easy crosses, only hard.
+  taste: 'any',
   wonBadges: [],
   badgesSeeded: false,
   cubes: [],

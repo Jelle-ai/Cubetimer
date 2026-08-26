@@ -55,6 +55,7 @@
       <div class="scramble-block">
         <button id="scramble" class="scramble" type="button" title="Klik om te kopiëren">–</button>
         <p id="scramble-again" class="scramble-again" hidden></p>
+        <p id="scramble-taste" class="scramble-again" hidden></p>
         <div class="scramble-tools">
           <button id="new-scramble" class="link" type="button">nieuwe scramble</button>
           <button id="repeat-scramble" class="link" type="button">nog eens dezelfde</button>
@@ -494,6 +495,23 @@
   </div>
 </dialog>
 
+<!-- The closing ritual. Nothing is saved, nothing is deleted and nothing is
+     locked: it exists so that putting the cube down has an end to it, the way
+     a session at a competition has one. -->
+<dialog id="closing-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="closing-title">Tot hier</h2>
+      <button type="button" id="closing-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+    <div id="closing-body" class="records-body"></div>
+    <div class="detail-actions">
+      <button type="button" id="closing-card">Bewaar als kaart</button>
+      <button type="button" id="closing-done" class="primary">Tot de volgende</button>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="round-sheet" class="sheet" tabindex="-1">
   <div class="sheet-inner">
     <header class="sheet-head">
@@ -597,6 +615,7 @@
     <div class="detail-actions">
       <button type="button" id="records-open">Records en terugblik</button>
       <button type="button" id="share-open">Deel je ao5</button>
+      <button type="button" id="closing-open">Sessie afsluiten</button>
     </div>
   </form>
 </dialog>
@@ -716,6 +735,18 @@
       <div class="move-new">
         <select id="cross-face" aria-label="Kleur waarop je solvet"></select>
         <button type="button" class="switch" id="set-crosstip" role="switch" aria-checked="false" aria-label="Cross-tip"><span></span></button>
+      </div>
+    </section>
+
+    <section class="setting stacked">
+      <div class="setting-label">
+        <span>Scrambles op maat</span>
+        <small>Officiële scrambles, maar gezeefd op hoe lang het kruis wordt op jouw kleur.
+          Een reeks vlotte om je snel te voelen, een reeks lastige om beter te worden in
+          precies wat je het minst graag krijgt</small>
+      </div>
+      <div class="move-new">
+        <select id="taste-pick" aria-label="Scrambles op maat"></select>
       </div>
     </section>
 
