@@ -119,7 +119,24 @@ function derive(stickers) {
     if (sides[side].some((sticker) => !sticker)) return null;
   }
 
-  return { up, sides };
+  // Every face as its own three by three, in the net's own orientation, which
+  // is what an F2L picture needs: the pair lives in the top layer or in the
+  // slot at the front right, so the front and the right have to be shown too.
+  const faces = {};
+  const blocks = { up: [0, 3], left: [3, 0], front: [3, 3], right: [3, 6], back: [3, 9], down: [6, 3] };
+  for (const [name, [row0, column0]] of Object.entries(blocks)) {
+    const grid = [];
+    for (let row = 0; row < 3; row++) {
+      for (let column = 0; column < 3; column++) {
+        const sticker = at(row0 + row, column0 + column);
+        if (!sticker) return null;
+        grid.push(sticker);
+      }
+    }
+    faces[name] = grid;
+  }
+
+  return { up, sides, faces };
 }
 
 /**
@@ -209,6 +226,56 @@ export async function lastLayerOf(setup) {
   };
 }
 
+/**
+ * The pair that belongs in the front-right slot, as the puzzle numbers them --
+ * the same two the case list checks against.
+ */
+const F2L_CORNER = 4;
+const F2L_EDGE = 8;
+
+/**
+ * What an F2L case looks like: the top face with the front and the right beside
+ * it, laid out the way the puzzle's own net lays them out. No rotating of
+ * anything into a corner view -- the slot is simply where the front's right
+ * column meets the right's left column, and the two are already next to each
+ * other there.
+ *
+ * @returns {Promise<{up: string[], front: string[], right: string[],
+ *   pair: string[]}|null>} pair is the three colours the pair is made of
+ */
+export async function f2lOf(setup) {
+  const kit = await lastLayerMap();
+  if (!kit?.places?.faces) return null;
+
+  let pattern;
+  try {
+    pattern = kit.net.kpuzzle.defaultPattern().applyAlg(setup);
+  } catch {
+    return null;
+  }
+
+  // Which stickers are the pair is a question about pieces, not about colours:
+  // the front face is full of green and the right full of red whatever the case
+  // is, and picking them out by colour lights up the half of the cube that is
+  // already solved. Asking which piece is standing in each place instead gives
+  // exactly the five stickers the case is made of.
+  const state = pattern.patternData;
+  const isPair = (sticker) => (sticker.orbit === 'CORNERS'
+    ? state.CORNERS.pieces[sticker.at] === F2L_CORNER
+    : sticker.orbit === 'EDGES' && state.EDGES.pieces[sticker.at] === F2L_EDGE);
+
+  const read = (list) => list.map((sticker) => ({
+    colour: colourAt(kit.net, pattern, sticker),
+    pair: isPair(sticker)
+  }));
+
+  return {
+    up: read(kit.places.faces.up),
+    front: read(kit.places.faces.front),
+    right: read(kit.places.faces.right)
+  };
+}
+
 /* ---------- drawing it ---------- */
 
 const CELL = 10;
@@ -271,6 +338,39 @@ export function drawLastLayer(shape, how = 'pll') {
     tile(svg, 0, along, STRIP, CELL, paint(shape.left[i]));
     tile(svg, SIZE - STRIP, along, STRIP, CELL, paint(shape.right[i]));
   }
+
+  return svg;
+}
+
+/**
+ * The F2L picture.
+ *
+ * Only the pair is worth colouring. Everything else on those three faces is
+ * either already solved or belongs to the last layer, and painting all of it in
+ * gives a picture you have to decode rather than recognise -- so the rest is
+ * slate and the two pieces that are the case are the only thing you see.
+ */
+export function drawF2L(shape) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const step = CELL + GAP;
+  const wide = step * 6 + GAP;
+  svg.setAttribute('viewBox', `0 0 ${wide} ${wide}`);
+  svg.setAttribute('class', 'll-diagram');
+  svg.setAttribute('aria-hidden', 'true');
+
+  const block = (grid, atColumn, atRow) => {
+    for (let row = 0; row < 3; row++) {
+      for (let column = 0; column < 3; column++) {
+        const cell = grid[row * 3 + column];
+        tile(svg, GAP + (atColumn + column) * step, GAP + (atRow + row) * step,
+          CELL, CELL, cell.pair ? cell.colour : DOWN);
+      }
+    }
+  };
+
+  block(shape.up, 0, 0);      // the top face
+  block(shape.front, 0, 3);   // the front, under it, as the net has it
+  block(shape.right, 3, 3);   // and the right beside the front, likewise
 
   return svg;
 }
