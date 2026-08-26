@@ -101,14 +101,25 @@ const DEFAULTS = {
   recordTab: 'now',
   // The groups of the side list you have folded away.
   railShut: [],
-  // Which algorithm you starred for each case, as "group/id" to a number.
+  // Which algorithm you starred for each case, as "group/id" to the moves
+  // themselves. It used to be a number -- the place in the list -- which broke
+  // the moment you added one of your own and the list shifted under it.
   pickedAlg: {},
+  // Which cases go on your printable sheet, and whether it shows your notes.
+  sheetGroups: ['pll'],
+  sheetOnly: 'all',
+  sheetNotes: true,
+  // How the case book lays a case out: side by side or one under the other.
+  bookWide: true,
   // Whether a drilled case turns up facing a random way. On while you are
   // learning to recognise it; off while you are learning the algorithm itself.
   caseAuf: true,
   // A time to be under, and a date to be under it by. Both optional.
   aimTime: 0,
   aimBy: '',
+  // The challenge from the wheel you are in the middle of, so it survives a
+  // reload -- a challenge that vanishes when you close the tab is not one.
+  dare: null,
   wonBadges: [],
   badgesSeeded: false,
   cubes: [],
@@ -126,7 +137,7 @@ const DEFAULTS = {
     works offline cannot go and fetch a font. */
 export const FONTS = ['rounded', 'system', 'mono'];
 
-const SWITCHES = ['inspection', 'hideTime', 'pace', 'sound', 'haptics', 'celebrate', 'highlight', 'preview', 'countUp', 'wakeLock', 'practice'];
+const SWITCHES = ['inspection', 'hideTime', 'pace', 'sound', 'haptics', 'celebrate', 'highlight', 'preview', 'countUp', 'wakeLock', 'practice', 'sheetNotes', 'bookWide'];
 
 // Switches that start off rather than on, so "anything but false is true" --
 // the rule the ones above use -- would turn them on by mistake.
@@ -167,12 +178,30 @@ export function loadSettings() {
     if (!['U', 'D', 'F', 'B', 'R', 'L'].includes(settings.crossFace)) settings.crossFace = DEFAULTS.crossFace;
     const picked = {};
     for (const [where, at] of Object.entries(settings.pickedAlg || {})) {
-      if (typeof where === 'string' && Number.isInteger(at) && at >= 0 && at < 12) picked[where] = at;
+      if (typeof where !== 'string') continue;
+      if (typeof at === 'string' && at.trim()) picked[where] = at.trim().slice(0, 120);
+      else if (Number.isInteger(at) && at >= 0 && at < 12) picked[where] = at;
     }
     settings.pickedAlg = picked;
 
+    settings.sheetGroups = Array.isArray(settings.sheetGroups)
+      ? settings.sheetGroups.filter((id) => typeof id === 'string').slice(0, 8)
+      : [...DEFAULTS.sheetGroups];
+    if (!settings.sheetGroups.length) settings.sheetGroups = [...DEFAULTS.sheetGroups];
+    if (!['all', 'mine', 'drilled'].includes(settings.sheetOnly)) settings.sheetOnly = DEFAULTS.sheetOnly;
+
     settings.aimTime = clampNumber(settings.aimTime, 0, 600000, 0);
     settings.aimBy = /^\d{4}-\d{2}-\d{2}$/.test(settings.aimBy) ? settings.aimBy : '';
+
+    const dare = settings.dare;
+    settings.dare = dare && Array.isArray(dare.reels) && dare.reels.length === 3
+      && dare.reels.every((id) => typeof id === 'string')
+      ? {
+        reels: dare.reels.map((id) => id.slice(0, 32)),
+        tally: dare.tally && typeof dare.tally === 'object' ? dare.tally : {},
+        at: Number.isFinite(dare.at) ? dare.at : Date.now()
+      }
+      : null;
 
     settings.railShut = Array.isArray(settings.railShut)
       ? settings.railShut.filter((id) => typeof id === 'string').slice(0, 12)

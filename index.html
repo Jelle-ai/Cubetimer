@@ -112,6 +112,23 @@
       <path d="M2.4 12S6 5.4 12 5.4 21.6 12 21.6 12 18 18.6 12 18.6 2.4 12 2.4 12Z"/>
       <circle cx="12" cy="12" r="2.9"/>
     </g>
+    <g id="mark-recall" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4.2 12a7.8 7.8 0 1 1 2.3 5.5"/><path d="M4.2 7.4v4.6h4.6"/>
+      <path d="M12 8.4V12l2.6 1.6"/>
+    </g>
+    <g id="mark-sheet" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4.6" y="2.8" width="14.8" height="18.4" rx="2"/>
+      <path d="M8 7.4h8M8 11.4h8M8 15.4h5"/>
+    </g>
+    <g id="mark-wheel" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+      <rect x="2.6" y="5.4" width="18.8" height="13.2" rx="2.2"/>
+      <path d="M9 5.4v13.2M15 5.4v13.2"/>
+      <path d="M4.6 12h2.4M9.8 10h2.4M9.8 14h2.4M17 12h2.4" stroke-linecap="round"/>
+    </g>
+    <g id="mark-course" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6.4 20.4V6.6a2.4 2.4 0 0 1 2.4-2.4h9.6v13.4H8.8a2.4 2.4 0 0 0-2.4 2.4Z"/>
+      <path d="M6.4 20.4h12"/>
+    </g>
     <g id="mark-gear" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="3.1"/>
         <path d="M12 2.6a1.4 1.4 0 0 1 1.4 1.4v.5a1.4 1.4 0 0 0 .85 1.28 1.4 1.4 0 0 0 1.54-.28l.35-.35a1.4 1.4 0 1 1 1.98 1.98l-.35.35a1.4 1.4 0 0 0-.28 1.54 1.4 1.4 0 0 0 1.28.85h.5a1.4 1.4 0 0 1 0 2.8h-.5a1.4 1.4 0 0 0-1.28.85 1.4 1.4 0 0 0 .28 1.54l.35.35a1.4 1.4 0 1 1-1.98 1.98l-.35-.35a1.4 1.4 0 0 0-1.54-.28 1.4 1.4 0 0 0-.85 1.28v.5a1.4 1.4 0 0 1-2.8 0v-.5a1.4 1.4 0 0 0-.85-1.28 1.4 1.4 0 0 0-1.54.28l-.35.35a1.4 1.4 0 1 1-1.98-1.98l.35-.35a1.4 1.4 0 0 0 .28-1.54 1.4 1.4 0 0 0-1.28-.85H4a1.4 1.4 0 0 1 0-2.8h.5a1.4 1.4 0 0 0 1.28-.85 1.4 1.4 0 0 0-.28-1.54l-.35-.35a1.4 1.4 0 1 1 1.98-1.98l.35.35a1.4 1.4 0 0 0 1.54.28h.05A1.4 1.4 0 0 0 10.1 4.5V4A1.4 1.4 0 0 1 12 2.6Z"/>
@@ -128,9 +145,12 @@
 
     <details class="rail-group" data-group="practise" open>
       <summary>Oefenen</summary>
+      <button type="button" data-go="course-open"><svg viewBox="0 0 24 24"><use href="#mark-course"/></svg>Leer oplossen</button>
       <button type="button" data-go="drill-open"><svg viewBox="0 0 24 24"><use href="#mark-cases"/></svg>Gevallen trainen</button>
       <button type="button" data-go="cases-times"><svg viewBox="0 0 24 24"><use href="#mark-times"/></svg>Gevallenboek</button>
+      <button type="button" data-go="paper-open"><svg viewBox="0 0 24 24"><use href="#mark-sheet"/></svg>Algblad</button>
       <button type="button" data-go="spot-open"><svg viewBox="0 0 24 24"><use href="#mark-eye"/></svg>Herkennen</button>
+      <button type="button" data-go="slot-open"><svg viewBox="0 0 24 24"><use href="#mark-wheel"/></svg>Het rad</button>
       <button type="button" data-go="mode-open"><svg viewBox="0 0 24 24"><use href="#mark-play"/></svg>Spelletjes en modi</button>
       <button type="button" data-go="metro-open"><svg viewBox="0 0 24 24"><use href="#mark-metro"/></svg>Metronoom</button>
     </details>
@@ -246,6 +266,7 @@
     </button>
 
     <p id="mode-strip" class="mode-strip" hidden></p>
+    <button type="button" id="dare-strip" class="dare-strip" hidden></button>
     <p id="insight" class="insight" hidden></p>
 
     <section class="session">
@@ -542,6 +563,7 @@
       <button type="button" id="set-none" class="link">niets</button>
       <button type="button" id="set-unknown" class="link">wat ik nog niet gedaan heb</button>
       <button type="button" id="set-slow" class="link">mijn traagste tien</button>
+      <button type="button" id="set-due" class="link">wat ik moet opfrissen</button>
       <span id="set-count" class="set-count">0 gekozen</span>
     </div>
     <div id="set-grid" class="case-grid sheet-scroll"></div>
@@ -566,7 +588,7 @@
   </div>
 </dialog>
 
-<dialog id="cases-sheet" class="sheet sheet-tall" tabindex="-1">
+<dialog id="cases-sheet" class="sheet sheet-tall sheet-wide" tabindex="-1">
   <div class="sheet-inner">
     <header class="sheet-head">
       <h2 id="cases-title">Gevallenboek</h2>
@@ -789,6 +811,57 @@
   </form>
 </dialog>
 
+<!-- Your own algorithms on one page: the ones you starred, with the picture
+     beside them, in a shape that survives being printed. -->
+<dialog id="paper-sheet" class="sheet sheet-tall sheet-wide" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="paper-title">Algblad</h2>
+      <button type="button" id="paper-close" class="icon-button" aria-label="Sluiten">&#10005;</button>
+    </header>
+    <div id="paper-groups" class="chip-row"></div>
+    <div id="paper-filter" class="session-tools"></div>
+    <div id="paper-body" class="sheet-scroll"></div>
+    <div class="detail-actions">
+      <button type="button" id="paper-print" class="primary">Afdrukken</button>
+      <button type="button" id="paper-copy">Kopieer als tekst</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Three reels and a small, unreasonable challenge. -->
+<dialog id="slot-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="slot-title">Het rad</h2>
+      <button type="button" id="slot-close" class="icon-button" aria-label="Sluiten">&#10005;</button>
+    </header>
+    <div id="slot-machine" class="slot">
+      <div class="slot-window" id="slot-reels"></div>
+      <div class="slot-lever">
+        <button type="button" id="slot-go" class="slot-arm">Draaien</button>
+      </div>
+    </div>
+    <div id="slot-body" class="slot-body"></div>
+  </div>
+</dialog>
+
+<!-- The course: a road with stops on it, and every stop opened out in full. -->
+<dialog id="course-sheet" class="sheet sheet-tall sheet-wide" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="course-title">Leer oplossen</h2>
+      <button type="button" id="course-close" class="icon-button" aria-label="Sluiten">&#10005;</button>
+    </header>
+    <div class="course-layout">
+      <div class="course-map">
+        <svg id="course-road" viewBox="0 0 120 660" aria-hidden="true" preserveAspectRatio="xMidYMin meet"></svg>
+      </div>
+      <div id="course-body" class="course-body sheet-scroll"></div>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="settings" class="sheet" tabindex="-1">
   <form method="dialog" class="sheet-inner">
     <header class="sheet-head">
@@ -798,18 +871,15 @@
     <div id="settings-tabs" class="chip-row settings-tabs"></div>
     <div id="settings-groups" class="settings-groups">
       <section class="settings-group" data-group="timer" data-name="Timer">
-        <p class="settings-about">Hoe de klok zich gedraagt</p>
         <section class="setting">
               <div class="setting-label">
                 <span>Inspectie</span>
-                <small>15 seconden, met +2 en DNF</small>
               </div>
               <button type="button" class="switch" id="set-inspection" role="switch" aria-checked="true" aria-label="Inspectie"><span></span></button>
             </section>
         <section class="setting">
               <div class="setting-label">
                 <span>Vasthoudtijd</span>
-                <small>Hoe lang voor de timer op groen springt</small>
               </div>
               <div class="segmented" id="set-hold" role="group">
                 <button type="button" data-value="250">kort</button>
@@ -819,22 +889,19 @@
             </section>
         <section class="setting">
               <div class="setting-label">
-                <span>Tijd tijdens solve</span>
-                <small>Verbergen achter drie bolletjes</small>
+                <span>Tijd verbergen tijdens je solve</span>
               </div>
               <button type="button" class="switch" id="set-hide" role="switch" aria-checked="true" aria-label="Tijd tijdens solve"><span></span></button>
             </section>
         <section class="setting">
               <div class="setting-label">
                 <span>Tijd laten oplopen</span>
-                <small>Het eindgetal telt op na het stoppen</small>
               </div>
               <button type="button" class="switch" id="set-countUp" role="switch" aria-checked="true" aria-label="Tijd laten oplopen"><span></span></button>
             </section>
         <section class="setting">
               <div class="setting-label">
                 <span>Decimalen</span>
-                <small>Zoals het display van je timer</small>
               </div>
               <div class="segmented" id="set-decimals" role="group">
                 <button type="button" data-value="2">0.00</button>
@@ -843,43 +910,33 @@
             </section>
         <section class="setting">
               <div class="setting-label">
-                <span>Splits</span>
-                <small>Tik tijdens je solve op de knop of druk op enter om cross, F2L, OLL en PLL
-                  apart te meten. Werkt alleen als je zelf timet, niet met je matje</small>
+                <span>Cross, F2L, OLL en PLL apart meten</span>
               </div>
               <button type="button" class="switch" id="set-splits" role="switch" aria-checked="false" aria-label="Splits"><span></span></button>
             </section>
         <section class="setting">
               <div class="setting-label">
-                <span>Ring leeft mee</span>
-                <small>Tijdens je solve kleurt de ring warm als je voorligt op je gewone tempo en
-                  koel als je achterloopt. Geen cijfers, ook niet als je de tijd verbergt</small>
+                <span>Ring kleurt mee met je tempo</span>
               </div>
               <button type="button" class="switch" id="set-pace" role="switch" aria-checked="true" aria-label="Ring leeft mee"><span></span></button>
             </section>
         <section class="setting">
               <div class="setting-label">
                 <span>Scherm wakker houden</span>
-                <small>Voorkomt dat je telefoon in slaap valt</small>
               </div>
               <button type="button" class="switch" id="set-wakeLock" role="switch" aria-checked="true" aria-label="Scherm wakker houden"><span></span></button>
             </section>
       </section>
       <section class="settings-group" data-group="scramble" data-name="Scramble">
-        <p class="settings-about">Wat je te solven krijgt</p>
         <section class="setting">
               <div class="setting-label">
-                <span>Voorbeeld</span>
-                <small>Plaatje van de gescramblede puzzel, naast de scramble</small>
+                <span>Voorbeeld van de scramble</span>
               </div>
               <button type="button" class="switch" id="set-preview" role="switch" aria-checked="true" aria-label="Voorbeeld"><span></span></button>
             </section>
         <section class="setting stacked">
               <div class="setting-label">
                 <span>Scrambles op maat</span>
-                <small>Officiële scrambles, maar gezeefd op hoe lang het kruis wordt op jouw kleur.
-                  Een reeks vlotte om je snel te voelen, een reeks lastige om beter te worden in
-                  precies wat je het minst graag krijgt</small>
               </div>
               <div class="move-new">
                 <select id="taste-pick" aria-label="Scrambles op maat"></select>
@@ -887,9 +944,7 @@
             </section>
         <section class="setting stacked">
               <div class="setting-label">
-                <span>De cross die je miste</span>
-                <small>Na elke solve rekent hij uit hoe kort de cross had gekund, op jouw kleur en
-                  op de andere vijf. Pas achteraf, want vooraf verandert het hoe je kijkt</small>
+                <span>Cross-tip na je solve</span>
               </div>
               <div class="move-new">
                 <select id="cross-face" aria-label="Kleur waarop je solvet"></select>
@@ -898,18 +953,15 @@
             </section>
       </section>
       <section class="settings-group" data-group="look" data-name="Uiterlijk">
-        <p class="settings-about">Hoe de app eruitziet</p>
         <section class="setting stacked">
               <div class="setting-label">
                 <span>Sfeer</span>
-                <small>Niet alleen een accentkleur maar het papier, de inkt en de gloed samen</small>
               </div>
               <div id="skins" class="skins" role="group"></div>
             </section>
         <section class="setting">
               <div class="setting-label">
                 <span>Thema</span>
-                <small>Licht, donker of volg je toestel</small>
               </div>
               <div class="segmented" id="set-theme" role="group">
                 <button type="button" data-value="light">licht</button>
@@ -920,15 +972,13 @@
         <section class="setting stacked">
               <div class="setting-label">
                 <span>Kleuren</span>
-                <small>Snelkeuze voor de ring, of stel elke kleur zelf in</small>
               </div>
               <div id="led-colors" class="swatches"></div>
               <div id="color-slots" class="color-slots"></div>
             </section>
         <section class="setting">
               <div class="setting-label">
-                <span>Cijfers</span>
-                <small>Het lettertype van de timer en je tijden</small>
+                <span>Lettertype van de cijfers</span>
               </div>
               <div class="segmented" id="set-font" role="group">
                 <button type="button" data-value="rounded">rond</button>
@@ -938,49 +988,42 @@
             </section>
         <section class="setting">
               <div class="setting-label">
-                <span>Beste en slechtste</span>
-                <small>Markeer ze in de lijst</small>
+                <span>Beste en slechtste markeren</span>
               </div>
               <button type="button" class="switch" id="set-highlight" role="switch" aria-checked="true" aria-label="Beste en slechtste"><span></span></button>
             </section>
       </section>
       <section class="settings-group" data-group="feel" data-name="Reactie">
-        <p class="settings-about">Wat je hoort en voelt</p>
         <section class="setting">
               <div class="setting-label">
                 <span>Geluid</span>
-                <small>Piep op 8 en 12 seconden inspectie, klik bij start en stop</small>
               </div>
               <button type="button" class="switch" id="set-sound" role="switch" aria-checked="true" aria-label="Geluid"><span></span></button>
             </section>
         <section class="setting">
               <div class="setting-label">
                 <span>Trillen</span>
-                <small>Korte tik bij groen, start en stop</small>
               </div>
               <button type="button" class="switch" id="set-haptics" role="switch" aria-checked="true" aria-label="Trillen"><span></span></button>
             </section>
         <section class="setting">
               <div class="setting-label">
-                <span>Vieren</span>
-                <small>Confetti onder je doeltijd, een feest bij een record</small>
+                <span>Confetti en records vieren</span>
               </div>
               <button type="button" class="switch" id="set-celebrate" role="switch" aria-checked="true" aria-label="Record vieren"><span></span></button>
             </section>
       </section>
       <section class="settings-group" data-group="practice" data-name="Oefenen">
-        <p class="settings-about">Doelen en je oefenreeks</p>
         <section class="setting">
               <div class="setting-label">
-                <span>Oefenreeks</span>
-                <small>Houdt bij hoeveel je per dag solvet, en telt de dagen op rij</small>
+                <span>Dagen op rij bijhouden</span>
               </div>
               <button type="button" class="switch" id="set-practice" role="switch" aria-checked="true" aria-label="Oefenreeks"><span></span></button>
             </section>
         <section class="setting">
               <div class="setting-label">
                 <span>Dagdoel</span>
-                <small id="goal-note">Wat een dag moet halen om de vlam brandend te houden</small>
+                <small id="goal-note"></small>
               </div>
               <div class="setting-control">
                 <div class="segmented" id="set-goalKind" role="group">
@@ -993,7 +1036,7 @@
         <section class="setting">
               <div class="setting-label">
                 <span>Doeltijd</span>
-                <small id="target-note">Markeer solves die er onder blijven</small>
+                <small id="target-note"></small>
               </div>
               <div class="setting-control">
                 <input id="set-target-value" class="number-input" type="number" min="1" max="600" step="0.5" inputmode="decimal">
@@ -1003,9 +1046,8 @@
 
         <section class="setting stacked">
               <div class="setting-label">
-                <span>Doel met een datum</span>
-                <small id="aim-note">Een tijd waar je onder wilt, en wanneer. Uit je eigen tempo van de
-                  afgelopen honderd solves rekent hij uit of je op schema ligt</small>
+                <span>Doeltijd met een datum</span>
+                <small id="aim-note"></small>
               </div>
               <div class="move-new">
                 <input type="text" id="aim-time" inputmode="decimal" autocomplete="off" placeholder="bv. 15 of 14.5">
@@ -1014,12 +1056,9 @@
             </section>
       </section>
       <section class="settings-group" data-group="cube" data-name="Kubus">
-        <p class="settings-about">Je kubussen en je timer</p>
         <section class="setting stacked">
               <div class="setting-label">
                 <span>Je kubussen</span>
-                <small>Geef ze een naam en kies welke er ligt. Elke solve onthoudt het, en je ziet
-                  per kubus je beste tijd en gemiddelde</small>
               </div>
               <div class="move-new">
                 <input type="text" id="cube-name" maxlength="24" autocomplete="off" placeholder="Naam van een kubus">
@@ -1044,21 +1083,10 @@
               <div id="device-details" class="device-details" hidden></div>
             </section>
       </section>
-      <section class="settings-group" data-group="data" data-name="Je tijden">
-        <p class="settings-about">Bewaren, meenemen, invoeren</p>
-        <section class="setting">
-              <div class="setting-label">
-                <span>Naar een ander toestel</span>
-                <small>Alles in één bestand: sessies, tijden, scrambles en voorkeuren. Samenvoegen
-                  in plaats van overschrijven, dus je kunt heen en weer. Leest ook een export uit
-                  csTimer</small>
-              </div>
-              <button type="button" id="transfer-open" class="text-button">openen</button>
-            </section>
+      <section class="settings-group" data-group="data" data-name="Exporteren">
         <section class="setting stacked">
               <div class="setting-label">
                 <span>Tijden exporteren</span>
-                <small>Deze sessie naar een andere app, in het formaat dat je nodig hebt</small>
               </div>
               <div class="segmented" id="export-format" role="group">
                 <button type="button" data-value="text">tekst</button>
@@ -1069,13 +1097,6 @@
                 <button type="button" id="export">Kopieer</button>
                 <button type="button" id="export-save">Bewaar bestand</button>
               </div>
-            </section>
-        <section class="setting stacked">
-              <div class="setting-label">
-                <span>Tijden invoeren</span>
-                <small>Plak een lijst uit cstimer, Twisty Timer of gewoon een kladblok</small>
-              </div>
-              <button type="button" id="paste-open" class="text-button">plakken</button>
             </section>
       </section>
     </div>

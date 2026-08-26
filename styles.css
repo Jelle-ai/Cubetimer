@@ -652,6 +652,16 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
 
 .detail-actions button:hover { background: var(--hover); color: var(--ink); }
 .detail-actions button[data-active="true"] { background: var(--led); color: #fff; }
+/* The one action a sheet is actually for. This class was already on half a
+   dozen buttons and had never been given a look, so they all read as equals. */
+.detail-actions button.primary {
+  background: var(--led);
+  color: #fff;
+  font-weight: 600;
+}
+
+.detail-actions button.primary:hover { background: color-mix(in srgb, var(--led) 84%, #000); color: #fff; }
+
 .detail-actions button.danger { color: var(--hold); }
 .detail-actions button.danger:hover { background: #fdecee; }
 
@@ -683,13 +693,19 @@ body[data-phase="running"] .time { letter-spacing: .1em; }
   color: var(--ink);
 }
 
+/* Three sheets are reading matter rather than a form: the course, the case
+   book and the algorithm sheet all put a picture beside a paragraph, and at
+   430px there is room for neither. They get the width when the screen has it. */
+.sheet-wide { width: min(760px, 94vw); }
+
 .sheet::backdrop {
   background: rgba(16, 48, 63, .38);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
 
-.sheet[open] { animation: sheetIn .22s cubic-bezier(.2, .8, .3, 1) both; }
+/* The sheet lands rather than appears: down past the mark, and back. */
+.sheet[open] { animation: sheetIn .32s cubic-bezier(.2, 1.25, .35, 1) both; }
 .sheet[open]::backdrop { animation: fadeIn .22s ease both; }
 
 @keyframes sheetIn {
@@ -1896,6 +1912,7 @@ body[data-big="true"] .puzzles,
 body[data-big="true"] .preview,
 body[data-big="true"] .insight,
 body[data-big="true"] .mode-strip,
+body[data-big="true"] .dare-strip,
 body[data-big="true"] .scramble-again,
 body[data-big="true"] .scramble-taste,
 body[data-big="true"] .scramble-tools,
@@ -2998,46 +3015,99 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
 
 .alg-row {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
-  align-items: center;
+  grid-template-columns: auto 1fr;
+  align-items: start;
   gap: .5rem;
-  padding: .25rem .4rem;
-  border-radius: 8px;
+  padding: .4rem .5rem;
+  border-radius: 10px;
   background: var(--card-solid, #fff);
+  border: 1px solid transparent;
 }
 
-.alg-row[data-mine='true'] { background: color-mix(in srgb, var(--record) 14%, var(--card-solid, #fff)); }
+.alg-row[data-mine='true'] {
+  background: color-mix(in srgb, var(--record) 12%, var(--card-solid, #fff));
+  border-color: color-mix(in srgb, var(--record) 40%, transparent);
+}
+
+.alg-row[data-own='true'] .alg-under small { color: var(--led); }
 
 .alg-star {
-  font-size: .95rem;
+  font-size: 1.05rem;
   line-height: 1;
+  padding-top: .1rem;
   color: var(--muted);
   opacity: .45;
-  transition: opacity .15s, color .15s;
+  transition: opacity .15s, color .15s, transform .2s cubic-bezier(.2, 1.7, .5, 1);
 }
 
-.alg-row[data-mine='true'] .alg-star { color: var(--record); opacity: 1; }
+.alg-row[data-mine='true'] .alg-star { color: var(--record); opacity: 1; transform: scale(1.12); }
 .alg-star:hover { opacity: 1; color: var(--record); }
 
-.alg-row code {
+.alg-body { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
+
+/* The moves, cut at the joints. Each group is a chip of its own, so the eye
+   lands on "R U R' U'" as one thing instead of on eight separate letters. */
+.alg-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .78rem;
+  font-size: .82rem;
   letter-spacing: .01em;
   color: var(--ink);
-  overflow-wrap: anywhere;
 }
 
-.alg-row small {
+.alg-chunk {
+  padding: .12rem .38rem;
+  border-radius: 6px;
+  background: var(--sunken);
+  white-space: nowrap;
+}
+
+.alg-row[data-mine='true'] .alg-chunk { background: color-mix(in srgb, var(--record) 18%, var(--sunken)); }
+
+.alg-under { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
+
+.alg-under small {
   font-size: .68rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
-.alg-row .tiny { font-size: .68rem; padding: .15rem .4rem; }
+.alg-under .link { font-size: .7rem; }
 
-/* The filter over the case list reuses the little word-buttons. */
-#cases-filter { margin: -.2rem 0 .4rem; }
-#cases-filter .link[data-active='true'] { color: var(--ink); background: var(--sunken); }
+.alg-heading {
+  margin: .1rem 0 .1rem;
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.alg-add { margin-top: .15rem; }
+.alg-add .move-new { gap: .35rem; }
+.alg-add input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem; }
+.alg-add .import-note { margin: .3rem 0 0; font-size: .74rem; }
+.alg-add .import-note[data-bad='true'] { color: var(--hold); }
+
+/* The filter over the case list reuses the little word-buttons. One line that
+   slides sideways: five of them wrapped onto two lines and broke words in half
+   on a phone. */
+#cases-filter,
+#paper-filter {
+  margin: -.2rem 0 .4rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+#cases-filter::-webkit-scrollbar,
+#paper-filter::-webkit-scrollbar { display: none; }
+#cases-filter .link,
+#paper-filter .link { flex: 0 0 auto; white-space: nowrap; }
+#cases-filter .link[data-active='true'],
+#paper-filter .link[data-active='true'] { color: var(--ink); background: var(--sunken); }
 
 @media (pointer: coarse) {
   .alg-star { min-width: 34px; min-height: 34px; }
@@ -3140,3 +3210,555 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
 }
 
 .bingo-cell { position: relative; }
+
+/* ---------- an opened case: the picture first ----------
+
+   You look at a case to find out what it is, and only then at what to do about
+   it. So the card at the top is the name and the picture, big enough to know
+   from across the table, and the algorithms come under it. */
+
+.case-body {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding: .1rem .6rem .55rem;
+  animation: case-open .42s cubic-bezier(.28, .78, .3, 1) both;
+}
+
+/* Falls open, overshoots, and settles -- twice, smaller the second time. A
+   panel that simply appears gives your eye nothing to follow. */
+@keyframes case-open {
+  0% { opacity: 0; transform: translateY(-10px) scaleY(.96); }
+  50% { opacity: 1; transform: translateY(5px) scaleY(1.015); }
+  72% { transform: translateY(-3px); }
+  86% { transform: translateY(2px); }
+  95% { transform: translateY(-1px); }
+  100% { transform: none; }
+}
+
+.case-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: .8rem;
+  padding: .55rem .6rem;
+  border-radius: 12px;
+  background: var(--card-solid, #fff);
+}
+
+.case-face {
+  display: grid;
+  place-items: center;
+  width: 5.6rem;
+  height: 5.6rem;
+  border-radius: 10px;
+  background: var(--sunken);
+}
+
+.case-face .case-thumb { width: 4.8rem; height: 4.8rem; background: none; }
+.case-face svg { width: 100%; height: 100%; }
+
+.case-about { min-width: 0; }
+.case-about h3 { margin: 0; font-size: 1.35rem; font-weight: 700; line-height: 1.1; }
+.case-said { margin: .15rem 0 0; font-size: .8rem; color: var(--muted); line-height: 1.3; }
+
+.case-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem 1.2rem;
+  margin: .5rem 0 0;
+}
+
+.case-fact { min-width: 4.4rem; }
+
+.case-facts dt {
+  font-size: .64rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.case-facts dd {
+  margin: 0;
+  font-size: .84rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.case-due {
+  margin: 0;
+  font-size: .76rem;
+  color: var(--muted);
+}
+
+.case-due[data-now='true'] { color: var(--record); font-weight: 600; }
+
+/* A case that has gone long enough to wobble gets a mark down its edge, so you
+   can see it in the list without opening anything. */
+.case-row[data-due='true'] { box-shadow: inset 3px 0 0 var(--record); }
+
+.case-note { margin: 0; }
+.case-note > span {
+  font-size: .64rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.case-body .case-times,
+.case-body .detail-actions { padding: 0; }
+
+@media (max-width: 460px) {
+  .case-card { grid-template-columns: 1fr; justify-items: start; }
+  .case-face { width: 6.6rem; height: 6.6rem; }
+  .case-face .case-thumb { width: 5.6rem; height: 5.6rem; }
+}
+
+/* ---------- the algorithm sheet ----------
+
+   Everything you starred, on one page, in a shape that survives a printer.
+   Which is the whole point: the case book is the place you decide, and this is
+   the place you take it away from the screen. */
+
+.paper-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: .5rem;
+}
+
+.paper-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'face about' 'alg alg' 'note note';
+  align-items: center;
+  gap: .3rem .6rem;
+  padding: .5rem .6rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  break-inside: avoid;
+}
+
+.paper-face {
+  grid-area: face;
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+}
+
+.paper-face .case-thumb { width: 3.4rem; height: 3.4rem; background: none; }
+.paper-about { grid-area: about; display: flex; flex-direction: column; min-width: 0; }
+.paper-about b { font-size: 1rem; font-weight: 700; }
+.paper-about small { font-size: .7rem; color: var(--muted); line-height: 1.25; }
+.paper-alg { grid-area: alg; font-size: .78rem; }
+.paper-alg .alg-chunk { background: var(--card-solid, #fff); }
+.paper-note { grid-area: note; margin: 0; font-size: .72rem; color: var(--muted); }
+
+/* Printing a dialog prints the page behind it, so for one moment the page is
+   nothing but the sheet. */
+@media print {
+  body[data-printing='paper'] > *:not(#paper-sheet) { display: none !important; }
+  body[data-printing='paper'] #paper-sheet {
+    position: static;
+    display: block;
+    max-width: none;
+    max-height: none;
+    border: 0;
+    background: #fff;
+    color: #000;
+  }
+  body[data-printing='paper'] #paper-sheet::backdrop { display: none; }
+  body[data-printing='paper'] .sheet-inner { height: auto; overflow: visible; padding: 0; }
+  body[data-printing='paper'] .sheet-scroll { overflow: visible; height: auto; }
+  body[data-printing='paper'] .sheet-head button,
+  body[data-printing='paper'] #paper-groups,
+  body[data-printing='paper'] #paper-filter,
+  body[data-printing='paper'] .detail-actions { display: none !important; }
+  body[data-printing='paper'] .paper-grid { grid-template-columns: repeat(3, 1fr); }
+  body[data-printing='paper'] .paper-card { background: none; border: 1px solid #ddd; }
+  body[data-printing='paper'] .alg-chunk { background: #f1f1f1; }
+}
+
+/* ---------- the wheel ----------
+
+   Three reels behind a window. They are ordinary elements moved with a
+   transform, which is the only way this could be smooth on a phone, and each
+   one is given a little longer than the one before it -- the reel that has not
+   stopped yet is the entire pleasure of a slot machine. */
+
+.slot {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  padding: .7rem;
+  border-radius: 16px;
+  background: linear-gradient(170deg,
+    color-mix(in srgb, var(--led) 18%, var(--sunken)),
+    var(--sunken) 70%);
+}
+
+.slot-window {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .4rem;
+}
+
+/* The pay line, as two ticks at the edges rather than a stripe across the
+   middle: the window shows exactly one face, so a line through it would be a
+   line through the answer. */
+.slot-window::before,
+.slot-window::after {
+  content: '';
+  position: absolute;
+  top: calc(50% + .5rem);
+  width: 0;
+  height: 0;
+  transform: translateY(-50%);
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  pointer-events: none;
+}
+
+.slot-window::before { left: -.5rem; border-left: 8px solid var(--record); }
+.slot-window::after { right: -.5rem; border-right: 8px solid var(--record); }
+
+.slot-reel { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
+
+.slot-name {
+  font-size: .62rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+
+.slot-port {
+  position: relative;
+  height: 88px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--card-solid, #fff);
+  box-shadow: inset 0 8px 12px -8px rgba(0, 0, 0, .35), inset 0 -8px 12px -8px rgba(0, 0, 0, .35);
+}
+
+.slot-strip { will-change: transform; }
+
+.slot-face {
+  display: grid;
+  place-items: center;
+  height: 88px;
+  padding: .2rem .35rem;
+  text-align: center;
+}
+
+.slot-face b {
+  font-size: .74rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* The clunk when a reel drops in: it overshoots and settles, the way a real
+   one does when the brake bites. */
+.slot-reel[data-landed='true'] .slot-port { animation: slot-clunk .42s cubic-bezier(.2, 1.6, .4, 1); }
+
+@keyframes slot-clunk {
+  0% { transform: translateY(-3px); }
+  40% { transform: translateY(2px); }
+  70% { transform: translateY(-1px); }
+  100% { transform: none; }
+}
+
+.slot-lever { display: flex; justify-content: center; }
+
+.slot-arm {
+  padding: .55rem 2rem;
+  border-radius: 999px;
+  background: var(--led);
+  color: #fff;
+  font-size: .95rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--led) 70%, transparent);
+  transition: transform .12s cubic-bezier(.2, 1.6, .4, 1), box-shadow .2s;
+}
+
+.slot-arm:active { transform: translateY(3px) scale(.97); box-shadow: none; }
+.slot-arm[disabled] { opacity: .55; }
+
+.slot-body { display: flex; flex-direction: column; gap: .5rem; }
+
+.dare-card {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  padding: .7rem .8rem;
+  border-radius: 14px;
+  background: var(--sunken);
+  animation: dare-in .35s cubic-bezier(.2, .9, .3, 1.15) both;
+}
+
+@keyframes dare-in {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.dare-card[data-on='true'] { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--led) 45%, transparent); }
+.dare-card h3 { margin: 0; font-size: 1.1rem; font-weight: 700; }
+.dare-rule { margin: 0; font-size: .92rem; color: var(--ink); }
+.dare-stake { margin: 0; font-size: .8rem; color: var(--muted); font-style: italic; }
+
+.dare-bit { display: flex; flex-direction: column; padding: .25rem 0; }
+.dare-bit + .dare-bit { border-top: 1px solid var(--edge, rgba(0, 0, 0, .1)); }
+.dare-bit b { font-size: .98rem; font-weight: 600; }
+.dare-bit small { font-size: .76rem; color: var(--muted); line-height: 1.3; }
+
+.dare-track {
+  height: 6px;
+  margin-top: .3rem;
+  border-radius: 999px;
+  background: var(--card-solid, #fff);
+  overflow: hidden;
+}
+
+.dare-track span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--led);
+  transition: width .45s cubic-bezier(.2, .9, .3, 1.1);
+}
+
+.dare-count { margin: 0; font-size: .74rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* The reminder on the main screen that something is riding on this session. */
+.dare-strip {
+  display: block;
+  width: 100%;
+  padding: .35rem .6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--led) 14%, var(--sunken));
+  color: var(--ink-soft, var(--ink));
+  font-size: .76rem;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dare-strip:hover { background: color-mix(in srgb, var(--led) 22%, var(--sunken)); }
+
+/* ---------- the course ----------
+
+   A road with stops on it, and the road is stitched through the stops rather
+   than drawn beside them: move a stop and the road moves with it, so the two
+   cannot end up disagreeing. */
+
+.course-layout { display: grid; grid-template-columns: 130px 1fr; gap: 1rem; min-height: 0; }
+
+.course-map {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 74dvh;
+  overflow: hidden;
+}
+
+.course-map svg { width: 100%; height: auto; overflow: visible; }
+
+.road-back {
+  fill: none;
+  stroke: var(--sunken);
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+
+.road-done {
+  fill: none;
+  stroke: var(--led);
+  stroke-width: 7;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s cubic-bezier(.3, .8, .3, 1);
+}
+
+.road-stop { cursor: pointer; }
+.road-halo { fill: none; stroke: transparent; stroke-width: 2; }
+.road-dot { fill: var(--card-solid, #fff); stroke: var(--sunken); stroke-width: 3; }
+.road-number { font-size: 10px; font-weight: 700; fill: var(--muted); }
+
+.road-stop[data-done='true'] .road-dot { fill: var(--led); stroke: var(--led); }
+.road-stop[data-done='true'] .road-number { fill: #fff; }
+
+.road-stop[data-here='true'] .road-dot { stroke: var(--led); }
+.road-stop[data-here='true'] .road-number { fill: var(--led); }
+.road-stop[data-here='true'] .road-halo {
+  stroke: color-mix(in srgb, var(--led) 55%, transparent);
+  animation: road-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes road-pulse {
+  0%, 100% { transform: scale(1); opacity: .8; }
+  50% { transform: scale(1.35); opacity: 0; }
+}
+
+.course-body { display: flex; flex-direction: column; gap: .4rem; }
+
+.course-top { margin-bottom: .2rem; }
+.course-said { margin: 0 0 .35rem; font-size: .82rem; color: var(--ink-soft, var(--ink)); }
+
+.course-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--sunken);
+  overflow: hidden;
+}
+
+.course-track span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--led);
+  transition: width .7s cubic-bezier(.2, .9, .3, 1.1);
+}
+
+.step-card { border-radius: 12px; background: var(--sunken); overflow: hidden; }
+.step-card[data-done='true'] { background: color-mix(in srgb, var(--led) 8%, var(--sunken)); }
+
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  padding: .5rem .6rem;
+  text-align: left;
+  color: var(--ink);
+}
+
+.step-head:hover { background: var(--hover); }
+
+.step-number {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  background: var(--card-solid, #fff);
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.step-card[data-done='true'] .step-number { background: var(--led); color: #fff; }
+
+.step-label { display: flex; flex-direction: column; min-width: 0; }
+.step-label b { font-size: .92rem; font-weight: 600; }
+.step-label small { font-size: .74rem; color: var(--muted); line-height: 1.25; }
+
+.step-long {
+  margin-left: auto;
+  font-size: .72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.step-body {
+  padding: 0 .7rem .6rem;
+  animation: case-open .42s cubic-bezier(.28, .78, .3, 1) both;
+}
+
+.step-body p { margin: .5rem 0; font-size: .86rem; line-height: 1.55; color: var(--ink-soft, var(--ink)); }
+.step-body strong { color: var(--ink); font-weight: 600; }
+
+.step-why {
+  padding: .4rem .6rem;
+  border-radius: 8px;
+  background: var(--card-solid, #fff);
+  font-size: .82rem !important;
+  font-style: italic;
+}
+
+.step-moves { display: flex; flex-direction: column; gap: .35rem; margin: .6rem 0; }
+
+.step-move {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  padding: .45rem .55rem;
+  border-radius: 10px;
+  background: var(--card-solid, #fff);
+}
+
+.step-move b { font-size: .82rem; font-weight: 600; }
+.step-move small { font-size: .76rem; color: var(--muted); line-height: 1.35; }
+
+.step-tips { margin: .6rem 0; padding-left: 1.1rem; }
+.step-tips li { font-size: .82rem; line-height: 1.5; color: var(--ink-soft, var(--ink)); margin-bottom: .3rem; }
+
+.step-check {
+  padding: .4rem .6rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--led) 10%, transparent);
+  font-size: .8rem !important;
+  font-weight: 500;
+}
+
+.step-body .detail-actions { margin: .6rem 0 0; }
+
+@media (max-width: 640px) {
+  .course-layout { grid-template-columns: 60px 1fr; gap: .5rem; }
+  .course-map { max-height: 68dvh; }
+}
+
+/* ---------- things that fall ----------
+
+   A panel that appears out of nowhere is a panel you have to go and find with
+   your eyes. One that drops in and settles tells you where it came from, and
+   costs nothing but a curve. The bounce is a real overshoot -- past the mark,
+   back, past it again, smaller -- because that is what a thing that fell does. */
+
+@keyframes drop-in {
+  0% { opacity: 0; transform: translateY(-14px) scaleY(.94); }
+  55% { opacity: 1; transform: translateY(4px) scaleY(1.02); }
+  75% { transform: translateY(-2px) scaleY(.995); }
+  90% { transform: translateY(1px); }
+  100% { transform: none; }
+}
+
+.rail-group[open] > button,
+.rail-group[open] > a { animation: drop-in .34s cubic-bezier(.25, .9, .3, 1) both; }
+
+/* Each row a fraction behind the one above it, so the group pours out rather
+   than arriving in one block. */
+.rail-group[open] > button:nth-of-type(1) { animation-delay: 0ms; }
+.rail-group[open] > button:nth-of-type(2) { animation-delay: 26ms; }
+.rail-group[open] > button:nth-of-type(3) { animation-delay: 52ms; }
+.rail-group[open] > button:nth-of-type(4) { animation-delay: 78ms; }
+.rail-group[open] > button:nth-of-type(5) { animation-delay: 104ms; }
+.rail-group[open] > button:nth-of-type(6) { animation-delay: 130ms; }
+.rail-group[open] > button:nth-of-type(7) { animation-delay: 156ms; }
+
+.rail-group > summary::before { transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+
+/* The same fall for a settings group when you switch tab, and for the panels
+   that swap inside the look-back sheet. */
+.settings-group:not([hidden]) { animation: drop-in .3s cubic-bezier(.25, .9, .3, 1) both; }
+
+.chip, .link { transition: background .16s, color .16s, transform .12s cubic-bezier(.2, 1.7, .5, 1); }
+.chip:active, .link:active { transform: scale(.94); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-group[open] > button,
+  .settings-group:not([hidden]),
+  .case-body,
+  .step-body,
+  .slot-body { display: flex; flex-direction: column; gap: .5rem; }
+
+.dare-card { animation: none !important; }
+  .slot-reel[data-landed='true'] .slot-port { animation: none !important; }
+  .road-stop[data-here='true'] .road-halo { animation: none !important; }
+  .chip:active, .link:active { transform: none; }
+}

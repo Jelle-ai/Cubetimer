@@ -15,10 +15,14 @@ import { card as bingoCard, lines as bingoLines } from './bingo.js';
 import { cardFor, drawCard, readShared, shareLink } from './share.js';
 import { MODES, absorb, begin, describe, expired, hushed, ownsSolves, result, runSolves } from './modes.js';
 import {
-  bestOf, caseStanding, cleanPlay, dailyHistory, dailyStreak, dayStamp, dropSet, duelTally, keepSet,
-  recordSpot, setsOf, spotStanding,
+  bestOf, caseStanding, cleanPlay, dailyHistory, dailyStreak, dayStamp, dropMyAlg, dropSet,
+  duelTally, keepMyAlg, keepNote, keepSet, markStep, myAlgs, noteOf, recordSpin, recordSpot,
+  setsOf, spinTally, spotStanding, stepDone,
   recordCase, recordDaily, recordDuel, recordRun, runsOf, scoreOf, spellScore
 } from './play.js';
+import { recallStanding, whenDue } from './recall.js';
+import { REELS, countText, faceOf, idsOf, progressOf, rebuild, spin } from './slot.js';
+import { MAP, STEPS, hoursLeft, howFar, nextStep, roadPath } from './course.js';
 import { COLOR_SLOTS, LED_COLORS, SKINS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, together, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
@@ -122,7 +126,6 @@ const el = {
   targetValue: document.getElementById('set-target-value'),
   export: document.getElementById('export'),
   exportFormat: document.getElementById('export-format'),
-  pasteOpen: document.getElementById('paste-open'),
   pasteSheet: document.getElementById('paste-sheet'),
   pasteInput: document.getElementById('paste-input'),
   pasteNote: document.getElementById('paste-note'),
@@ -131,7 +134,6 @@ const el = {
   pastePick: document.getElementById('paste-pick'),
   pasteFile: document.getElementById('paste-file'),
   exportSave: document.getElementById('export-save'),
-  transferOpen: document.getElementById('transfer-open'),
   transferSheet: document.getElementById('transfer-sheet'),
   transferClose: document.getElementById('transfer-close'),
   transferHere: document.getElementById('transfer-here'),
@@ -195,6 +197,7 @@ const el = {
   setNone: document.getElementById('set-none'),
   setUnknown: document.getElementById('set-unknown'),
   setSlow: document.getElementById('set-slow'),
+  setDue: document.getElementById('set-due'),
   setSave: document.getElementById('set-save'),
   setDrop: document.getElementById('set-drop'),
   casesSheet: document.getElementById('cases-sheet'),
@@ -203,6 +206,23 @@ const el = {
   casesGroups: document.getElementById('cases-groups'),
   casesBody: document.getElementById('cases-body'),
   casesFilter: document.getElementById('cases-filter'),
+  paperSheet: document.getElementById('paper-sheet'),
+  paperTitle: document.getElementById('paper-title'),
+  paperClose: document.getElementById('paper-close'),
+  paperGroups: document.getElementById('paper-groups'),
+  paperFilter: document.getElementById('paper-filter'),
+  paperBody: document.getElementById('paper-body'),
+  paperPrint: document.getElementById('paper-print'),
+  paperCopy: document.getElementById('paper-copy'),
+  slotSheet: document.getElementById('slot-sheet'),
+  slotClose: document.getElementById('slot-close'),
+  slotReels: document.getElementById('slot-reels'),
+  slotGo: document.getElementById('slot-go'),
+  slotBody: document.getElementById('slot-body'),
+  courseSheet: document.getElementById('course-sheet'),
+  courseClose: document.getElementById('course-close'),
+  courseRoad: document.getElementById('course-road'),
+  courseBody: document.getElementById('course-body'),
   warmToggle: document.getElementById('warm-toggle'),
   aimTime: document.getElementById('aim-time'),
   aimBy: document.getElementById('aim-by'),
@@ -239,6 +259,7 @@ const el = {
   modeNote: document.getElementById('mode-note'),
   modeStart: document.getElementById('mode-start'),
   modeStrip: document.getElementById('mode-strip'),
+  dareStrip: document.getElementById('dare-strip'),
   modeRecords: document.getElementById('mode-records'),
   dailyCard: document.getElementById('daily-card'),
   duelOne: document.getElementById('duel-one'),
@@ -448,13 +469,15 @@ const CUES = {
   target: () => together([659.25, 987.77], 0.26, 0.05),
   miss: () => tone(174.61, 0.28, 0.05, 'triangle'),
   // A game or a challenge won: brighter than a record is deep, and shorter.
-  win: () => chord([659.25, 880], 0.1, { duration: 0.24, volume: 0.075, fade: 0.9 })
+  win: () => chord([659.25, 880], 0.1, { duration: 0.24, volume: 0.075, fade: 0.9 }),
+  // A reel of the wheel dropping into place: short, low, and a little blunt.
+  clunk: () => tone(146.83, 0.06, 0.05, 'square')
 };
 
 const SHAKES = {
   ready: 25, start: 12, stop: [15, 40, 15],
   record: [20, 60, 20, 60, 40], target: [12, 40, 12], miss: 40,
-  win: [18, 50, 18]
+  win: [18, 50, 18], clunk: 18
 };
 
 function cue(name) {
@@ -2116,7 +2139,7 @@ let drilling = null;  // the case being drilled right now
 
 async function loadCases() {
   if (caseSet) return caseSet;
-  const [{ puzzles }, { Alg }, { usableCases, GROUPS, AUF }] = await Promise.all([
+  const [{ puzzles }, { Alg }, { usableCases, solvesCase, GROUPS, AUF }] = await Promise.all([
     import('../vendor/cubing/puzzles/index.js'),
     import('../vendor/cubing/alg/index.js'),
     import('./cases.js')
@@ -2124,8 +2147,42 @@ async function loadCases() {
   const kpuzzle = await puzzles['3x3x3'].kpuzzle();
   const { cases, dropped } = usableCases(kpuzzle, Alg);
   if (dropped.length) console.warn('Gevallen afgekeurd:', dropped);
-  caseSet = { cases, dropped, GROUPS, AUF };
+  // The cube itself is kept, because an algorithm you type in later has to be
+  // put on it before it is believed.
+  caseSet = { cases, dropped, GROUPS, AUF, kpuzzle, Alg, solvesCase };
+  for (const entry of cases) foldInMyAlgs(entry);
   return caseSet;
+}
+
+/* ---------- an algorithm of your own ----------
+
+   Anyone may add one, and nothing added is trusted. It goes on a real cube
+   first: it has to leave the centres alone, leave the first two layers alone,
+   and land on this case and not some other one. Fail any of that and it is
+   refused with the reason, rather than saved and quietly taught to you wrong.
+
+   The check is the same one every algorithm that ships with the app has to
+   pass, which is the point -- there is one standard, not a strict one for the
+   app and a lenient one for you. */
+
+/**
+ * Try one set of moves against one case.
+ * @returns {{ok: true, alg: object} | {ok: false, why: string}}
+ */
+function tryMyAlg(entry, moves) {
+  const { kpuzzle, Alg, solvesCase } = caseSet;
+  const tried = solvesCase(entry, moves, kpuzzle, Alg);
+  if (!tried.ok) return { ok: false, why: tried.why };
+  return { ok: true, alg: { moves, setup: tried.setup, turns: tried.turns, mine: true } };
+}
+
+/** Your own algorithms for a case, put back into its list after a reload. */
+function foldInMyAlgs(entry) {
+  entry.algs = entry.algs.filter((alg) => !alg.mine);
+  for (const moves of myAlgs(play(), algKey(entry))) {
+    const tried = tryMyAlg(entry, moves);
+    if (tried.ok) entry.algs.push(tried.alg);
+  }
 }
 
 /**
@@ -2150,10 +2207,26 @@ const WEAK_THIRD = 1 / 3;
 function nextCase(cases, group) {
   const pool = focusCases(group);
   if (!pool.length) return null;
+
+  // Refreshing is the one focus with an order to it: the case closest to
+  // slipping goes first, because that is the whole reason it is on the list.
+  if (drillFocus === 'recall') {
+    const due = recallStanding(play().cases, group);
+    const worst = due.find((row) => pool.some((entry) => entry.id === row.id));
+    const found = worst && pool.find((entry) => entry.id === worst.id);
+    if (found) return found;
+  }
+
   const standing = new Map(caseStanding(play(), group).map((row) => [row.id, row]));
   const untried = pool.filter((entry) => !standing.has(entry.id));
   const from = untried.length ? untried : pool;
   return from[Math.floor(Math.random() * from.length)];
+}
+
+/** The cases of a group that have gone long enough to be worth seeing again. */
+function dueCases(group) {
+  const ids = new Set(recallStanding(play().cases, group).filter((row) => row.ratio >= 1).map((row) => row.id));
+  return groupCases(group).filter((entry) => ids.has(entry.id));
 }
 
 /** How many cases in this group you have done enough of to rank at all. */
@@ -2200,6 +2273,10 @@ const groupCases = (group) => caseSet.cases.filter((entry) => entry.group === gr
 function focusCases(group, focus = drillFocus) {
   const mine = groupCases(group);
   if (focus === 'spread') return mine;
+  if (focus === 'recall') {
+    const due = dueCases(group);
+    return due.length ? due : mine;
+  }
   if (focus === 'weak') {
     const tried = caseStanding(play(), group).filter((row) => row.count >= 2);
     const worst = tried.slice(0, Math.max(3, Math.ceil(tried.length * WEAK_THIRD)));
@@ -2216,6 +2293,7 @@ function focusCases(group, focus = drillFocus) {
 function focusName(group, focus = drillFocus) {
   if (focus === 'spread') return 'alles door elkaar';
   if (focus === 'weak') return 'je zwakste derde';
+  if (focus === 'recall') return 'opfrissen';
   return setsOf(play(), group).find((entry) => entry.id === focus)?.name || 'alles door elkaar';
 }
 
@@ -2247,14 +2325,26 @@ function caseThumb(entry) {
 
 const algKey = (entry) => `${entry.group}/${entry.id}`;
 
-/** The algorithm you starred, or the first one if you have not starred any. */
+/**
+ * The algorithm you starred, or the first one if you have not starred any.
+ *
+ * The star is kept as the moves rather than as a place in the list, because the
+ * list is no longer fixed: adding one of your own, or dropping it again, would
+ * shift every number after it and silently move your star to a neighbour.
+ * Older settings did keep a number, and those are still read.
+ */
 function chosenAlg(entry) {
-  const at = settings.pickedAlg?.[algKey(entry)] ?? 0;
-  return entry.algs[at] || entry.algs[0];
+  const picked = settings.pickedAlg?.[algKey(entry)];
+  if (typeof picked === 'string') {
+    const found = entry.algs.find((alg) => alg.moves === picked);
+    if (found) return found;
+  }
+  if (Number.isInteger(picked) && entry.algs[picked]) return entry.algs[picked];
+  return entry.algs[0];
 }
 
-function pickAlg(entry, at) {
-  settings.pickedAlg = { ...settings.pickedAlg, [algKey(entry)]: at };
+function pickAlg(entry, alg) {
+  settings.pickedAlg = { ...settings.pickedAlg, [algKey(entry)]: alg.moves };
   storeSettings();
 }
 
@@ -2320,6 +2410,11 @@ el.setUnknown.addEventListener('click', () => {
   building.chosen = new Set(groupCases(building.group).filter((entry) => !done.has(entry.id)).map((entry) => entry.id));
   renderSetGrid();
 });
+el.setDue.addEventListener('click', () => {
+  building.chosen = new Set(dueCases(building.group).map((entry) => entry.id));
+  renderSetGrid();
+  if (!building.chosen.size) toast('Niets aan de beurt — alles is nog vers.');
+});
 el.setSlow.addEventListener('click', () => {
   const slow = caseStanding(play(), building.group).filter((row) => row.count >= 2).slice(0, 10);
   building.chosen = new Set(slow.map((row) => row.id));
@@ -2360,10 +2455,70 @@ let casesGroup = 'pll';
 const openCases = new Set();
 let casesOnly = 'all';   // all | drilled | untried
 
-function algRow(entry, alg, at) {
+/* ---------- an algorithm, written so you can read it ----------
+
+   A wall of twenty letters is not something you can learn from. Hands do not
+   learn moves, they learn groups of moves -- the sexy move, the sledgehammer,
+   the pull-out-and-back -- and an algorithm written in those groups is one you
+   can look at once and repeat. So the moves are cut at the joints: the known
+   triggers are found first and whatever is left over falls into fours. */
+
+const TRIGGERS = [
+  "F R U R' U' F'", "f R U R' U' f'",
+  "R U R' U'", "R' U' R U", "L U L' U'", "L' U' L U",
+  "r U R' U'", "r' F R F'", "R' F R F'", "R F R' F'", "F R' F' R", "F' R' F R",
+  "M2 U M2", "M2 U' M2", "M' U M", "M U M'",
+  "R U2 R'", "R' U2 R", "L U2 L'", "L' U2 L", "F U2 F'", "F' U2 F",
+  "R U R'", "R U' R'", "R' U R", "R' U' R",
+  "L U L'", "L U' L'", "L' U L", "L' U' L",
+  "F U F'", "F U' F'", "F' U F", "F' U' F",
+  "D R D'", "D' R' D", "D R' D'", "D' R D"
+].map((one) => one.split(' '));
+
+/** The moves of an algorithm, cut into the groups your hands actually do. */
+function chunkMoves(moves) {
+  const turns = moves.split(/\s+/).filter(Boolean);
+  const groups = [];
+  let at = 0;
+  while (at < turns.length) {
+    const hit = TRIGGERS.find((trigger) => trigger.length <= turns.length - at
+      && trigger.every((turn, step) => turn === turns[at + step]));
+    if (hit) {
+      groups.push(turns.slice(at, at + hit.length));
+      at += hit.length;
+      continue;
+    }
+    // Nothing known here: take a mouthful and look again.
+    const loose = [];
+    while (at < turns.length && loose.length < 4) {
+      const soon = TRIGGERS.find((trigger) => trigger.length <= turns.length - at
+        && trigger.every((turn, step) => turn === turns[at + step]));
+      if (soon && loose.length) break;
+      loose.push(turns[at++]);
+    }
+    groups.push(loose);
+  }
+  return groups;
+}
+
+/** The moves as elements: one span per group, so they can be spaced apart. */
+function spellAlg(moves) {
+  const holder = document.createElement('code');
+  holder.className = 'alg-moves';
+  for (const group of chunkMoves(moves)) {
+    const part = document.createElement('span');
+    part.className = 'alg-chunk';
+    part.textContent = group.join(' ');
+    holder.append(part);
+  }
+  return holder;
+}
+
+function algRow(entry, alg) {
   const row = document.createElement('div');
   row.className = 'alg-row';
   row.dataset.mine = String(chosenAlg(entry) === alg);
+  row.dataset.own = String(Boolean(alg.mine));
 
   const star = document.createElement('button');
   star.type = 'button';
@@ -2372,21 +2527,25 @@ function algRow(entry, alg, at) {
   star.setAttribute('aria-label', `Kies ${alg.moves}`);
   star.textContent = '★';
   star.addEventListener('click', () => {
-    pickAlg(entry, at);
+    pickAlg(entry, alg);
     renderCaseBook();
     // A case already on the mat should turn round to face the new algorithm.
     if (drilling?.id === entry.id) startCase(entry);
   });
 
-  const moves = document.createElement('code');
-  moves.textContent = alg.moves;
+  const body = document.createElement('div');
+  body.className = 'alg-body';
+  body.append(spellAlg(alg.moves));
 
+  const under = document.createElement('div');
+  under.className = 'alg-under';
   const count = document.createElement('small');
-  count.textContent = `${alg.turns}`;
+  count.textContent = `${alg.turns} zetten${alg.mine ? ' · van jezelf' : ''}`;
+  under.append(count);
 
   const copy = document.createElement('button');
   copy.type = 'button';
-  copy.className = 'ghost tiny';
+  copy.className = 'link';
   copy.textContent = 'kopieer';
   copy.addEventListener('click', async () => {
     try {
@@ -2396,16 +2555,186 @@ function algRow(entry, alg, at) {
       toast('Kopiëren lukte niet in deze browser.');
     }
   });
+  under.append(copy);
 
-  row.append(star, moves, count, copy);
+  if (alg.mine) {
+    const drop = document.createElement('button');
+    drop.type = 'button';
+    drop.className = 'link danger';
+    drop.textContent = 'weg';
+    drop.addEventListener('click', () => {
+      dropMyAlg(play(), algKey(entry), alg.moves);
+      persist();
+      foldInMyAlgs(entry);
+      if (settings.pickedAlg?.[algKey(entry)] === alg.moves) {
+        const rest = { ...settings.pickedAlg };
+        delete rest[algKey(entry)];
+        settings.pickedAlg = rest;
+        storeSettings();
+      }
+      renderCaseBook();
+      toast('Weg.');
+    });
+    under.append(drop);
+  }
+
+  body.append(under);
+  row.append(star, body);
   return row;
 }
+
+/* ---------- typing in one of your own ---------- */
+
+function algAdder(entry, after) {
+  const form = document.createElement('div');
+  form.className = 'alg-add';
+
+  const field = document.createElement('input');
+  field.type = 'text';
+  field.placeholder = "Je eigen manier, bv. R U R' U' R' F R F'";
+  field.autocomplete = 'off';
+  field.spellcheck = false;
+  field.maxLength = 120;
+
+  const go = document.createElement('button');
+  go.type = 'button';
+  go.className = 'text-button';
+  go.textContent = 'Nakijken';
+
+  const said = document.createElement('p');
+  said.className = 'import-note';
+
+  const judge = () => {
+    const moves = field.value.trim().replace(/\s+/g, ' ');
+    if (!moves) return;
+    if (entry.algs.some((alg) => alg.moves === moves)) {
+      said.textContent = 'Die staat er al.';
+      return;
+    }
+    const tried = tryMyAlg(entry, moves);
+    if (!tried.ok) {
+      // The reason matters: "breekt de eerste twee lagen" is a typo, "lost een
+      // ander geval op" is the right algorithm filed under the wrong case.
+      said.textContent = tried.why === 'draait de hele kubus'
+        ? 'Afgekeurd — hij laat de kubus gedraaid achter. Zet er de tegendraai achter (y, x2, …), dan klopt het plaatje ook.'
+        : `Afgekeurd — ${tried.why}. Op een echte kubus geprobeerd, dus het ligt niet aan de app.`;
+      said.dataset.bad = 'true';
+      return;
+    }
+    keepMyAlg(play(), algKey(entry), moves);
+    persist();
+    foldInMyAlgs(entry);
+    field.value = '';
+    said.textContent = '';
+    delete said.dataset.bad;
+    renderCaseBook();
+    toast(`Nagekeken op een echte kubus en toegevoegd — ${tried.alg.turns} zetten.`);
+    after?.();
+  };
+
+  go.addEventListener('click', judge);
+  field.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); judge(); }
+  });
+
+  const line = document.createElement('div');
+  line.className = 'move-new';
+  line.append(field, go);
+  form.append(line, said);
+  return form;
+}
+
+/* ---------- a line to yourself about a case ---------- */
+
+function noteField(entry) {
+  const wrap = document.createElement('label');
+  wrap.className = 'field case-note';
+  const name = document.createElement('span');
+  name.textContent = 'Notitie';
+  const field = document.createElement('input');
+  field.type = 'text';
+  field.maxLength = 140;
+  field.autocomplete = 'off';
+  field.placeholder = 'bv. rechterhand, x-rotatie op het einde';
+  field.value = noteOf(play(), algKey(entry));
+  // Saved when you look away rather than on every keystroke: a note is a
+  // sentence, and writing to storage per letter is how you lose one.
+  const keep = () => {
+    const had = noteOf(play(), algKey(entry));
+    const now = field.value.trim();
+    if (had === now) return;
+    keepNote(play(), algKey(entry), now);
+    persist();
+  };
+  field.addEventListener('blur', keep);
+  field.addEventListener('change', keep);
+  wrap.append(name, field);
+  return wrap;
+}
+
+/* ---------- the card at the top of an opened case ----------
+
+   Name and picture first, big enough to recognise from across the table, and
+   the algorithms under it. Which is the order you use it in: you look at a case
+   to find out what it is, and only then at what to do about it. */
+
+function caseCard(entry, row) {
+  const card = document.createElement('div');
+  card.className = 'case-card';
+
+  const face = document.createElement('div');
+  face.className = 'case-face';
+  face.append(caseThumb(entry));
+
+  const about = document.createElement('div');
+  about.className = 'case-about';
+  const name = document.createElement('h3');
+  name.textContent = entry.id;
+  about.append(name);
+  if (entry.name && entry.name !== entry.id) {
+    const said = document.createElement('p');
+    said.className = 'case-said';
+    said.textContent = entry.name;
+    about.append(said);
+  }
+
+  const facts = document.createElement('dl');
+  facts.className = 'case-facts';
+  // Each fact is wrapped, so a label can never end up in one column with the
+  // wrong value beside it when the row wraps on a narrow screen.
+  const fact = (label, value) => {
+    const one = document.createElement('div');
+    one.className = 'case-fact';
+    const key = document.createElement('dt');
+    key.textContent = label;
+    const said = document.createElement('dd');
+    said.textContent = value;
+    one.append(key, said);
+    facts.append(one);
+  };
+  fact('Jouw manier', `${chosenAlg(entry).turns} zetten`);
+  fact('Manieren', `${entry.algs.length}`);
+  if (row) {
+    fact('Gemiddeld', formatTime(row.mean));
+    fact('Beste', formatTime(row.best));
+    fact('Gedaan', `${row.count}×`);
+  } else {
+    fact('Gedaan', 'nog nooit');
+  }
+  about.append(facts);
+
+  card.append(face, about);
+  return card;
+}
+
+let casesRecall = new Map();
 
 function renderCaseBook() {
   if (!caseSet) return;
   const mine = groupCases(casesGroup);
   const standing = new Map(caseStanding(play(), casesGroup).map((row) => [row.id, row]));
   const times = play().cases[casesGroup] || {};
+  casesRecall = new Map(recallStanding(play().cases, casesGroup).map((row) => [row.id, row]));
 
   el.casesGroups.replaceChildren(...Object.entries(caseSet.GROUPS).map(([group, shape]) => {
     const chip = document.createElement('button');
@@ -2420,7 +2749,8 @@ function renderCaseBook() {
   }));
 
   el.casesFilter.replaceChildren(...[
-    ['all', 'alles'], ['drilled', 'geoefend'], ['untried', 'nog nooit']
+    ['all', 'alles'], ['drilled', 'geoefend'], ['untried', 'nog nooit'],
+    ['due', 'opfrissen'], ['own', 'eigen alg']
   ].map(([id, label]) => {
     const chip = document.createElement('button');
     chip.type = 'button';
@@ -2433,20 +2763,30 @@ function renderCaseBook() {
 
   // Slowest first among the ones you have measured, then everything you have
   // never touched -- which is the order you would want to work through them in.
-  const shown = mine
-    .filter((entry) => (casesOnly === 'drilled' ? standing.has(entry.id)
-      : casesOnly === 'untried' ? !standing.has(entry.id) : true))
-    .sort((a, b) => {
-      const one = standing.get(a.id);
-      const two = standing.get(b.id);
-      if (one && two) return two.mean - one.mean;
-      if (one) return -1;
-      if (two) return 1;
-      return 0;
-    });
+  const keeps = (entry) => {
+    if (casesOnly === 'drilled') return standing.has(entry.id);
+    if (casesOnly === 'untried') return !standing.has(entry.id);
+    if (casesOnly === 'due') return (casesRecall.get(entry.id)?.ratio ?? 0) >= 1;
+    if (casesOnly === 'own') return entry.algs.some((alg) => alg.mine);
+    return true;
+  };
+
+  const shown = mine.filter(keeps).sort((a, b) => {
+    if (casesOnly === 'due') {
+      return (casesRecall.get(b.id)?.ratio ?? 0) - (casesRecall.get(a.id)?.ratio ?? 0);
+    }
+    const one = standing.get(a.id);
+    const two = standing.get(b.id);
+    if (one && two) return two.mean - one.mean;
+    if (one) return -1;
+    if (two) return 1;
+    return 0;
+  });
 
   if (!shown.length) {
-    el.casesBody.replaceChildren(line('Niets om te laten zien met deze keuze.', 'import-note'));
+    el.casesBody.replaceChildren(line(casesOnly === 'due'
+      ? 'Niets te herhalen — alles wat je geoefend hebt is nog vers.'
+      : 'Niets om te laten zien met deze keuze.', 'import-note'));
     return;
   }
 
@@ -2454,9 +2794,11 @@ function renderCaseBook() {
   list.className = 'case-rows';
   for (const entry of shown) {
     const row = standing.get(entry.id);
+    const due = casesRecall.get(entry.id);
     const item = document.createElement('div');
     item.className = 'case-row';
     item.dataset.open = String(openCases.has(entry.id));
+    if (due && due.ratio >= 1) item.dataset.due = 'true';
 
     const head = document.createElement('button');
     head.type = 'button';
@@ -2483,10 +2825,31 @@ function renderCaseBook() {
     item.append(head);
 
     if (openCases.has(entry.id)) {
+      const body = document.createElement('div');
+      body.className = 'case-body';
+      body.append(caseCard(entry, row));
+
+      if (due) {
+        const when = document.createElement('p');
+        when.className = 'case-due';
+        when.dataset.now = String(due.ratio >= 1);
+        when.textContent = due.ratio >= 1
+          ? `Aan herhaling toe — ${whenDue(due)}.`
+          : `Vers — weer aan de beurt ${whenDue(due)}.`;
+        body.append(when);
+      }
+
       const algs = document.createElement('div');
       algs.className = 'alg-list';
-      entry.algs.forEach((alg, at) => algs.append(algRow(entry, alg, at)));
-      item.append(algs);
+      const heading = document.createElement('h4');
+      heading.className = 'alg-heading';
+      heading.textContent = 'Manieren — de ster is die van jou';
+      algs.append(heading);
+      for (const alg of entry.algs) algs.append(algRow(entry, alg));
+      algs.append(algAdder(entry));
+      body.append(algs);
+
+      body.append(noteField(entry));
 
       const mineTimes = times[entry.id] || [];
       if (mineTimes.length) {
@@ -2499,13 +2862,14 @@ function renderCaseBook() {
           one.dataset.best = String(row && effective(time) === row.best);
           strip.append(one);
         }
-        item.append(strip);
+        body.append(strip);
       }
 
       const actions = document.createElement('div');
       actions.className = 'detail-actions';
       const go = document.createElement('button');
       go.type = 'button';
+      go.className = 'primary';
       go.textContent = 'Dit geval nu oefenen';
       go.addEventListener('click', () => {
         el.casesSheet.close();
@@ -2536,7 +2900,8 @@ function renderCaseBook() {
         });
         actions.append(forget);
       }
-      item.append(actions);
+      body.append(actions);
+      item.append(body);
     }
 
     list.append(item);
@@ -2679,7 +3044,7 @@ function answerSpot(choice, button) {
   persist();
   spotRound.asked++;
   spotRound.times.push(took);
-  if (right) spotRound.right++;
+  if (right) { spotRound.right++; bumpDare('spot'); }
 
   // The answer stays on screen for a moment: getting it wrong and being shown
   // which one it was is the only part of this that teaches you anything.
@@ -2731,7 +3096,7 @@ function renderDrill() {
       drillGroup = group;
       // A set belongs to its group, so switching group cannot keep pointing at
       // one from the group you just left.
-      if (drillFocus !== 'spread' && drillFocus !== 'weak') drillFocus = 'spread';
+      if (!['spread', 'weak', 'recall'].includes(drillFocus)) drillFocus = 'spread';
       renderDrill();
     });
     picker.append(chip);
@@ -2761,6 +3126,11 @@ function renderDrill() {
 
   focus.append(choice('spread', 'Alles door elkaar',
     `Eerst wat je nog niet gehad hebt, daarna willekeurig. ${groupCases(drillGroup).length} gevallen.`));
+  const due = dueCases(drillGroup).length;
+  focus.append(choice('recall', 'Opfrissen', due
+    ? `${due} ${due === 1 ? 'geval is' : 'gevallen zijn'} lang genoeg geleden om te wankelen. Die eerst, de wankelste vooraan.`
+    : 'Niets aan de beurt — alles wat je geoefend hebt is nog vers. Kom morgen terug.',
+  { off: due === 0 }));
   focus.append(choice('weak', 'Je zwakste derde', ranked >= 6
     ? `De ${Math.max(3, Math.ceil(ranked / 3))} gevallen waar je het traagst op bent, en niets anders.`
     : `Nog te weinig gemeten — doe er eerst ${6 - ranked} meer, dan weet hij welke dat zijn.`,
@@ -4884,14 +5254,19 @@ function addSolve(ms, marks = []) {
   pendingPenalty = 'none';
   lastInspection = null;
 
-  if (drilling) { finishDrill(solve); return; }
+  if (drilling) { finishDrill(solve); bumpDare('drill'); return; }
   if (dailyRun) { finishDaily(solve); return; }
   if (duel) { finishDuelSolve(solve); return; }
   if (ownsSolves(run)) { finishGameSolve(solve); return; }
 
   const previousBest = best(counting(solves));
+  // What "onder je gemiddelde" means for the wheel: your last dozen, before
+  // this one landed. Too few to say anything and the challenge waits.
+  const recent = counting(solves);
+  const par = recent.length >= 5 ? meanOf(recent, Math.min(12, recent.length)) : null;
   solves.push(solve);
   persist();
+  countTowardsDare(solve, par, previousBest);
   if (keepScramble) keepScramble = false;
   else newScramble();
   render();
@@ -6231,13 +6606,13 @@ const canShareFiles = () => {
   }
 };
 
-el.transferOpen.addEventListener('click', () => {
-  el.transferOpen.blur();
+/** The one place that opens it, now that the settings no longer carry a copy. */
+function openTransfer() {
   el.transferShare.hidden = !canShareFiles();
   el.transferThere.textContent = 'Kies het bestand dat je op je andere toestel bewaard hebt.';
   showTransfer();
-  el.transferSheet.showModal();
-});
+  openSheet(el.transferSheet);
+}
 
 el.transferClose.addEventListener('click', () => el.transferSheet.close());
 el.transferSheet.addEventListener('close', () => { arriving = null; });
@@ -6384,12 +6759,11 @@ function describePaste() {
     : 'Geen tijden herkend in wat er staat.';
 }
 
-el.pasteOpen.addEventListener('click', () => {
-  el.pasteOpen.blur();
+function openPaste() {
   el.pasteInput.value = '';
   describePaste();
-  el.pasteSheet.showModal();
-});
+  openSheet(el.pasteSheet);
+}
 
 el.pastePick.addEventListener('click', () => {
   el.pastePick.blur();
@@ -6668,6 +7042,709 @@ function renderSettingsTabs() {
   el.settingsGroups.dataset.all = String(settingsTab === 'all');
 }
 
+/* ---------- your algorithms on one page ----------
+
+   Everything in the case book is yours -- the star you put on an algorithm, the
+   one you typed in, the line you wrote to yourself about it -- and none of it
+   was any use away from a screen. This is that, on paper: the picture, the name
+   and the way you do it, in a shape that prints without the app around it. */
+
+let paperOnly = settings.sheetOnly || 'all';
+
+/** Which groups go on the sheet. Yours to choose, and remembered. */
+function paperGroups() {
+  const want = new Set(settings.sheetGroups || []);
+  const groups = Object.keys(caseSet.GROUPS).filter((group) => want.has(group));
+  return groups.length ? groups : ['pll'];
+}
+
+function togglePaperGroup(group) {
+  const want = new Set(settings.sheetGroups || []);
+  if (want.has(group)) want.delete(group);
+  else want.add(group);
+  settings.sheetGroups = [...want];
+  storeSettings();
+  renderPaper();
+}
+
+/** The cases that make the sheet, under the choice you made. */
+function paperCases() {
+  const standing = (group) => new Map(caseStanding(play(), group).map((row) => [row.id, row]));
+  const out = [];
+  for (const group of paperGroups()) {
+    const ranked = standing(group);
+    for (const entry of groupCases(group)) {
+      if (paperOnly === 'mine' && !(entry.algs.some((alg) => alg.mine) || settings.pickedAlg?.[algKey(entry)])) continue;
+      if (paperOnly === 'drilled' && !ranked.has(entry.id)) continue;
+      out.push({ entry, row: ranked.get(entry.id) || null });
+    }
+  }
+  return out;
+}
+
+function renderPaper() {
+  if (!caseSet) return;
+  const chosen = new Set(paperGroups());
+
+  el.paperGroups.replaceChildren(...Object.entries(caseSet.GROUPS).map(([group, shape]) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.dataset.active = String(chosen.has(group));
+    chip.textContent = shape.name;
+    chip.addEventListener('click', () => togglePaperGroup(group));
+    return chip;
+  }));
+
+  el.paperFilter.replaceChildren(...[
+    ['all', 'alle gevallen'], ['mine', 'alleen wat ik zelf koos'], ['drilled', 'alleen wat ik geoefend heb']
+  ].map(([id, label]) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'link';
+    chip.dataset.active = String(id === paperOnly);
+    chip.textContent = label;
+    chip.addEventListener('click', () => {
+      paperOnly = id;
+      settings.sheetOnly = id;
+      storeSettings();
+      renderPaper();
+    });
+    return chip;
+  }));
+
+  const rows = paperCases();
+  el.paperTitle.textContent = `Algblad — ${rows.length}`;
+
+  if (!rows.length) {
+    el.paperBody.replaceChildren(line('Niets gekozen. Zet een groep aan, of kies een ruimere selectie.', 'import-note'));
+    return;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'paper-grid';
+  for (const { entry } of rows) {
+    const card = document.createElement('article');
+    card.className = 'paper-card';
+
+    const face = document.createElement('div');
+    face.className = 'paper-face';
+    face.append(caseThumb(entry));
+
+    const about = document.createElement('div');
+    about.className = 'paper-about';
+    const name = document.createElement('b');
+    name.textContent = entry.id;
+    about.append(name);
+    if (entry.name && entry.name !== entry.id) {
+      const said = document.createElement('small');
+      said.textContent = entry.name;
+      about.append(said);
+    }
+
+    const alg = chosenAlg(entry);
+    const moves = spellAlg(alg.moves);
+    moves.classList.add('paper-alg');
+
+    card.append(face, about, moves);
+
+    const note = noteOf(play(), algKey(entry));
+    if (note && settings.sheetNotes) {
+      const said = document.createElement('p');
+      said.className = 'paper-note';
+      said.textContent = note;
+      card.append(said);
+    }
+    grid.append(card);
+  }
+  el.paperBody.replaceChildren(grid);
+}
+
+/** The same thing as text, for anywhere that is not a printer. */
+function paperAsText() {
+  const lines = [];
+  for (const group of paperGroups()) {
+    const rows = paperCases().filter(({ entry }) => entry.group === group);
+    if (!rows.length) continue;
+    lines.push(`# ${caseSet.GROUPS[group].name}`);
+    for (const { entry } of rows) {
+      const note = noteOf(play(), algKey(entry));
+      lines.push(`${entry.id.padEnd(6)} ${chosenAlg(entry).moves}${note ? `   (${note})` : ''}`);
+    }
+    lines.push('');
+  }
+  return lines.join('\n').trim();
+}
+
+async function openPaper() {
+  try {
+    await loadCases();
+  } catch {
+    toast('De gevallen konden niet geladen worden.');
+    return;
+  }
+  renderPaper();
+  openSheet(el.paperSheet);
+}
+
+el.paperClose.addEventListener('click', () => el.paperSheet.close());
+
+el.paperPrint.addEventListener('click', () => {
+  // Printing a dialog prints the page behind it, so the page is told for one
+  // moment that the sheet is the only thing on it.
+  el.body.dataset.printing = 'paper';
+  const done = () => {
+    delete el.body.dataset.printing;
+    removeEventListener('afterprint', done);
+  };
+  addEventListener('afterprint', done);
+  setTimeout(() => {
+    window.print();
+    // Safari on a phone never fires afterprint, so the flag comes off anyway.
+    setTimeout(done, 2000);
+  }, 60);
+});
+
+el.paperCopy.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(paperAsText());
+    toast('Het blad staat op je klembord.');
+  } catch {
+    toast('Kopiëren lukte niet in deze browser.');
+  }
+});
+
+/* ---------- the wheel ----------
+
+   Three reels, and a challenge you would never have set yourself. The app can
+   count solves, drilled cases and recognitions, so the first reel keeps itself;
+   whether you really stood on one leg is between you and the leg. */
+
+let dare = null;      // { what, how, stake } once you have taken one on
+let spinning = false;
+
+/** The challenge you are in the middle of, back from storage. */
+function loadDare() {
+  const kept = settings.dare;
+  if (!kept) return null;
+  const built = rebuild(kept.reels);
+  if (!built) return null;
+  return { ...built, tally: kept.tally || {}, at: kept.at || Date.now() };
+}
+
+function keepDare() {
+  settings.dare = dare
+    ? { reels: idsOf(dare), tally: dare.tally, at: dare.at }
+    : null;
+  storeSettings();
+}
+
+/** One more of something the challenge is counting. */
+function bumpDare(kind, by = 1) {
+  if (!dare) return;
+  dare.tally[kind] = (dare.tally[kind] || 0) + by;
+  keepDare();
+  if (progressOf(dare, dare.tally).done) daresDone();
+  renderDareStrip();
+  if (el.slotSheet.open) renderSlot();
+}
+
+/** What the ordinary solve loop feeds the wheel. */
+function countTowardsDare(solve, par, previousBest) {
+  if (!dare) return;
+  const value = effective(solve);
+  const kind = dare.what.watch.kind;
+  bumpDare('solves');
+  if (!Number.isFinite(value)) {
+    if (kind === 'streak') { dare.tally.streak = 0; keepDare(); }
+    return;
+  }
+  if (kind === 'under' && par && value < par) bumpDare('under');
+  if (kind === 'streak') {
+    if (par && value < par) bumpDare('streak');
+    else if (dare.tally.streak) { dare.tally.streak = 0; keepDare(); renderDareStrip(); }
+  }
+  if (kind === 'best' && Number.isFinite(previousBest) && value < previousBest) bumpDare('best');
+}
+
+function daresDone() {
+  cue('win');
+  // A solve that finishes a challenge is often also a record, and the record
+  // says so first. This waits for that to have been read.
+  setTimeout(() => {
+    toast('Opdracht gehaald. De regel weet jij zelf.', { label: 'Afvinken', run: () => openSlot() });
+  }, 1400);
+}
+
+/** The line on the main screen that says a challenge is running. */
+function renderDareStrip() {
+  if (!el.dareStrip) return;
+  if (!dare) {
+    el.dareStrip.hidden = true;
+    return;
+  }
+  el.dareStrip.hidden = false;
+  el.dareStrip.textContent = `${dare.what.label} · ${dare.how.label} — ${countText(dare, dare.tally)}`;
+}
+
+/* --- the reels themselves --- */
+
+/** One reel: a strip of every face, so it can be scrolled past all of them. */
+function buildReel(reel) {
+  const column = document.createElement('div');
+  column.className = 'slot-reel';
+  column.dataset.reel = reel.id;
+
+  const name = document.createElement('span');
+  name.className = 'slot-name';
+  name.textContent = reel.name;
+
+  const port = document.createElement('div');
+  port.className = 'slot-port';
+  const strip = document.createElement('div');
+  strip.className = 'slot-strip';
+  // Three times round, so there is something to spin past before it lands.
+  for (let round = 0; round < 3; round++) {
+    for (const item of reel.items) {
+      const face = document.createElement('div');
+      face.className = 'slot-face';
+      const label = document.createElement('b');
+      label.textContent = faceOf(item);
+      face.append(label);
+      strip.append(face);
+    }
+  }
+  port.append(strip);
+  column.append(name, port);
+  return column;
+}
+
+function buildMachine() {
+  el.slotReels.replaceChildren(...REELS.map(buildReel));
+}
+
+/** Where a face sits on the strip, in pixels. */
+const FACE_HEIGHT = 88;
+
+/**
+ * Spin, and let the three reels arrive one after another. The last one takes
+ * the longest, because the whole pleasure of a slot machine is the reel that
+ * has not stopped yet.
+ */
+async function spinReels(challenge) {
+  spinning = true;
+  el.slotGo.disabled = true;
+  const columns = [...el.slotReels.querySelectorAll('.slot-reel')];
+
+  await Promise.all(REELS.map((reel, at) => new Promise((done) => {
+    const strip = columns[at]?.querySelector('.slot-strip');
+    if (!strip) { done(); return; }
+    const landing = reel.items.findIndex((item) => item.id === challenge[reel.id].id);
+    // Two full turns and then down to the face that won.
+    const stop = (reel.items.length * 2 + Math.max(landing, 0)) * FACE_HEIGHT;
+    const seconds = 1.1 + at * 0.55;
+
+    strip.style.transition = 'none';
+    strip.style.transform = 'translate3d(0, 0, 0)';
+    // Reading the layout back forces the browser to accept the jump to nought
+    // before the transition to the landing place is set.
+    void strip.offsetHeight;
+    strip.style.transition = `transform ${seconds}s cubic-bezier(.15,.85,.25,1.03)`;
+    strip.style.transform = `translate3d(0, ${-stop}px, 0)`;
+
+    setTimeout(() => {
+      cue('clunk');
+      columns[at].dataset.landed = 'true';
+      setTimeout(() => delete columns[at].dataset.landed, 420);
+      done();
+    }, seconds * 1000);
+  })));
+
+  spinning = false;
+  el.slotGo.disabled = false;
+}
+
+let shown = null;   // the challenge on screen, taken on or not
+
+async function pullTheArm() {
+  if (spinning) return;
+  shown = spin();
+  el.slotBody.replaceChildren(line('Draait…', 'import-note'));
+  cue('start');
+  await spinReels(shown);
+  cue('target');
+  renderSlot();
+}
+
+function renderSlot() {
+  const parts = [];
+  const tally = spinTally(play());
+
+  if (dare) {
+    const card = document.createElement('section');
+    card.className = 'dare-card';
+    card.dataset.on = 'true';
+
+    const head = document.createElement('h3');
+    head.textContent = dare.what.label;
+    const rule = document.createElement('p');
+    rule.className = 'dare-rule';
+    rule.textContent = dare.how.label;
+    const stake = document.createElement('p');
+    stake.className = 'dare-stake';
+    stake.textContent = dare.stake.label;
+    card.append(head, rule, stake);
+
+    const { have, need, done } = progressOf(dare, dare.tally);
+    const track = document.createElement('div');
+    track.className = 'dare-track';
+    const fill = document.createElement('span');
+    fill.style.width = `${Math.round((need ? have / need : 0) * 100)}%`;
+    track.append(fill);
+    const count = document.createElement('p');
+    count.className = 'dare-count';
+    count.textContent = countText(dare, dare.tally);
+    card.append(track, count);
+
+    const actions = document.createElement('div');
+    actions.className = 'detail-actions';
+
+    const won = document.createElement('button');
+    won.type = 'button';
+    won.className = 'primary';
+    won.textContent = done ? 'Gehaald' : 'Toch gehaald';
+    won.addEventListener('click', () => {
+      recordSpin(play(), idsOf(dare), { won: true });
+      persist();
+      dare = null;
+      keepDare();
+      renderDareStrip();
+      renderSlot();
+      confetti();
+      toast('Genoteerd. Draai nog eens als je durft.');
+    });
+
+    const gave = document.createElement('button');
+    gave.type = 'button';
+    gave.className = 'danger';
+    gave.textContent = 'Opgegeven';
+    gave.addEventListener('click', () => {
+      recordSpin(play(), idsOf(dare), { gave: true });
+      persist();
+      dare = null;
+      keepDare();
+      renderDareStrip();
+      renderSlot();
+      toast('Ook goed. Het rad vergeet niets.');
+    });
+
+    actions.append(won, gave);
+    card.append(actions);
+    parts.push(card);
+  } else if (shown) {
+    const card = document.createElement('section');
+    card.className = 'dare-card';
+
+    for (const reel of REELS) {
+      const bit = document.createElement('div');
+      bit.className = 'dare-bit';
+      const what = document.createElement('b');
+      what.textContent = shown[reel.id].label;
+      const why = document.createElement('small');
+      why.textContent = shown[reel.id].small;
+      bit.append(what, why);
+      card.append(bit);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'detail-actions';
+    const take = document.createElement('button');
+    take.type = 'button';
+    take.className = 'primary';
+    take.textContent = 'Ik doe het';
+    take.addEventListener('click', () => {
+      dare = { ...shown, tally: {}, at: Date.now() };
+      shown = null;
+      keepDare();
+      renderDareStrip();
+      renderSlot();
+      toast('Aangenomen. De teller loopt.');
+    });
+    const again = document.createElement('button');
+    again.type = 'button';
+    again.textContent = 'Nog eens draaien';
+    again.addEventListener('click', pullTheArm);
+    actions.append(take, again);
+    card.append(actions);
+    parts.push(card);
+  } else {
+    parts.push(line('Trek aan de hendel. Drie rollen, één opdracht, en geen van de 2640 uitkomsten is er een die je jezelf zou geven.', 'import-note'));
+  }
+
+  if (tally.played) {
+    const block = document.createElement('section');
+    block.className = 'records-block';
+    const heading = document.createElement('h3');
+    heading.textContent = 'Hoe het rad met je omgaat';
+    const said = document.createElement('div');
+    said.className = 'round-lines';
+    const row = document.createElement('div');
+    const name = document.createElement('b');
+    name.textContent = `${tally.won} gehaald`;
+    const figure = document.createElement('span');
+    figure.textContent = `${tally.gave} opgegeven · ${tally.played} in totaal`;
+    row.append(name, figure);
+    said.append(row);
+    block.append(heading, said);
+    parts.push(block);
+  }
+
+  el.slotBody.replaceChildren(...parts);
+}
+
+function openSlot() {
+  if (!el.slotReels.children.length) buildMachine();
+  renderSlot();
+  openSheet(el.slotSheet);
+}
+
+el.slotClose.addEventListener('click', () => el.slotSheet.close());
+el.slotGo.addEventListener('click', pullTheArm);
+el.dareStrip.addEventListener('click', () => openSlot());
+
+/* ---------- the course ----------
+
+   A road with stops on it. The road is drawn through the stops rather than
+   beside them, so a stop cannot end up somewhere the road does not go, and the
+   part you have finished is drawn in over the part you have not. */
+
+let openStep = null;
+
+/** Turn the little bit of emphasis the lessons use into real elements. */
+function saidAs(text, tag = 'p') {
+  const said = document.createElement(tag);
+  for (const part of text.split(/(\*\*[^*]+\*\*)/)) {
+    if (!part) continue;
+    if (part.startsWith('**')) {
+      const strong = document.createElement('strong');
+      strong.textContent = part.slice(2, -2);
+      said.append(strong);
+    } else {
+      said.append(document.createTextNode(part));
+    }
+  }
+  return said;
+}
+
+function renderRoad() {
+  const done = play().course || [];
+  const road = el.courseRoad;
+  road.replaceChildren();
+  road.setAttribute('viewBox', `0 0 ${MAP.width} ${MAP.height + 20}`);
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const make = (name, attrs) => {
+    const node = document.createElementNS(ns, name);
+    for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+    return node;
+  };
+
+  const d = roadPath();
+  road.append(make('path', { d, class: 'road-back' }));
+
+  // How much of the road is behind you: the drawn-in line is cut off at the
+  // last stop you ticked, so the road fills as you go.
+  const at = STEPS.reduce((last, step, index) => (done.includes(step.id) ? index : last), -1);
+  const ahead = make('path', { d, class: 'road-done' });
+  ahead.dataset.at = String(at);
+  road.append(ahead);
+
+  STEPS.forEach((step, index) => {
+    const [x, y] = step.at;
+    const had = done.includes(step.id);
+    const here = !had && index === done.length ? true : false;
+    const stop = make('g', { class: 'road-stop', transform: `translate(${x} ${y})` });
+    stop.dataset.done = String(had);
+    stop.dataset.here = String(here);
+    stop.append(make('circle', { r: 15, class: 'road-halo' }));
+    stop.append(make('circle', { r: 11, class: 'road-dot' }));
+    const number = make('text', { y: 4.6, 'text-anchor': 'middle', class: 'road-number' });
+    number.textContent = had ? '✓' : String(index + 1);
+    stop.append(number);
+    stop.addEventListener('click', () => {
+      openStep = step.id;
+      renderCourse();
+      el.courseBody.querySelector(`[data-step="${step.id}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+    road.append(stop);
+  });
+
+  // Drawing the finished part is an animation rather than a jump, so ticking a
+  // stop off visibly moves the road forward.
+  requestAnimationFrame(() => {
+    const total = ahead.getTotalLength ? ahead.getTotalLength() : 1000;
+    const part = at < 0 ? 0 : (at + 1) / STEPS.length;
+    ahead.style.strokeDasharray = `${total}`;
+    ahead.style.strokeDashoffset = `${total * (1 - part)}`;
+  });
+}
+
+function stepCard(step, index) {
+  const done = play().course || [];
+  const had = done.includes(step.id);
+  const card = document.createElement('article');
+  card.className = 'step-card';
+  card.dataset.step = step.id;
+  card.dataset.open = String(openStep === step.id);
+  card.dataset.done = String(had);
+
+  const head = document.createElement('button');
+  head.type = 'button';
+  head.className = 'step-head';
+  const number = document.createElement('span');
+  number.className = 'step-number';
+  number.textContent = had ? '✓' : String(index + 1);
+  const label = document.createElement('span');
+  label.className = 'step-label';
+  const name = document.createElement('b');
+  name.textContent = step.name;
+  const about = document.createElement('small');
+  about.textContent = step.subtitle;
+  label.append(name, about);
+  const long = document.createElement('span');
+  long.className = 'step-long';
+  long.textContent = step.minutes >= 60 ? `${Math.round(step.minutes / 60)} u` : `${step.minutes} min`;
+  head.append(number, label, long);
+  head.addEventListener('click', () => {
+    openStep = openStep === step.id ? null : step.id;
+    renderCourse();
+  });
+  card.append(head);
+
+  if (openStep !== step.id) return card;
+
+  const body = document.createElement('div');
+  body.className = 'step-body';
+
+  const why = document.createElement('p');
+  why.className = 'step-why';
+  why.textContent = step.why;
+  body.append(why);
+
+  for (const text of step.what) body.append(saidAs(text));
+
+  if (step.moves?.length) {
+    const block = document.createElement('div');
+    block.className = 'step-moves';
+    for (const move of step.moves) {
+      const one = document.createElement('div');
+      one.className = 'step-move';
+      const name = document.createElement('b');
+      name.textContent = move.label;
+      const moves = spellAlg(move.alg);
+      const why = document.createElement('small');
+      why.textContent = move.why;
+      one.append(name, moves, why);
+      block.append(one);
+    }
+    body.append(block);
+  }
+
+  if (step.tips?.length) {
+    const list = document.createElement('ul');
+    list.className = 'step-tips';
+    for (const tip of step.tips) list.append(saidAs(tip, 'li'));
+    body.append(list);
+  }
+
+  const check = document.createElement('p');
+  check.className = 'step-check';
+  check.textContent = `Je bent hier klaar als: ${step.check}`;
+  body.append(check);
+
+  const actions = document.createElement('div');
+  actions.className = 'detail-actions';
+
+  if (step.drill?.group) {
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.textContent = `Train ${caseSet?.GROUPS?.[step.drill.group]?.name || step.drill.group}`;
+    go.addEventListener('click', () => {
+      el.courseSheet.close();
+      openDrill({ group: step.drill.group, focus: 'spread' });
+    });
+    actions.append(go);
+  }
+  if (step.drill?.mode === 'cross') {
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.textContent = 'Alleen het kruis oefenen';
+    go.addEventListener('click', () => {
+      el.courseSheet.close();
+      picked = 'cross';
+      el.modeOpen.click();
+    });
+    actions.append(go);
+  }
+
+  const tick = document.createElement('button');
+  tick.type = 'button';
+  tick.className = had ? '' : 'primary';
+  tick.textContent = had ? 'Toch nog niet' : 'Dit kan ik';
+  tick.addEventListener('click', () => {
+    markStep(play(), step.id, !had);
+    persist();
+    if (!had) {
+      confetti();
+      const after = nextStep(play().course || []);
+      openStep = after ? after.id : null;
+    }
+    renderCourse();
+  });
+  actions.append(tick);
+  body.append(actions);
+
+  card.append(body);
+  return card;
+}
+
+function renderCourse() {
+  const done = play().course || [];
+  const far = howFar(done);
+
+  const parts = [];
+  const top = document.createElement('div');
+  top.className = 'course-top';
+  const said = document.createElement('p');
+  said.className = 'course-said';
+  const after = nextStep(done);
+  said.textContent = after
+    ? `${far.had} van ${far.all} stappen. Nu aan de beurt: ${after.name}. Nog ongeveer ${hoursLeft(done)} uur oefenen te gaan.`
+    : 'Alle stappen afgevinkt. Vanaf hier is het alleen nog kilometers maken.';
+  const track = document.createElement('div');
+  track.className = 'course-track';
+  const fill = document.createElement('span');
+  fill.style.width = `${Math.round(far.part * 100)}%`;
+  track.append(fill);
+  top.append(said, track);
+  parts.push(top);
+
+  STEPS.forEach((step, index) => parts.push(stepCard(step, index)));
+  el.courseBody.replaceChildren(...parts);
+  renderRoad();
+}
+
+async function openCourse() {
+  // The case names on the buttons come from the case database, so it is warmed
+  // up quietly; the course still opens if it fails.
+  loadCases().catch(() => {});
+  if (openStep === null) openStep = nextStep(play().course || [])?.id || STEPS[0].id;
+  renderCourse();
+  openSheet(el.courseSheet);
+}
+
+el.courseClose.addEventListener('click', () => el.courseSheet.close());
+
 /* ---------- everything the app can do, in one list ----------
 
    Most of this was behind "openen" inside the settings, which is where a
@@ -6694,8 +7771,11 @@ const RAIL = {
   share: () => { el.statsButton.click(); el.shareOpen.click(); },
   'big-open': () => setBig(true),
   'keys-open': () => openKeys(),
-  'transfer-open': () => el.transferOpen.click(),
-  'paste-open': () => el.pasteOpen.click(),
+  'paper-open': () => openPaper(),
+  'slot-open': () => openSlot(),
+  'course-open': () => openCourse(),
+  'transfer-open': () => openTransfer(),
+  'paste-open': () => openPaste(),
   'settings-open': () => el.settingsOpen.click()
 };
 
@@ -6770,6 +7850,8 @@ renderScramble();
 applySettings(); // sets the ring colour, decimals, hint and renders the session
 renderCubes();
 renderAim();
+dare = loadDare();
+renderDareStrip();
 renderCrossFace();
 renderTastePick();
 renderSkins();

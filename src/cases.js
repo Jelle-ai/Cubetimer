@@ -458,3 +458,93 @@ export function usableCases(kpuzzle, Alg, list = CASES) {
 
 /** A quarter turn of U before the case, so it does not always face you the same way. */
 export const AUF = ['', 'U', 'U2', "U'"];
+
+/* ---------- does this algorithm actually do this case? ----------
+
+   The check above asks a different question: given an algorithm, is the state
+   it comes from a case of this kind? That is the right question for the list
+   that ships with the app, where the algorithm defines the case.
+
+   For an algorithm you type in yourself the question is the other way round:
+   here is the case, does what you typed solve it? So the case is set up the way
+   the book presents it, your moves are done on it, and the result is looked at.
+   Any of the four ways round counts -- an algorithm that wants the case held a
+   quarter turn from where the book holds it is still that algorithm.
+
+   And "solved" means what it means for that drill: a PLL has to leave the cube
+   finished, an OLL only has to get the top face one colour, and an F2L only has
+   to put its own pair home. Asking more than that would refuse algorithms that
+   do exactly what the drill is for. */
+
+const wholeCube = (end, solved) => same(end, solved, 'EDGES', everyIndex(solved, 'EDGES'))
+  && same(end, solved, 'CORNERS', everyIndex(solved, 'CORNERS'));
+
+const finished = {
+  // A PLL is finished when the cube is finished -- but the last turn of the top
+  // layer is not part of the algorithm, it is the thing you do afterwards
+  // without thinking. So all four ways round count as solved.
+  pll: (end, solved, Alg) => {
+    let turned = end;
+    const quarter = new Alg('U');
+    for (let turn = 0; turn < 4; turn++) {
+      if (wholeCube(turned, solved)) return true;
+      turned = turned.applyAlg(quarter);
+    }
+    return false;
+  },
+  oll: (end) => TOP_CORNERS.every((i) => (end.patternData.CORNERS.orientation?.[i] ?? 0) === 0)
+    && TOP_EDGES.every((i) => (end.patternData.EDGES.orientation?.[i] ?? 0) === 0),
+  eo: (end) => TOP_EDGES.every((i) => (end.patternData.EDGES.orientation?.[i] ?? 0) === 0),
+  f2l: (end, solved) => same(end, solved, 'CORNERS', [F2L_PAIR.corner])
+    && same(end, solved, 'EDGES', [F2L_PAIR.edge])
+};
+
+finished.ocll = finished.oll;
+
+/** What must not have moved while the algorithm did its work. */
+const untouched = (end, solved, group) => (group === 'f2l'
+  ? same(end, solved, 'CORNERS', F2L_KEEP.corners) && same(end, solved, 'EDGES', F2L_KEEP.edges)
+  : same(end, solved, 'CORNERS', everyIndex(solved, 'CORNERS').filter((i) => !TOP_CORNERS.includes(i)))
+    && same(end, solved, 'EDGES', everyIndex(solved, 'EDGES').filter((i) => !TOP_EDGES.includes(i))));
+
+/**
+ * Put the case up, do the moves, and say whether it came out.
+ *
+ * @returns {{ok: true, setup: string, turns: number} | {ok: false, why: string}}
+ */
+export function solvesCase(entry, moves, kpuzzle, Alg) {
+  const done = finished[entry.group];
+  if (!done) return { ok: false, why: 'onbekende groep' };
+
+  let alg;
+  let start;
+  let setup;
+  try {
+    alg = new Alg(moves);
+    setup = tidyMoves(new Alg(moves).invert().experimentalSimplify({ cancel: true }).toString());
+    start = kpuzzle.defaultPattern().applyAlg(new Alg(entry.setup));
+  } catch (error) {
+    return { ok: false, why: `niet te lezen (${error.message})` };
+  }
+
+  const solved = kpuzzle.defaultPattern();
+  let sawTheCube = false;
+
+  for (const turn of AUF) {
+    let end;
+    try {
+      end = start.applyAlg(new Alg(turn)).applyAlg(alg);
+    } catch (error) {
+      return { ok: false, why: `niet te lezen (${error.message})` };
+    }
+    if (!same(end, solved, 'CENTERS', everyIndex(solved, 'CENTERS'))) continue;
+    sawTheCube = true;
+    if (!untouched(end, solved, entry.group)) continue;
+    if (done(end, solved, Alg)) {
+      return { ok: true, setup, turns: moves.split(/\s+/).filter(Boolean).length };
+    }
+  }
+
+  if (!sawTheCube) return { ok: false, why: 'draait de hele kubus' };
+  return { ok: false, why: 'lost dit geval niet op' };
+}

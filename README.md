@@ -29,6 +29,14 @@ offline als je hem installeert.
   (naast de timer op een groot scherm, eronder op je telefoon)
 - Instellingen voor ringkleur, inspectie, decimalen, vasthoudtijd en het tonen van de
   tijd tijdens een solve
+- 129 gevallen om te trainen — alle F2L, OLL en PLL — met 228 algoritmes, allemaal op een
+  echte kubus nagekeken voor ze aangeboden worden
+- Een gevallenboek waarin je per geval de manieren ziet, er een ster bij zet, je eigen
+  algoritme toevoegt (dat nagekeken wordt) en er een notitie bij schrijft
+- Opfrissen: wat je bijna vergeten bent komt terug, uit je eigen tijden gerekend
+- Een algblad om af te drukken, met alleen wat jij gekozen hebt
+- Een cursus in acht stappen om te leren oplossen, met een weg die meegroeit
+- Het rad: 2640 kleine, onredelijke uitdagingen
 - Alles wordt lokaal bewaard (localStorage), niets gaat naar een server
 
 ## Draaien
@@ -148,7 +156,9 @@ solve zonder inspectie.
 
 ## Instellingen
 
-Via het tandwiel rechtsboven:
+Via het tandwiel rechtsboven, of via de zijlijst. Er staan **alleen instellingen** in en
+alleen de titel ervan: alles wat de app kán doen staat in de zijlijst, en een venster dat
+half een menu en half een formulier is, is geen van beide.
 
 | Instelling | Keuze |
 | --- | --- |
@@ -169,9 +179,16 @@ Via het tandwiel rechtsboven:
 | Trillen | Korte trilling bij groen, start en stop (mobiel) |
 | Vieren | Confetti onder je doeltijd, een korte rode puls erboven, en een feest over het hele scherm bij een record |
 | Beste en slechtste | Groen en rood in de lijst |
-| Naar een ander toestel | Alles in één bestand, en dat bestand weer inlezen — samenvoegend |
+| Cross, F2L, OLL en PLL apart meten | De splitknop tijdens je solve |
+| Ring kleurt mee met je tempo | Warm als je voorligt, koel als je achterloopt |
+| Scrambles op maat | Gezeefd op hoe lang het kruis wordt: alles, alleen vlotte of alleen lastige |
+| Cross-tip na je solve | Achteraf: in hoeveel zetten het kruis had gekund, op jouw kleur en op de andere vijf |
+| Doeltijd met een datum | Een tijd om onder te komen en wanneer, met of je op schema ligt |
+| Je kubussen | Geef ze een naam en kies welke er ligt |
 | Tijden exporteren | Hele sessie naar je klembord of naar een bestand: tekst, csv of cstimer-JSON |
-| Tijden invoeren | Plak een lijst of kies een tekstbestand; `12.34`, `1:23.45`, `12.34+` en `DNF(12.34)` worden herkend |
+
+**Naar een ander toestel** en **tijden plakken** staan in de zijlijst, niet hier: het zijn
+dingen die je doet, geen dingen die je instelt.
 
 Alles wordt lokaal bewaard, net als de tijden.
 
@@ -194,7 +211,7 @@ Alles telt over al je sessies samen — oefenen is oefenen, op welke puzzel dan 
 
 ## Naar een ander toestel
 
-**Instellingen → naar een ander toestel** maakt één bestand met al je sessies, tijden,
+**Zijlijst → naar een ander toestel** maakt één bestand met al je sessies, tijden,
 scrambles, notities en voorkeuren: `cubetimer-2026-08-20.json`. Bewaar het, zet het op je
 andere toestel — AirDrop, mail, een map in de cloud — en kies het daar bij *bestand kiezen*.
 Kan je browser bestanden delen, dan staat er ook een knop **versturen**, die het meteen aan
@@ -244,36 +261,119 @@ Tijden uit een oudere versie van de app worden bij het eerste bezoek automatisch
 
 ## Trainen op losse gevallen
 
-**Instellingen → trainen op losse gevallen.** Kies PLL of OLL, druk op beginnen, en je
-krijgt een **opzet**: draai die op je opgeloste kubus en het geval ligt voor je. Solve
-alleen dat stukje. Zodra je stopt staat het volgende geval er al, dus drillen is één druk
-per herhaling.
+**Zijlijst → gevallen trainen.** Kies F2L, OLL, PLL of een van de twee-kijkbeurt-groepen,
+druk op beginnen, en je krijgt een **opzet**: draai die op je opgeloste kubus en het geval
+ligt voor je. Solve alleen dat stukje. Zodra je stopt staat het volgende geval er al, dus
+drillen is één druk per herhaling.
 
-Bovenaan staat welke je het **slechtst kent**, op gemiddelde. Gevallen die je nog nooit
-gedaan hebt komen eerst aan de beurt; daarna wordt er willekeurig gekozen. Je tijden per geval worden apart bewaard, bij het
-spel en niet bij je sessies — een PLL-drill van anderhalve seconde hoort niet tussen je
-3x3-gemiddelden.
+Er zitten **129 gevallen** in — alle 41 F2L, alle 57 OLL, alle 21 PLL, en de tien van de
+twee-kijkbeurt-manier — met samen 228 algoritmes. Je tijden per geval worden apart bewaard,
+bij het spel en niet bij je sessies: een PLL-drill van anderhalve seconde hoort niet tussen
+je 3x3-gemiddelden.
 
-Er zitten 21 PLL-gevallen in en 10 voor OLL in twee stappen — eerst het gele kruis, dan de
-hoeken.
+### Wat er aangeboden wordt
 
-### Waarom er niets uit die lijst zomaar geloofd wordt
+Vier keuzes, en je maakt ze zelf:
 
-Een opzet is het algoritme achterstevoren: doe dat op een opgeloste kubus en je kijkt naar
-het geval. Dat betekent ook dat een verkeerd getypt algoritme een verkeerd geval oplevert,
-en dat je dat oefent zonder het ooit te horen.
+- **Alles door elkaar** — eerst wat je nog nooit gehad hebt, daarna willekeurig.
+- **Opfrissen** — wat op het punt staat weg te zakken. Zie hieronder.
+- **Je zwakste derde** — de gevallen waar je het traagst op bent, en niets anders.
+- **Een reeks van jezelf** — je kiest de gevallen aan met hun plaatje erbij, geeft de reeks
+  een naam, en hij staat er voorgoed tussen. Snelknoppen voor "wat ik nog niet gedaan heb",
+  "mijn traagste tien" en "wat ik moet opfrissen".
 
-Dus wordt elk geval bij het inladen op een echte kubus gelegd — de puzzelmotor die ook je
-scrambles maakt — en pas aangeboden als het landt waar een geval van die soort hoort te
-landen. Drie dingen moeten kloppen, en elk vangt een ander soort fout: de middenstukjes
-mogen niet bewogen zijn (anders staat je hele kubus gedraaid en is de opzet niet af te
-lezen), de eerste twee lagen moeten heel zijn (dat breekt als eerste bij een typefout), en
-de laatste laag moet fout staan op de manier die bij die soort hoort — een PLL alleen
-verzet, een OLL minstens deels verkeerd om.
+### Opfrissen
 
-Dat is geen theorie: bij het schrijven ging er meteen één door de mand. Mijn Z-perm miste
-een `U'` aan het eind, waardoor hij ook de hoeken verschoof. De controle zei *"verzet ook
-hoeken"* en het geval werd geweigerd tot het klopte. Nu komen alle 31 er door.
+Er is geen aparte herhaalplanning om bij te houden: de tijden die je al maakte tijdens het
+drillen zijn de hele invoer. Elke poging op een geval wordt gelezen als een herhaling
+ervan, een vlotte telt als geslaagd en een trage als gemist, en het gat tot de volgende
+keer groeit na een geslaagde en klapt in na een gemiste — 1 dag, 3 dagen, en daarna telkens
+ruim het dubbele.
+
+Wat "vlot" is wordt uit je eigen tijden gehaald: de mediaan van alles wat je in die groep
+gedaan hebt, plus een derde. Geen getal dat iemand anders koos.
+
+In het gevallenboek staat bij elk geval wanneer hij weer aan de beurt is, en een geval dat
+over tijd is krijgt een streepje langs de rand.
+
+## Het gevallenboek
+
+**Zijlijst → gevallenboek.** Elk geval van een groep, met zijn plaatje, alles wat je erop
+gedaan hebt, en elke manier waarop je het kunt doen.
+
+Een geval opendoen geeft eerst de **kaart**: het plaatje groot, de naam ernaast, en hoeveel
+zetten jouw manier is. Daaronder de manieren, en pas daarna je tijden — want je slaat een
+geval op om te weten wát het is, en pas daarna wat je ermee doet.
+
+De algoritmes staan **in stukken**, niet als een muur van twintig letters. Handen leren
+geen zetten, ze leren groepjes — de sexy move, de sledgehammer, het uithalen en terugduwen
+— dus wordt er geknipt op de bekende triggers en valt de rest in vieren.
+
+### De ster
+
+Bij elk algoritme staat een ster. Die zet je bij de manier die jij gebruikt, en dat is niet
+alleen een notitie aan jezelf: **de opzet is het algoritme achterstevoren**, dus met de ster
+ergens anders komt het geval voortaan te liggen zoals jouw algoritme het verwacht, in plaats
+van zoals iemand anders het schrijft.
+
+### Je eigen algoritme
+
+Onderaan de manieren staat een veld waarin je je eigen manier typt. Niets wat je typt wordt
+geloofd: het geval wordt opgezet zoals het boek het toont, jouw zetten worden erop gedaan,
+en er wordt gekeken wat eruit komt. Alle vier de standen tellen mee — een algoritme dat het
+geval een kwartslag anders vasthoudt is nog steeds dat algoritme — en bij een PLL telt ook
+de laatste U niet mee, want die doe je zonder erbij na te denken.
+
+"Opgelost" betekent wat het bij die drill betekent: een PLL moet de kubus afmaken, een OLL
+hoeft alleen de bovenkant één kleur te krijgen, een F2L alleen zijn eigen paar thuis te
+brengen. Klopt het niet, dan krijg je te horen waarom — *"breekt het kruis"*, *"lost dit
+geval niet op"*, *"draait de hele kubus"* — en wordt er niets bewaard.
+
+Alle 228 algoritmes die met de app meekomen halen die controle. Dat is nagemeten, en het is
+de reden dat je die van jezelf ernaast mag zetten zonder dat de lijst minder waard wordt.
+
+### Een notitie
+
+Eén regel per geval, van jou aan jezelf. *"rechterhand, x-rotatie op het einde."* Hij staat
+in het boek en gaat mee op je algblad.
+
+## Het algblad
+
+**Zijlijst → algblad.** Alles wat je gekozen hebt, op één pagina: het plaatje, de naam en
+jouw manier, in een vorm die een printer overleeft.
+
+Je kiest zelf welke groepen erop staan, en of je alles wilt, alleen wat je zelf gekozen
+hebt, of alleen wat je al geoefend hebt. **Afdrukken** zet de rest van de pagina even weg
+zodat er alleen een blad uitkomt; **kopieer als tekst** geeft hetzelfde als platte tekst,
+voor waar geen printer staat.
+
+## Leer oplossen
+
+**Zijlijst → leer oplossen.** Een cursus in acht stappen, van "ik heb een kubus gekregen"
+tot volledig OLL en PLL, met een weg ernaast waarop je ziet waar je bent.
+
+Geen muur van algoritmes. Elke stap zegt eerst wát je probeert te doen en waarom de zetten
+dat doen, want waar mensen op afhaken is dat ze twintig letters uit hun hoofd moeten leren
+zonder te weten waar ze voor dienen. De algoritmes staan achteraan, en waar de app het
+geval zelf al in zijn boek heeft, wijst de stap ernaartoe in plaats van het over te typen.
+
+De stappen: de taal · het kruis · F2L op de makkelijke manier · echte F2L · OLL in twee
+kijkbeurten · PLL in twee kijkbeurten · vlot worden · volledig OLL en PLL. Elke stap heeft
+een knop naar de drill die erbij hoort, en een *dit kan ik* die de weg een stuk verder
+tekent.
+
+## Het rad
+
+**Zijlijst → het rad.** Drie rollen, en een kleine, onredelijke uitdaging die je jezelf
+nooit zou geven. Tien opdrachten, tweeëntwintig regels en twaalf inzetten: 2640
+uitkomsten, en de meeste ervan zijn belachelijk.
+
+> **10 solves** · *met een sok over je linkerhand* — lukt het niet: 10 extra solves
+
+De eerste rol is de enige die de app kan zien: hij telt je solves, je gedrilde gevallen of
+je herkenningen en weet wanneer je klaar bent. Of je echt op één been stond is tussen jou
+en het been. Een aangenomen uitdaging blijft staan als je de pagina sluit, en er staat een
+streepje mee bovenaan je sessie zolang hij loopt.
 
 ## Splits
 
@@ -575,6 +675,9 @@ src/preview.js    het plaatje bij de scramble, voor alle zes de puzzels
 src/gan-timer.js  Web Bluetooth client voor de GAN Smart Timer
 src/diagram.js    het plaatje van een OLL of PLL, uit het net van de puzzel zelf
 src/cases.js      de gevallen om te trainen, en de controle die een fout geval weigert
+src/recall.js     wanneer een geval op het punt staat weg te zakken
+src/course.js     de cursus: acht stappen en de weg ertussen
+src/slot.js       de drie rollen van het rad
 src/insight.js    de vragen die een lijst tijden zelf niet beantwoordt
 src/stats.js      tijdnotatie, ao5/ao12, mean
 src/practice.js   dagen, reeksen en de oefenmeter

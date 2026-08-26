@@ -26,8 +26,16 @@ const KEEP_SETS = 40;
 const KEEP_IN_SET = 60;
 
 export function emptyPlay() {
-  return { runs: [], daily: {}, cases: {}, duels: [], sets: [], spot: {} };
+  return {
+    runs: [], daily: {}, cases: {}, duels: [], sets: [], spot: {},
+    algs: {}, notes: {}, course: [], spins: []
+  };
 }
+
+/** Your own algorithms and notes, keyed the way the case book keys a case. */
+const KEEP_MY_ALGS = 6;
+const NOTE_LENGTH = 140;
+const KEEP_SPINS = 60;
 
 /**
  * The ten two-look cases used to live in the same drawer as everything else
@@ -109,6 +117,42 @@ export function cleanPlay(play) {
         at: Number.isFinite(set.at) ? set.at : Date.now()
       }))
       .filter((set) => set.cases.length);
+  }
+
+  // Algorithms you typed in yourself. Nothing here is trusted to be correct --
+  // it is put on a real cube before it is ever offered, the same as the ones
+  // that ship with the app -- so all this has to do is keep the text sane.
+  if (play.algs && typeof play.algs === 'object') {
+    for (const [where, algs] of Object.entries(play.algs)) {
+      if (!Array.isArray(algs) || !/^[a-z]+\/.{1,24}$/.test(where)) continue;
+      const kept = [...new Set(algs.filter((moves) => typeof moves === 'string' && moves.trim())
+        .map((moves) => moves.trim().replace(/\s+/g, ' ').slice(0, 120)))].slice(0, KEEP_MY_ALGS);
+      if (kept.length) safe.algs[where] = kept;
+    }
+  }
+
+  if (play.notes && typeof play.notes === 'object') {
+    for (const [where, note] of Object.entries(play.notes)) {
+      if (typeof note !== 'string' || !/^[a-z]+\/.{1,24}$/.test(where)) continue;
+      const tidy = note.trim().slice(0, NOTE_LENGTH);
+      if (tidy) safe.notes[where] = tidy;
+    }
+  }
+
+  if (Array.isArray(play.course)) {
+    safe.course = [...new Set(play.course.filter((id) => typeof id === 'string').map((id) => id.slice(0, 24)))].slice(0, 40);
+  }
+
+  if (Array.isArray(play.spins)) {
+    safe.spins = play.spins
+      .filter((spin) => spin && Number.isFinite(spin.at) && Array.isArray(spin.reels))
+      .slice(-KEEP_SPINS)
+      .map((spin) => ({
+        at: spin.at,
+        reels: spin.reels.slice(0, 3).map((id) => String(id).slice(0, 32)),
+        won: spin.won === true,
+        gave: spin.gave === true
+      }));
   }
 
   if (Array.isArray(play.duels)) {
@@ -417,6 +461,22 @@ export function mergePlay(mine, theirs) {
   }
   if (merged.sets.length > KEEP_SETS) merged.sets.splice(0, merged.sets.length - KEEP_SETS);
 
+  // Your own algorithms and notes: both sides kept, this side wins a clash.
+  for (const [where, algs] of Object.entries(arriving.algs || {})) {
+    merged.algs[where] = [...new Set((merged.algs[where] || []).concat(algs))].slice(0, KEEP_MY_ALGS);
+  }
+  for (const [where, note] of Object.entries(arriving.notes || {})) {
+    if (!merged.notes[where]) merged.notes[where] = note;
+  }
+  merged.course = [...new Set(merged.course.concat(arriving.course || []))].slice(0, 40);
+
+  const spun = new Set(merged.spins.map((spin) => spin.at));
+  for (const spin of arriving.spins || []) {
+    if (!spun.has(spin.at)) merged.spins.push(spin);
+  }
+  merged.spins.sort((a, b) => a.at - b.at);
+  if (merged.spins.length > KEEP_SPINS) merged.spins.splice(0, merged.spins.length - KEEP_SPINS);
+
   const duelled = new Set(merged.duels.map((duel) => duel.at));
   for (const duel of arriving.duels) {
     if (!duelled.has(duel.at)) merged.duels.push(duel);
@@ -429,3 +489,67 @@ export function mergePlay(mine, theirs) {
 
 /** The best single time in a list of game times. */
 export const bestTime = (times) => best(times);
+
+
+/* ---------- your own algorithms, and a line about a case ----------
+
+   The app ships with several ways through every case, and none of them may be
+   the one your hands do. So you can type in yours. It is checked on a real cube
+   before it is ever shown -- an algorithm that solves a different case, or
+   breaks the first two layers, is refused rather than saved -- which means the
+   list stays trustworthy even though anyone can add to it. */
+
+export function keepMyAlg(play, where, moves) {
+  play.algs ||= {};
+  const mine = (play.algs[where] ||= []);
+  const tidy = moves.trim().replace(/\s+/g, ' ');
+  if (!mine.includes(tidy)) mine.unshift(tidy);
+  if (mine.length > KEEP_MY_ALGS) mine.length = KEEP_MY_ALGS;
+  return tidy;
+}
+
+export function dropMyAlg(play, where, moves) {
+  if (!play.algs?.[where]) return;
+  play.algs[where] = play.algs[where].filter((one) => one !== moves);
+  if (!play.algs[where].length) delete play.algs[where];
+}
+
+export const myAlgs = (play, where) => play.algs?.[where] || [];
+
+export function keepNote(play, where, note) {
+  play.notes ||= {};
+  const tidy = note.trim().slice(0, NOTE_LENGTH);
+  if (tidy) play.notes[where] = tidy;
+  else delete play.notes[where];
+  return tidy;
+}
+
+export const noteOf = (play, where) => play.notes?.[where] || '';
+
+/* ---------- the course ---------- */
+
+export const stepDone = (play, id) => (play.course || []).includes(id);
+
+export function markStep(play, id, done) {
+  play.course = (play.course || []).filter((one) => one !== id);
+  if (done) play.course.push(id);
+  return play.course.length;
+}
+
+/* ---------- the wheel ---------- */
+
+export function recordSpin(play, reels, { won = false, gave = false } = {}) {
+  play.spins ||= [];
+  play.spins.push({ at: Date.now(), reels: reels.slice(0, 3), won, gave });
+  if (play.spins.length > KEEP_SPINS) play.spins.splice(0, play.spins.length - KEEP_SPINS);
+}
+
+/** How the wheel has gone for you: how many taken on, and how many landed. */
+export function spinTally(play) {
+  const spins = play.spins || [];
+  return {
+    played: spins.length,
+    won: spins.filter((spin) => spin.won).length,
+    gave: spins.filter((spin) => spin.gave).length
+  };
+}
