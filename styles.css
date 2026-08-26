@@ -2186,6 +2186,12 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
 .mode-list button[data-active="true"] { background: color-mix(in srgb, var(--led) 16%, var(--sunken)); }
 .mode-list button b { font-size: .95rem; font-weight: 600; }
 .mode-list button small { font-size: .78rem; color: var(--muted); }
+.mode-list button[disabled] { opacity: .5; }
+
+/* A second row of choices under the first one is a decision about the same
+   thing, so it sits closer than a new section would. */
+.mode-list.tight button { padding: .45rem .8rem; }
+.mode-list.tight button b { font-size: .88rem; }
 
 .round-headline {
   margin: 0 0 .6rem;

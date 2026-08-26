@@ -2046,13 +2046,42 @@ async function loadCases() {
   return caseSet;
 }
 
+/**
+ * Which cases the drill serves.
+ *
+ * Spread is the honest default -- everything you have not met, then anything at
+ * all -- because a drill that only ever gives you your worst case teaches you
+ * that one case and lets the rest rot. Weak is for when you have asked for it:
+ * the third you are slowest at, and nothing else.
+ */
+let drillFocus = 'spread';
+
+/** How slow a case has to have been to count as one of your weak ones. */
+const WEAK_THIRD = 1 / 3;
+
 /** Pick the next case: the ones you have done least, then the slowest. */
 function nextCase(cases, group) {
   const mine = cases.filter((entry) => entry.group === group);
   const standing = new Map(caseStanding(play(), group).map((row) => [row.id, row]));
+
+  if (drillFocus === 'weak') {
+    // caseStanding comes back slowest first, so the front of it is the problem.
+    const tried = caseStanding(play(), group).filter((row) => row.count >= 2);
+    const worst = tried.slice(0, Math.max(3, Math.ceil(tried.length * WEAK_THIRD)));
+    const pool = mine.filter((entry) => worst.some((row) => row.id === entry.id));
+    if (pool.length) return pool[Math.floor(Math.random() * pool.length)];
+    // Nothing drilled often enough to know which is worst: fall through and let
+    // the spread build that knowledge first.
+  }
+
   const untried = mine.filter((entry) => !standing.has(entry.id));
   const pool = untried.length ? untried : mine;
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/** How many cases in this group you have done enough of to rank at all. */
+function rankedCases(group) {
+  return caseStanding(play(), group).filter((row) => row.count >= 2).length;
 }
 
 /** Drill times belong to the drill, not to whatever session was open. */
@@ -2104,6 +2133,32 @@ function renderDrill() {
     picker.append(button);
   }
   parts.push(picker);
+
+  // Spread or weakness. Only offered once there is enough drilled in this group
+  // for "weakest" to mean anything -- before that it would be a guess dressed
+  // up as a plan.
+  const ranked = rankedCases(drillGroup);
+  const focus = document.createElement('div');
+  focus.className = 'mode-list tight';
+  for (const [id, label, about] of [
+    ['spread', 'Alles door elkaar', 'Eerst wat je nog niet gehad hebt, daarna willekeurig.'],
+    ['weak', 'Je zwakste derde', ranked >= 6
+      ? `De ${Math.max(3, Math.ceil(ranked / 3))} gevallen waar je het traagst op bent, en niets anders.`
+      : `Nog te weinig gemeten — doe er eerst ${6 - ranked} meer, dan weet hij welke dat zijn.`]
+  ]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.active = String(id === drillFocus);
+    button.disabled = id === 'weak' && ranked < 6;
+    const name = document.createElement('b');
+    name.textContent = label;
+    const note = document.createElement('small');
+    note.textContent = about;
+    button.append(name, note);
+    button.addEventListener('click', () => { drillFocus = id; renderDrill(); });
+    focus.append(button);
+  }
+  parts.push(focus);
 
   const actions = document.createElement('div');
   actions.className = 'detail-actions';
@@ -2169,9 +2224,10 @@ function renderDrill() {
   el.drillBody.replaceChildren(...parts);
 }
 
-el.drillOpen.addEventListener('click', async () => {
-  el.drillOpen.blur();
-  el.settings.close();
+/** Open the drill, optionally already pointed at the thing you are worst at. */
+async function openDrill({ focus = null, group = null } = {}) {
+  if (group) drillGroup = group;
+  if (focus) drillFocus = focus;
   try {
     await loadCases();
   } catch (error) {
@@ -2181,6 +2237,12 @@ el.drillOpen.addEventListener('click', async () => {
   }
   renderDrill();
   openSheet(el.drillSheet);
+}
+
+el.drillOpen.addEventListener('click', () => {
+  el.drillOpen.blur();
+  el.settings.close();
+  openDrill();
 });
 
 el.drillClose.addEventListener('click', () => el.drillSheet.close());
@@ -3284,6 +3346,23 @@ function weakBlock() {
     parts.push(line(
       `Van de gevallen die je geoefend hebt is ${cases.slowest.id} je traagste (${formatTime(cases.slowest.mean)}), en ${cases.quickest.id} je snelste (${formatTime(cases.quickest.mean)}).`,
       'records-aside'));
+
+    // Knowing which case is your worst is only half of it; the other half is a
+    // way to go and do something about it without hunting for the button.
+    const drill = document.createElement('div');
+    drill.className = 'detail-actions';
+    for (const group of ['pll', 'oll']) {
+      if (rankedCases(group) < 6) continue;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = `Oefen je zwakste ${group.toUpperCase()}`;
+      button.addEventListener('click', () => {
+        el.recordsSheet.close();
+        openDrill({ focus: 'weak', group });
+      });
+      drill.append(button);
+    }
+    if (drill.children.length) parts.push(drill);
   }
 
   return recordBlock('Waar je het verliest', parts);
