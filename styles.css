@@ -2711,3 +2711,146 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
   font-weight: 600;
   color: var(--ink-soft, var(--muted));
 }
+
+/* The metronome's speed: a label, the slider across the full width, and the
+   unit beside it. It used to borrow a class name from the camera's crop row,
+   which had no rules of its own, so it was laid out by luck. */
+.slider-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: .6rem;
+  margin: .2rem 0 .4rem;
+  font-size: .84rem;
+  color: var(--ink-soft, var(--muted));
+}
+
+.slider-row output { font-variant-numeric: tabular-nums; }
+
+/* ---------- a slider you can actually drag ----------
+
+   The metronome's speed was a bare native range: sixteen pixels tall and half
+   the width of the sheet, which is a fiddle with a mouse and close to
+   impossible with a thumb. */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2.2rem;
+  background: none;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: .45rem;
+  border-radius: 999px;
+  background: var(--sunken);
+}
+
+input[type='range']::-moz-range-track {
+  height: .45rem;
+  border-radius: 999px;
+  background: var(--sunken);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: -.53rem;
+  border-radius: 50%;
+  background: var(--led);
+  border: 3px solid var(--card-solid, #fff);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, .28);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--led);
+  border: 3px solid var(--card-solid, #fff);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, .28);
+}
+
+input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offset: 4px; }
+
+/* ---------- room for a thumb ----------
+
+   Measured rather than guessed: everything interactive was swept on an
+   emulated phone and anything under forty pixels either way is grown here.
+   Only on a touch screen -- with a mouse the same controls are fine small, and
+   growing them everywhere would push the desktop layout about for nothing. */
+@media (pointer: coarse) {
+  .icon-button { width: 44px; min-width: 44px; height: 44px; }
+  .pill { min-height: 42px; }
+
+  /* The metronome slider is dragged rather than tapped, so it gets more room
+     than a tap target would need. */
+  input[type='range'] { height: 2.75rem; }
+
+  /* Rows of small choosers: theme, font, skin, and the colour wells beside
+     them. */
+  .choice button,
+  .segmented button { min-height: 42px; }
+  .colour-field input[type='color'],
+  input[type='color'] { min-height: 40px; }
+  .swatch { width: 40px; height: 40px; }
+
+  /* Full-width rows are easy to hit sideways, but still want a thumb's height. */
+  .make-set,
+  .record-run button,
+  .records-block .stats-row,
+  .stats-row { min-height: 42px; }
+
+  /* The little word-buttons: under the scramble, over the times list, and in
+     the set builder's tools. Padding rather than height, so they stay words. */
+  .scramble-tools .link,
+  .session-tools .link,
+  .selection-actions .link,
+  .filter-chips button,
+  .set-tools .link,
+  .text-button {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    padding: .3rem .55rem;
+  }
+
+  .session-tools, .selection-actions { gap: .1rem; }
+
+  .field-select,
+  select { min-height: 42px; }
+
+  .chip, .cube-chip { min-height: 40px; }
+
+  /* Buttons that sit inside a list row, like "nog eens" on a bad solve. */
+  .worst-row .tiny { min-height: 36px; padding: .3rem .6rem; }
+
+  /* A row of the times list is a tap target in its own right. */
+  .solves-slot .solve { min-height: 52px; }
+}
+
+/* ---------- the bar on a narrow phone ----------
+
+   Six round buttons at forty-four pixels and a pill beside them come to more
+   than a 390-pixel screen has, and the pill was the part hanging off the end.
+   Everything gives a little rather than one thing being dropped: the gaps
+   close up, the buttons come down to forty-two -- still a thumb's worth -- and
+   the pill loses some of its padding. Measured to fit at 360. */
+@media (max-width: 480px) and (pointer: coarse) {
+  .bar { gap: .35rem; padding-inline: .6rem; }
+  .bar-right { gap: .25rem; }
+  .icon-button { width: 42px; min-width: 42px; height: 42px; }
+  .pill { padding: .55rem .8rem; }
+}
+
+/* Narrower still -- a 360-wide phone is common -- and the name of the app is
+   the one thing on the bar nobody needs while solving. */
+@media (max-width: 380px) and (pointer: coarse) {
+  .brand { display: none; }
+  .bar-right { gap: .15rem; }
+  .icon-button { width: 40px; min-width: 40px; height: 40px; }
+  .pill { padding: .5rem .7rem; }
+}

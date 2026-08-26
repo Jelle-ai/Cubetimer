@@ -199,7 +199,6 @@ const el = {
   casesClose: document.getElementById('cases-close'),
   casesGroups: document.getElementById('cases-groups'),
   casesBody: document.getElementById('cases-body'),
-  welcome: document.getElementById('welcome'),
   recordsTabs: document.getElementById('records-tabs'),
   settingsTabs: document.getElementById('settings-tabs'),
   settingsGroups: document.getElementById('settings-groups'),
@@ -4154,7 +4153,6 @@ el.detailRemove.addEventListener('click', () => {
 });
 
 function render() {
-  renderWelcome();
   renderStats();
   renderSolves();
   renderSelection();
@@ -4162,19 +4160,6 @@ function render() {
   renderPuzzles();
   renderInsight();
   renderPractice();
-}
-
-/**
- * The one thing worth saying up front, said until it stops being needed.
- * Anything on the save file at all -- times, or a game already played -- means
- * this is not somebody's first minute here.
- */
-function renderWelcome() {
-  if (!el.welcome) return;
-  const anything = saveFile.sessions.some((session) => session.solves.length)
-    || (play().runs || []).length > 0
-    || Object.keys(play().daily || {}).length > 0;
-  el.welcome.hidden = anything;
 }
 
 function setHint(text) {
