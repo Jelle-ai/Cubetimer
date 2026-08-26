@@ -74,6 +74,17 @@
     </div>
 
     <p id="hint" class="hint"></p>
+
+    <!-- Shown until the first solve and never again. What this app is, in the
+         only place somebody would ever read it: before they have used it. -->
+    <section id="welcome" class="welcome" hidden>
+      <p class="welcome-line"><b>Geen account. Geen cloud. Eén bestand.</b></p>
+      <p class="welcome-note">Je tijden staan op dit toestel en nergens anders — er is geen server om ze
+        naartoe te sturen. Eén knop maakt er een bestand van dat je zelf bijhoudt, en dat je op een
+        ander toestel weer inleest. De hele app werkt offline, ook de officiële scrambles.</p>
+      <p class="welcome-note">Spatie of tik om te starten, nog eens om te stoppen. De rest vind je
+        vanzelf.</p>
+    </section>
   </section>
 
   <aside id="panel" class="panel">
@@ -288,6 +299,7 @@
         <span id="colour-count" class="colour-count">nog geen kleuren</span>
       </div>
       <button type="button" id="learn-colours" class="wide">Kleuren van deze kubus leren</button>
+      <p id="colour-cubes" class="import-note" hidden></p>
       <p id="colour-note" class="import-note">Leg je <em>opgeloste</em> kubus op het matje en druk hierop. Draai hem daarna om en druk nog eens, tot alle zes de kleuren binnen zijn. Daarmee ziet hij een +2 en een DNF zelf, in plaats van te gokken.</p>
     </div>
 

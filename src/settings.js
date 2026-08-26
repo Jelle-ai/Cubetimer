@@ -109,6 +109,9 @@ const DEFAULTS = {
   // The chromaticity of this cube's own six stickers, under this room's light,
   // learned from the cube itself. Empty until you teach it.
   cubeColours: [],
+  // The same, but kept per named cube, so the camera can say which one is on
+  // the mat instead of only what state it is in.
+  cubeKits: {},
   font: 'rounded',
   practice: true,
   goalKind: 'time',   // 'time' counts the solving up, 'solves' counts the solves
@@ -133,6 +136,14 @@ function clampNumber(value, low, high, fallback) {
 }
 
 const isColor = (value) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
+
+/** Six pairs of chromaticity, or whatever of them is actually there. */
+const cleanPalette = (list) => (Array.isArray(list)
+  ? list
+    .filter((c) => Array.isArray(c) && c.length === 2 && c.every((v) => Number.isFinite(Number(v))))
+    .slice(0, 6)
+    .map(([x, y]) => [Number(x), Number(y)])
+  : []);
 
 const inside = (value, fallback) => {
   const number = Number(value);
@@ -194,12 +205,16 @@ export function loadSettings() {
     settings.wonBadges = Array.isArray(settings.wonBadges)
       ? settings.wonBadges.filter((id) => typeof id === 'string').slice(0, 200)
       : [];
-    settings.cubeColours = Array.isArray(settings.cubeColours)
-      ? settings.cubeColours
-        .filter((c) => Array.isArray(c) && c.length === 2 && c.every((v) => Number.isFinite(Number(v))))
-        .slice(0, 6)
-        .map(([x, y]) => [Number(x), Number(y)])
-      : [];
+    settings.cubeColours = cleanPalette(settings.cubeColours);
+
+    // A palette per named cube, and none for a cube that has been forgotten.
+    const kits = {};
+    for (const [name, palette] of Object.entries(settings.cubeKits || {})) {
+      if (!settings.cubes.includes(name)) continue;
+      const kept = cleanPalette(palette);
+      if (kept.length >= 3) kits[name] = kept;
+    }
+    settings.cubeKits = kits;
 
     const colors = { ...DEFAULTS.colors, ...(settings.colors || {}) };
     for (const { key, fallback } of COLOR_SLOTS) {

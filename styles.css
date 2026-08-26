@@ -2528,3 +2528,37 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
   font-size: .72rem;
   border-radius: 8px;
 }
+
+/* A cube whose colours the camera has learned wears a dot, so you can see at a
+   glance which of yours it would recognise on the mat. */
+.cube-chip[data-taught='true']::before {
+  content: '';
+  width: .38rem;
+  height: .38rem;
+  border-radius: 50%;
+  background: var(--led);
+  flex: 0 0 auto;
+}
+
+/* On the selected chip the dot would vanish into the fill, so it turns white. */
+.cube-chip[data-active='true'][data-taught='true']::before { background: rgba(255, 255, 255, .9); }
+
+/* Said once, before the first solve, and then never again: an app that keeps
+   telling you what it is has nothing else to say. */
+.welcome {
+  max-width: 34rem;
+  margin: .4rem auto 0;
+  padding: .9rem 1.1rem;
+  border-radius: 14px;
+  background: var(--sunken);
+  text-align: center;
+}
+
+.welcome-line { margin: 0 0 .4rem; font-size: .95rem; color: var(--ink); }
+.welcome-note {
+  margin: 0 0 .4rem;
+  font-size: .82rem;
+  line-height: 1.45;
+  color: var(--ink-soft, var(--muted));
+}
+.welcome-note:last-child { margin-bottom: 0; }

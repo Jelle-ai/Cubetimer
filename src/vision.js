@@ -649,6 +649,19 @@ const JUDGE_AT = 180;
  * The cost is the other half. A +2 cannot be told from a solved cube this way,
  * and is left alone.
  *
+ * The same measurement settles the bigger question, which is whether the camera
+ * could check that the cube on the mat is actually the scramble it was given.
+ * It cannot. Reading a scramble means getting all 27 visible stickers right at
+ * once. Placed on the cube corner that fitFaces finds, over 60 random scrambles
+ * and nine camera positions, and scored with the most generous face assignment
+ * available -- every rotation and both windings tried, the best kept -- 46% of
+ * stickers came back right, and not once did all 27. The best single reading
+ * managed 18. So scramble checking, and everything built on it (a competition
+ * mode that verifies before it times, an inspection watch that can tell a turn
+ * from a handling), is not something this pipeline can do, and none of it is
+ * here. The failure is geometric, not chromatic: the colours are read fine, the
+ * grid is simply not on the right stickers.
+ *
  * @returns {{verdict: 'none'|'DNF', state: string, faces: number, colours: number,
  *   confidence: number, found: object|null}}
  */
@@ -954,6 +967,77 @@ export function patches(found, references, { margin = 2, tolerance = 0.055, part
 /* ---------- the camera ---------- */
 
 /** The outline of what it is looking at, as an SVG path in a 0..1 box. */
+/* ---------- which cube is this ----------
+
+   Two cubes are two sets of six colours, and a cube's colours are the one thing
+   about it a camera can read without needing to know where anything is. So the
+   palette learned off the mat can simply be compared with the palettes of the
+   cubes you have named.
+
+   Measured on two realistic sheets -- a stickerless GAN and a stickered MoYu --
+   over four lights (neutral, warm lamp, cool daylight, dim) and three angles.
+   With the margins below applied: right 22 times, quiet twice, wrong never.
+   The two it declined were both the stickered cube under cool daylight, where
+   the light had pulled its palette a third of the way towards the other one.
+
+   Quiet rather than wrong is the whole design. Filing your times under the
+   wrong cube is worse than not knowing which cube it was, because you cannot
+   see that it happened.
+
+   What the measurement does not cover is two cubes of the same make, which
+   would be two identical palettes and no answer at all. Hence the margin below:
+   a guess is only offered when the nearest palette is clearly nearer than the
+   next, and otherwise nothing is said. */
+
+/** Near enough to be the same cube at all, after a change of light. */
+const OWN_PALETTE = 0.05;
+
+/**
+ * And clearly nearer than the runner-up, or the two cubes are just alike.
+ *
+ * The flat part matters as much as the ratio: two cubes of the same make give
+ * two identical palettes, and a ratio alone lets that through -- nought is
+ * comfortably less than nought times anything. With the flat margin, identical
+ * palettes fall to "will not say", which is the honest answer.
+ */
+const CLEARLY = 1.35;
+const APART = 0.004;
+
+/** How far one palette is from another: each colour to its nearest opposite. */
+export function paletteGap(one, other) {
+  if (!one?.length || !other?.length) return Infinity;
+  let sum = 0;
+  for (const colour of one) {
+    let closest = Infinity;
+    for (const known of other) {
+      closest = Math.min(closest, Math.hypot(colour[0] - known[0], colour[1] - known[1]));
+    }
+    sum += closest;
+  }
+  return sum / one.length;
+}
+
+/**
+ * Which of the named cubes this is, or null when it will not say.
+ *
+ * @param {[number, number][]} seen the palette read off the mat
+ * @param {Record<string, [number, number][]>} kits the palettes you taught it
+ * @returns {{name: string, gap: number, next: number}|null}
+ */
+export function whichCube(seen, kits) {
+  const known = Object.entries(kits || {}).filter(([, palette]) => palette?.length >= 3);
+  if (!seen?.length || known.length < 2) return null;
+
+  const ranked = known
+    .map(([name, palette]) => ({ name, gap: paletteGap(seen, palette) }))
+    .sort((a, b) => a.gap - b.gap);
+
+  const [nearest, next] = ranked;
+  if (nearest.gap > OWN_PALETTE) return null;
+  if (next.gap < nearest.gap * CLEARLY + APART) return null;
+  return { name: nearest.name, gap: nearest.gap, next: next.gap };
+}
+
 export function foundPath(found) {
   if (!found) return '';
   if (!found.outline) {

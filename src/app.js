@@ -22,7 +22,7 @@ import { chord, confetti, flashMiss, together, tone, vibrate } from './feedback.
 import { hasPreview, previewOf } from './preview.js';
 import {
   ALL_SIX, CERTAIN, FULL_FRAME, askForCamera, coarse, cropBox, cropShape, findCube, foundPath,
-  inspectFrame, learnColours, openCamera, reference
+  inspectFrame, learnColours, openCamera, reference, whichCube
 } from './vision.js';
 import {
   dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
@@ -209,6 +209,8 @@ const el = {
   scrambleOpen: document.getElementById('scramble-open'),
   scrambleAgain: document.getElementById('scramble-again'),
   scrambleTaste: document.getElementById('scramble-taste'),
+  colourCubes: document.getElementById('colour-cubes'),
+  welcome: document.getElementById('welcome'),
   closingOpen: document.getElementById('closing-open'),
   closingSheet: document.getElementById('closing-sheet'),
   closingTitle: document.getElementById('closing-title'),
@@ -2741,6 +2743,7 @@ function renderCubes() {
     button.type = 'button';
     button.className = 'cube-chip';
     button.dataset.active = String(name === settings.cube);
+    button.dataset.taught = String(Boolean(settings.cubeKits?.[name]?.length));
     button.textContent = name;
     button.addEventListener('click', () => {
       settings.cube = settings.cube === name ? '' : name;
@@ -3727,6 +3730,7 @@ el.detailRemove.addEventListener('click', () => {
 });
 
 function render() {
+  renderWelcome();
   renderStats();
   renderSolves();
   renderSelection();
@@ -3734,6 +3738,19 @@ function render() {
   renderPuzzles();
   renderInsight();
   renderPractice();
+}
+
+/**
+ * The one thing worth saying up front, said until it stops being needed.
+ * Anything on the save file at all -- times, or a game already played -- means
+ * this is not somebody's first minute here.
+ */
+function renderWelcome() {
+  if (!el.welcome) return;
+  const anything = saveFile.sessions.some((session) => session.solves.length)
+    || (play().runs || []).length > 0
+    || Object.keys(play().daily || {}).length > 0;
+  el.welcome.hidden = anything;
 }
 
 function setHint(text) {
@@ -4869,6 +4886,7 @@ function watchCube(solve) {
   cameraSubject = solve;
   lastReading = null;
   agreed = 0;
+  recognisedThisSolve = false;
   el.cameraPeek.hidden = false;
   el.cameraPeek.dataset.state = 'looking';
   cameraDeadline = performance.now() + SETTLE_MS + GIVE_UP_MS;
@@ -4897,6 +4915,7 @@ function look() {
 
   const reading = inspectFrame(frame, emptyMat, cropShape(settings.crop), settings.cubeColours);
   el.peekOutline.setAttribute('d', foundPath(reading.found));
+  if (reading.found && !reading.found.rejected) recogniseCube(reading.found);
 
   const sure = reading.verdict !== 'none' && reading.confidence >= CERTAIN;
   el.cameraPeek.dataset.state = sure
@@ -4909,6 +4928,43 @@ function look() {
   if (agreed < AGREEMENTS) return;
 
   offerVerdict(reading.verdict);
+}
+
+/* ---------- which cube is on the mat ----------
+
+   Cheap, because it asks nothing of the geometry: two cubes are two sets of six
+   colours, and the colours are the one thing a camera can read off a cube
+   without knowing where anything on it is. Taught two cubes, the palette on the
+   mat is compared with both.
+
+   It only speaks when it is clearly right -- see whichCube -- because two cubes
+   of the same make are two identical palettes, and inventing an answer there
+   would quietly file your times under the wrong cube. */
+
+let recognisedThisSolve = false;
+
+function recogniseCube(found) {
+  if (recognisedThisSolve) return;
+  if (Object.keys(settings.cubeKits || {}).length < 2) return;
+
+  const learned = learnColours(found, { faces: 3 });
+  if (!learned?.colours?.length) return;
+
+  const guess = whichCube(learned.colours, settings.cubeKits);
+  if (!guess) return;
+  recognisedThisSolve = true;
+  if (guess.name === settings.cube) return;
+
+  // The solve is already stored, so the correction has to go onto the solve
+  // rather than only onto the setting -- otherwise the one solve that told us
+  // which cube it was is the one filed under the wrong one.
+  settings.cube = guess.name;
+  storeSettings();
+  renderCubes();
+  if (cameraSubject) cameraSubject.cube = guess.name;
+  const last = counting(solves)[counting(solves).length - 1];
+  if (last && last === cameraSubject) persist();
+  toast(`Dit is je ${guess.name} — genoteerd.`);
 }
 
 /**
@@ -5284,6 +5340,17 @@ function showColours() {
     ? (learned.length >= ALL_SIX ? 'Opnieuw leren' : 'Draai hem om en leer de rest')
     : 'Kleuren van deze kubus leren';
 
+  // With two cubes taught, the camera can also say which of them is on the mat.
+  const kits = Object.keys(settings.cubeKits || {});
+  if (el.colourCubes) {
+    el.colourCubes.hidden = !settings.cubes.length;
+    el.colourCubes.textContent = kits.length >= 2
+      ? `Kleuren geleerd van ${kits.join(' en ')} — de camera zegt zelf welke van de twee op het matje ligt.`
+      : settings.cube
+        ? `Wat je nu leert komt op naam van "${settings.cube}". Leer een tweede kubus en de camera herkent ze uit elkaar.`
+        : 'Kies eerst een kubus bij "je kubussen", dan onthoudt hij deze kleuren op naam.';
+  }
+
   el.cameraBlurb.textContent = learned.length >= ALL_SIX
     ? 'Zodra de tijd stopt zoekt de camera de kubus op het matje, telt de vlekken en zet zelf een +2 of een DNF — met een knop om het terug te draaien. Hij kent de kleuren van je kubus.'
     : 'Zodra de tijd stopt zoekt de camera de kubus op het matje. Leer hem eerst de kleuren van je kubus bij "wat de camera ziet" — dan ziet hij een +2 en een DNF zelf. Zonder dat kan hij alleen gokken, en dan vraagt hij het.';
@@ -5323,6 +5390,9 @@ el.learnColours.addEventListener('click', () => {
     }
   }
   settings.cubeColours = kept.slice(0, ALL_SIX);
+  // Kept under the cube's name as well, so that with two cubes taught the
+  // camera can say which one is on the mat instead of only what state it is in.
+  if (settings.cube) settings.cubeKits = { ...settings.cubeKits, [settings.cube]: settings.cubeColours };
   storeSettings();
   showColours();
 
