@@ -155,6 +155,15 @@
 </nav>
 <div id="rail-shade" class="rail-shade" hidden></div>
 
+<!-- Only ever on screen in the big display, where there is otherwise nothing
+     to press to get back. -->
+<button type="button" id="big-exit" class="big-exit">
+  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.6 9.4h5v-5M19.4 14.6h-5v5M9.6 9.4 3.8 3.6M14.4 14.6l5.8 5.8"/>
+  </svg>
+  klein
+</button>
+
 <main id="shell" class="shell">
   <section id="stage" class="stage">
     <div id="puzzles" class="puzzles" role="group" aria-label="Puzzel"></div>

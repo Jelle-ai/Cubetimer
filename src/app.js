@@ -202,6 +202,7 @@ const el = {
   recordsTabs: document.getElementById('records-tabs'),
   settingsTabs: document.getElementById('settings-tabs'),
   settingsGroups: document.getElementById('settings-groups'),
+  bigExit: document.getElementById('big-exit'),
   rail: document.getElementById('rail'),
   railOpen: document.getElementById('rail-open'),
   railClose: document.getElementById('rail-close'),
@@ -2644,10 +2645,13 @@ document.addEventListener('visibilitychange', () => {
 
 function setBig(on) {
   el.body.dataset.big = String(on);
-  if (on) {
-    el.settings.close();
-    toast('Grote weergave — druk op escape om terug te gaan.');
-  }
+  // The side list is hidden in this mode, so the page must not go on holding a
+  // column open for it -- that is what pushed the whole display to the right.
+  if (on) showRail(false);
+  else fitRail();
+  // No toast: it landed over the very thing the mode exists to show, and then
+  // faded, leaving no way out on the screen at all. There is a button now.
+  if (on) el.settings.close();
 }
 
 /* ---------- what the keys and gestures do ---------- */
@@ -6071,18 +6075,22 @@ function showRail(open) {
   el.rail.dataset.open = String(open);
   el.railShade.hidden = !open || WIDE.matches;
   el.railOpen.setAttribute('aria-expanded', String(open));
-  document.body.dataset.rail = WIDE.matches ? 'beside' : open ? 'over' : 'away';
+  // "beside" is what makes the page leave a column free for the rail, so it
+  // has to be off in the big display, where the rail is not there at all.
+  const beside = WIDE.matches && el.body.dataset.big !== 'true';
+  el.body.dataset.rail = beside ? 'beside' : open ? 'over' : 'away';
 }
 
 /** Wide enough and it simply stands there; narrow and it is a drawer. */
 function fitRail() {
-  showRail(WIDE.matches);
+  showRail(WIDE.matches && el.body.dataset.big !== 'true');
 }
 
 el.railOpen.addEventListener('click', () => {
   el.railOpen.blur();
   showRail(el.rail.dataset.open !== 'true');
 });
+el.bigExit.addEventListener('click', () => setBig(false));
 el.railClose.addEventListener('click', () => showRail(false));
 el.railShade.addEventListener('click', () => showRail(false));
 WIDE.addEventListener('change', fitRail);

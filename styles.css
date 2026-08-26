@@ -1873,27 +1873,153 @@ body[data-miss] .halo {
 
 /* ---------- the big display ----------
 
-   For a table across a room: the scramble and the time, and nothing to read
-   that is not one of those two. */
+   For a table across a room: the scramble and the time, and nothing else at
+   all. That was the intention before; what it actually left on screen was the
+   side list eating a third of a laptop, and on a phone the whole statistics
+   grid and the practice meter -- because in a narrow layout those two are moved
+   out of the panel and into the stage, so hiding the panel missed them. They
+   are hidden by what they are here rather than by where they happen to sit.
+
+   The white disc goes too. Across a room a big white circle is the thing you
+   see and the digits are the thing you cannot; without it the digits have the
+   whole screen, and the ring that counts inspection down is still there as a
+   thin line around them. Which phase you are in is in the colour of the digits,
+   which reads from further away than a rim ever did. */
 
 body[data-big="true"] .bar,
+body[data-big="true"] .rail,
+body[data-big="true"] .rail-shade,
 body[data-big="true"] #panel,
+body[data-big="true"] .stats,
+body[data-big="true"] .practice,
 body[data-big="true"] .puzzles,
 body[data-big="true"] .preview,
 body[data-big="true"] .insight,
 body[data-big="true"] .mode-strip,
-body[data-big="true"] .scramble-tools { display: none !important; }
+body[data-big="true"] .scramble-again,
+body[data-big="true"] .scramble-taste,
+body[data-big="true"] .scramble-tools,
+body[data-big="true"] .hint { display: none !important; }
 
-body[data-big="true"] .shell { grid-template-columns: 1fr; padding: 1rem; }
-body[data-big="true"] .stage { max-width: none; }
-body[data-big="true"] .scramble { font-size: clamp(1.1rem, 3.2vw, 2.4rem); line-height: 1.35; }
-/* The ring is sized by `width`, not `max-width`, so raising the cap alone left
-   it at its everyday 300px while the digits grew past it. Both are set here,
-   from the same two numbers, and the digits at a fraction of the ring so "0.00"
-   stays inside the circle at any shape of screen. */
-body[data-big="true"] .halo { width: min(84vw, 66vh); max-width: none; }
-body[data-big="true"] .time { font-size: min(29vw, 23vh); }
-body[data-big="true"] .hint { font-size: 1rem; }
+/* The bar is gone, so the page no longer needs to be drawn bottom-up. */
+body[data-big="true"] { flex-direction: column; }
+body[data-big="true"] .shell { grid-template-columns: 1fr; padding: 0; gap: 0; }
+
+body[data-big="true"] .stage {
+  justify-content: center;
+  gap: clamp(1rem, 5vh, 3rem);
+  padding: clamp(1rem, 4vh, 2.5rem);
+  overflow: visible;
+}
+
+/* On a narrow or short screen the card is not the scramble block but the setup
+   around it -- there the moves and the little cube share one pane of glass.
+   Both have to lose it, or the card comes back on exactly the screens where
+   this mode is most likely to be used. */
+body[data-big="true"] .setup {
+  width: 100%;
+  flex-direction: column;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* The scramble without its card: from a distance the panel is the thing you
+   see and the moves are the thing you are trying to read. */
+body[data-big="true"] .scramble-block {
+  width: 100%;
+  max-width: min(52rem, 92vw);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+body[data-big="true"] .scramble {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  font-size: clamp(1.15rem, 3.2vw, 2.4rem);
+  line-height: 1.35;
+  letter-spacing: .05em;
+}
+
+body[data-big="true"] .scramble[data-long="true"] { font-size: clamp(.95rem, 2.2vw, 1.6rem); }
+
+/* The ring keeps only the line that counts inspection down. Sized by width
+   rather than max-width -- raising the cap alone left it at its everyday 300px
+   while the digits grew past it. */
+body[data-big="true"] .halo {
+  /* Only wide enough to clear the digits: the ring is no longer a face, it is
+     the line that counts inspection down, and a circle far bigger than what it
+     encloses leaves the whole composition sitting oddly low. */
+  width: min(80vw, 62vh);
+  max-width: none;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+
+body[data-big="true"] .halo-progress-arc { stroke-width: 4; }
+
+body[data-big="true"] .time {
+  font-size: min(28vw, 23vh);
+  max-width: 100%;
+  font-weight: 400;
+}
+
+/* Held sideways the stage is already two columns -- the ring on the right, the
+   scramble and the averages up the left. With the averages gone that column is
+   only the moves, so the row of it is dropped and both halves use the whole
+   height: a wide screen that is barely 390 tall has width to spend and none to
+   spare. */
+@media (max-width: 940px) and (orientation: landscape) {
+  body[data-big="true"] .stage {
+    grid-template-areas: "setup halo";
+    grid-template-rows: auto;
+    gap: 0 1.4rem;
+  }
+
+  body[data-big="true"] .halo { width: min(46vw, 84vh); }
+  body[data-big="true"] .time { font-size: min(17vw, 32vh); }
+  body[data-big="true"] .scramble { font-size: clamp(1.05rem, 2.6vw, 2rem); }
+}
+
+/* A way back that is on the screen rather than in a message that fades. */
+.big-exit { display: none; }
+
+body[data-big="true"] .big-exit {
+  position: fixed;
+  top: max(.8rem, env(safe-area-inset-top));
+  right: max(.8rem, env(safe-area-inset-right));
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 40px;
+  padding: 0 .9rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 72%, transparent);
+  border: 1px solid var(--line);
+  font-size: .8rem;
+  color: var(--muted);
+  opacity: .55;
+  transition: opacity .2s, color .2s;
+}
+
+body[data-big="true"] .big-exit:hover { opacity: 1; color: var(--ink); }
+
+/* While the clock runs there is nothing to press it for, and a button in the
+   corner of a timer is a thing to knock. */
+body[data-big="true"][data-phase="running"] .big-exit,
+body[data-big="true"][data-phase="ready"] .big-exit { opacity: 0; pointer-events: none; }
 
 .keys-body { display: flex; flex-direction: column; gap: 1rem; }
 .keys-body .round-lines div { align-items: baseline; }
