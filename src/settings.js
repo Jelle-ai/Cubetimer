@@ -89,7 +89,6 @@ const DEFAULTS = {
   preview: true,
   countUp: true,
   wakeLock: true,
-  camera: false,
   splits: false,
   pace: true,
   crossTip: false,
@@ -100,22 +99,13 @@ const DEFAULTS = {
   settingsTab: 'timer',
   // And which part of the look-back sheet.
   recordTab: 'now',
+  // The groups of the side list you have folded away.
+  railShut: [],
   wonBadges: [],
   badgesSeeded: false,
   cubes: [],
   cube: '',
   shareName: '',
-  // The four corners of the mat in the camera's picture, clockwise from the
-  // top left. A square by default, because a camera pointed straight down at a
-  // mat sees a square; every other angle sees a trapezium, so the corners move
-  // independently.
-  crop: { corners: [[0, 0], [1, 0], [1, 1], [0, 1]] },
-  // The chromaticity of this cube's own six stickers, under this room's light,
-  // learned from the cube itself. Empty until you teach it.
-  cubeColours: [],
-  // The same, but kept per named cube, so the camera can say which one is on
-  // the mat instead of only what state it is in.
-  cubeKits: {},
   font: 'rounded',
   practice: true,
   goalKind: 'time',   // 'time' counts the solving up, 'solves' counts the solves
@@ -132,7 +122,7 @@ const SWITCHES = ['inspection', 'hideTime', 'pace', 'sound', 'haptics', 'celebra
 
 // Switches that start off rather than on, so "anything but false is true" --
 // the rule the ones above use -- would turn them on by mistake.
-const OPT_IN = ['camera', 'splits', 'crossTip', 'badgesSeeded'];
+const OPT_IN = ['splits', 'crossTip', 'badgesSeeded'];
 
 function clampNumber(value, low, high, fallback) {
   const number = Math.round(Number(value));
@@ -140,44 +130,6 @@ function clampNumber(value, low, high, fallback) {
 }
 
 const isColor = (value) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
-
-/** Six pairs of chromaticity, or whatever of them is actually there. */
-const cleanPalette = (list) => (Array.isArray(list)
-  ? list
-    .filter((c) => Array.isArray(c) && c.length === 2 && c.every((v) => Number.isFinite(Number(v))))
-    .slice(0, 6)
-    .map(([x, y]) => [Number(x), Number(y)])
-  : []);
-
-const inside = (value, fallback) => {
-  const number = Number(value);
-  return Number.isFinite(number) ? Math.min(Math.max(number, 0), 1) : fallback;
-};
-
-/**
- * The four corners the camera pays attention to, whatever is in storage.
- * Crops used to be a centred square written as a middle and a side; one of
- * those is read back as the square it describes rather than thrown away.
- */
-function cleanCorners(crop) {
-  const stored = crop?.corners;
-  if (Array.isArray(stored) && stored.length === 4 && stored.every((c) => Array.isArray(c) && c.length === 2)) {
-    return stored.map(([x, y], i) => [inside(x, DEFAULTS.crop.corners[i][0]), inside(y, DEFAULTS.crop.corners[i][1])]);
-  }
-
-  const size = Number(crop?.size);
-  if (Number.isFinite(size) && size > 0) {
-    const half = Math.min(Math.max(size, 0.1), 1) / 2;
-    const x = inside(crop?.x, 0.5);
-    const y = inside(crop?.y, 0.5);
-    const left = Math.min(Math.max(x - half, 0), 1 - half * 2);
-    const top = Math.min(Math.max(y - half, 0), 1 - half * 2);
-    const right = left + half * 2;
-    const bottom = top + half * 2;
-    return [[left, top], [right, top], [right, bottom], [left, bottom]];
-  }
-  return DEFAULTS.crop.corners.map((corner) => corner.slice());
-}
 
 export function loadSettings() {
   try {
@@ -198,7 +150,6 @@ export function loadSettings() {
     for (const key of SWITCHES) settings[key] = settings[key] !== false;
     for (const key of OPT_IN) settings[key] = settings[key] === true;
 
-    settings.crop = { corners: cleanCorners(settings.crop) };
     settings.cubes = Array.isArray(settings.cubes)
       ? [...new Set(settings.cubes.filter((name) => typeof name === 'string' && name.trim())
         .map((name) => name.trim().slice(0, 24)))].slice(0, 12)
@@ -206,19 +157,12 @@ export function loadSettings() {
     settings.cube = settings.cubes.includes(settings.cube) ? settings.cube : '';
     settings.shareName = typeof settings.shareName === 'string' ? settings.shareName.slice(0, 24) : '';
     if (!['U', 'D', 'F', 'B', 'R', 'L'].includes(settings.crossFace)) settings.crossFace = DEFAULTS.crossFace;
+    settings.railShut = Array.isArray(settings.railShut)
+      ? settings.railShut.filter((id) => typeof id === 'string').slice(0, 12)
+      : [];
     settings.wonBadges = Array.isArray(settings.wonBadges)
       ? settings.wonBadges.filter((id) => typeof id === 'string').slice(0, 200)
       : [];
-    settings.cubeColours = cleanPalette(settings.cubeColours);
-
-    // A palette per named cube, and none for a cube that has been forgotten.
-    const kits = {};
-    for (const [name, palette] of Object.entries(settings.cubeKits || {})) {
-      if (!settings.cubes.includes(name)) continue;
-      const kept = cleanPalette(palette);
-      if (kept.length >= 3) kits[name] = kept;
-    }
-    settings.cubeKits = kits;
 
     const colors = { ...DEFAULTS.colors, ...(settings.colors || {}) };
     for (const { key, fallback } of COLOR_SLOTS) {

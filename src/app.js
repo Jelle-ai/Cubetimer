@@ -22,10 +22,6 @@ import { chord, confetti, flashMiss, together, tone, vibrate } from './feedback.
 import { hasPreview, previewOf } from './preview.js';
 import { drawLastLayer, lastLayerOf } from './diagram.js';
 import {
-  ALL_SIX, CERTAIN, FULL_FRAME, askForCamera, coarse, cropBox, cropShape, findCube, foundPath,
-  inspectFrame, learnColours, openCamera, reference, whichCube
-} from './vision.js';
-import {
   dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
 } from './practice.js';
 import {
@@ -150,30 +146,6 @@ const el = {
   pickedNote: document.getElementById('picked-note'),
   pickedList: document.getElementById('picked-list'),
   pickedClose: document.getElementById('picked-close'),
-  cameraLook: document.getElementById('camera-look'),
-  cameraAllow: document.getElementById('camera-allow'),
-  cameraState: document.getElementById('camera-state'),
-  lookSheet: document.getElementById('look-sheet'),
-  lookVideo: document.getElementById('look-video'),
-  lookOutline: document.getElementById('look-outline'),
-  lookStatus: document.getElementById('look-status'),
-  lookDetail: document.getElementById('look-detail'),
-  lookRelearn: document.getElementById('look-relearn'),
-  lookClose: document.getElementById('look-close'),
-  lookFrame: document.querySelector('.look-frame'),
-  lookGuide: document.getElementById('look-guide'),
-  cropShape: document.getElementById('crop-shape'),
-  cropOutline: document.getElementById('crop-outline'),
-  cropShade: document.getElementById('crop-shade'),
-  cropHandles: [...document.querySelectorAll('.crop-handle')],
-  cropReset: document.getElementById('crop-reset'),
-  learnColours: document.getElementById('learn-colours'),
-  colourSwatches: document.getElementById('colour-swatches'),
-  colourCount: document.getElementById('colour-count'),
-  cameraBlurb: document.getElementById('camera-blurb'),
-  cameraPeek: document.getElementById('camera-peek'),
-  peekVideo: document.getElementById('peek-video'),
-  peekOutline: document.getElementById('peek-outline'),
   practice: document.getElementById('practice'),
   practiceFlame: document.getElementById('practice-flame'),
   practiceRun: document.getElementById('practice-run'),
@@ -210,7 +182,6 @@ const el = {
   scrambleOpen: document.getElementById('scramble-open'),
   scrambleAgain: document.getElementById('scramble-again'),
   scrambleTaste: document.getElementById('scramble-taste'),
-  colourCubes: document.getElementById('colour-cubes'),
   setSheet: document.getElementById('set-sheet'),
   setTitle: document.getElementById('set-title'),
   setClose: document.getElementById('set-close'),
@@ -263,20 +234,16 @@ const el = {
   duelNote: document.getElementById('duel-note'),
   roulette: document.getElementById('roulette'),
   split: document.getElementById('split'),
-  drillOpen: document.getElementById('drill-open'),
   drillSheet: document.getElementById('drill-sheet'),
   drillTitle: document.getElementById('drill-title'),
   drillClose: document.getElementById('drill-close'),
   drillBody: document.getElementById('drill-body'),
   splitsSwitch: document.getElementById('set-splits'),
-  metroOpen: document.getElementById('metro-open'),
   metroSheet: document.getElementById('metro-sheet'),
   metroClose: document.getElementById('metro-close'),
   metroSpeed: document.getElementById('metro-speed'),
   metroFigure: document.getElementById('metro-figure'),
   metroToggle: document.getElementById('metro-toggle'),
-  bigOpen: document.getElementById('big-open'),
-  keysOpen: document.getElementById('keys-open'),
   keysSheet: document.getElementById('keys-sheet'),
   keysClose: document.getElementById('keys-close'),
   keysBody: document.getElementById('keys-body'),
@@ -827,7 +794,9 @@ function renderPractice() {
   const { current } = streaks(days, goal);
 
   el.practice.dataset.done = String(meetsGoal(now, goal));
-  el.practiceFlame.textContent = current > 0 ? '\u{1f525}' : '\u{1f56f}\ufe0f';
+  // The ring fills with the day rather than a flame lighting up: it says how
+  // far along you are, which a lit or unlit picture never could.
+  el.practiceFlame.style.setProperty('--filled', String(progress(now, goal)));
   el.practiceRun.textContent = String(current);
   el.practiceToday.textContent = now
     ? `${formatDuration(now.ms)} · ${now.count} ${now.count === 1 ? 'solve' : 'solves'}`
@@ -2563,12 +2532,6 @@ async function openDrill({ focus = null, group = null } = {}) {
   openSheet(el.drillSheet);
 }
 
-el.drillOpen.addEventListener('click', () => {
-  el.drillOpen.blur();
-  el.settings.close();
-  openDrill();
-});
-
 el.drillClose.addEventListener('click', () => el.drillSheet.close());
 
 /* ---------- splits ----------
@@ -2656,11 +2619,11 @@ function startMetro() {
   renderMetro();
 }
 
-el.metroOpen.addEventListener('click', () => {
-  el.metroOpen.blur();
+/** The metronome, opened from the side list. */
+function openMetro() {
   renderMetro();
-  el.metroSheet.showModal();
-});
+  openSheet(el.metroSheet);
+}
 
 el.metroClose.addEventListener('click', () => el.metroSheet.close());
 el.metroToggle.addEventListener('click', () => (metroRunning() ? stopMetro() : startMetro()));
@@ -2687,11 +2650,6 @@ function setBig(on) {
     toast('Grote weergave — druk op escape om terug te gaan.');
   }
 }
-
-el.bigOpen.addEventListener('click', () => {
-  el.bigOpen.blur();
-  setBig(true);
-});
 
 /* ---------- what the keys and gestures do ---------- */
 
@@ -2739,11 +2697,11 @@ function renderKeys() {
   }));
 }
 
-el.keysOpen.addEventListener('click', () => {
-  el.keysOpen.blur();
+/** What the keys and gestures do, opened from the side list. */
+function openKeys() {
   renderKeys();
-  el.keysSheet.showModal();
-});
+  openSheet(el.keysSheet);
+}
 
 el.keysClose.addEventListener('click', () => el.keysSheet.close());
 
@@ -3129,7 +3087,6 @@ function renderCubes() {
     button.type = 'button';
     button.className = 'cube-chip';
     button.dataset.active = String(name === settings.cube);
-    button.dataset.taught = String(Boolean(settings.cubeKits?.[name]?.length));
     button.textContent = name;
     button.addEventListener('click', () => {
       settings.cube = settings.cube === name ? '' : name;
@@ -3199,7 +3156,10 @@ function cubesBlock() {
    the main screen but all of it is worth a look now and then. Kept in one sheet
    so it can be read like a page rather than hunted for in tiles. */
 
-const MEDALS = ['🥇', '🥈', '🥉'];
+/* First, second, third, written as a number rather than as a medal from
+   somebody else's emoji font -- which lands at a different size and in a
+   different style on every device it is read on. */
+const MEDALS = ['1', '2', '3'];
 
 /** A titled block, so every section below reads the same way. */
 function recordBlock(title, body) {
@@ -4333,10 +4293,6 @@ function addSolve(ms, marks = []) {
   if (rematchWas) sayHowThatWent(rematchWas, solves[solves.length - 1]);
   else sayCross(solve.scramble);
   celebrateBadges();
-
-  // The check comes after the celebration, so a record still gets its party
-  // even when the camera is about to turn it into a DNF.
-  watchCube(solves[solves.length - 1]);
 }
 
 /**
@@ -4724,10 +4680,6 @@ function startRunning() {
   startedAt = performance.now();
   splitTimes = [];
   renderSplit();
-
-  // Opened now so it is ready the moment the cube lands; a solve is long enough
-  // that nobody waits for it.
-  warmCamera();
 
   cue('start');
   startPacing();
@@ -5166,69 +5118,7 @@ async function connect(anyDevice) {
 el.connect.addEventListener('click', () => connect(false));
 el.connectAny.addEventListener('click', () => connect(true));
 
-/* ---------- checking the cube with the camera ----------
-
-   The camera opens when a solve starts, finds the cube on the mat once the
-   time has stopped, says only what that view can prove, and puts itself away.
-   The one thing it is told is which square of the picture to bother with --
-   see the uitsnede further down. */
-
-const FRAME_SIZE = 480;      // the square the camera frame is cropped to
-const LOOK_EVERY_MS = 200;
-const SETTLE_MS = 800;       // let the cube stop rolling before looking at it
-const GIVE_UP_MS = 4000;     // and do not stare at it forever
-const AGREEMENTS = 2;        // readings in a row before anything is allowed to change
-
-const EMPTY_EVERY_MS = 400;  // how often the mat is photographed during a solve
-const EMPTY_FRAMES = 12;
-
-let camera = null;
-let cameraTimer = null;
-let cameraDeadline = 0;
-let cameraSubject = null;    // the solve being judged
-let lastReading = null;
-let agreed = 0;
-
-// While a solve runs the cube is in your hands, so these are pictures of the
-// mat with nothing on it. Their middle value is what the cube is compared to.
-let emptyTimer = null;
-let emptyFrames = [];
-let emptyMat = null;
-// What the camera was handing over when the mat was learned. Turning a tablet
-// round changes it, and with it every coordinate the picture of the mat and
-// the four corners were written in.
-let matShape = null;
-
-async function useCamera(video) {
-  if (camera) {
-    video.srcObject = camera.stream;
-    await video.play().catch(() => {});
-    return camera;
-  }
-  camera = await openCamera(video);
-  // A camera can be taken away again -- another app claims it, permission is
-  // withdrawn, a webcam is unplugged. The stream does not throw when that
-  // happens, it simply stops moving, and without this the reading would go on
-  // studying the last frame it ever got.
-  camera.stream.getVideoTracks().forEach((track) => track.addEventListener('ended', cameraLost));
-  el.cameraState.textContent = `Camera werkt — ${camera.which}.`;
-  return camera;
-}
-
-function cameraLost() {
-  const open = el.lookSheet.open;
-  clearInterval(lookTimer);
-  lookTimer = null;
-  lookLearning = false;
-  releaseCamera();
-  el.cameraState.textContent = 'De camera werd afgebroken. Een andere app heeft hem misschien overgenomen.';
-  if (open) {
-    el.lookStatus.textContent = 'Camera afgebroken';
-    el.lookDetail.textContent = 'Een andere app heeft hem overgenomen, of de toestemming is ingetrokken.';
-  } else {
-    cameraTrouble = 'De camera werd afgebroken, dus deze solve is niet bekeken.';
-  }
-}
+/* ---------- two odds and ends ---------- */
 
 /**
  * A badge is only a moment once. What was already won is remembered by name, so
@@ -5256,490 +5146,6 @@ function celebrateBadges({ quietly = false } = {}) {
     : `${first.name} en nog ${fresh.length - 1} erbij.`);
 }
 
-/** Plain words for a camera that will not open, in the settings and in a toast. */
-function cameraFailed(error) {
-  console.error('Camera:', error);
-  const words = error?.name === 'NotAllowedError'
-    ? 'Geen toegang tot de camera. Sta het toe in je browser.'
-    : error?.name === 'NotFoundError'
-      ? 'Geen camera gevonden op dit toestel.'
-      : `Camera lukt niet — ${error?.name || ''} ${error?.message || error}`.trim();
-  el.cameraState.textContent = words;
-  return words;
-}
-
-function releaseCamera() {
-  clearInterval(cameraTimer);
-  clearInterval(emptyTimer);
-  cameraTimer = null;
-  emptyTimer = null;
-  emptyFrames = [];
-  camera?.stream.getTracks().forEach((track) => track.stop());
-  camera = null;
-  cameraSubject = null;
-  lastReading = null;
-  agreed = 0;
-  el.cameraPeek.hidden = true;
-  // Both windows let go of it, not just the corner one: a video element still
-  // holding a stopped stream is a camera this page has not finished with.
-  el.peekVideo.srcObject = null;
-  el.lookVideo.srcObject = null;
-}
-
-/** Photographs of the empty mat, taken while the cube is in your hands. */
-function collectEmpty() {
-  emptyFrames = [];
-  clearInterval(emptyTimer);
-  emptyTimer = setInterval(() => {
-    const frame = camera?.grab(FRAME_SIZE, settings.crop);
-    if (!frame) return;
-    emptyFrames.push(coarse(frame));
-    if (emptyFrames.length > EMPTY_FRAMES) emptyFrames.shift();
-  }, EMPTY_EVERY_MS);
-}
-
-/** Started when a solve starts, so the camera is warm by the time it is over. */
-async function warmCamera() {
-  if (!settings.camera) return;
-
-  // Starting a solve calls off whatever the last one was still being judged
-  // for -- that cube is off the mat now, and the picture of it is worthless.
-  cameraSubject = null;
-  clearInterval(cameraTimer);
-  cameraTimer = null;
-  el.cameraPeek.hidden = true;
-
-  // An open camera used to mean there was nothing to do, which quietly skipped
-  // the next solve: the frames of the empty mat were never collected, so there
-  // was nothing to compare the cube against and the check was dropped without
-  // a word.
-  if (camera) { collectEmpty(); return; }
-
-  try {
-    await useCamera(el.peekVideo);
-    collectEmpty();
-  } catch (error) {
-    // A solve is running; a camera that will not open is not worth interrupting
-    // it for. It is said once, quietly, when the solve is over.
-    cameraTrouble = cameraFailed(error);
-  }
-}
-
-let cameraTrouble = null;
-let silenceExplained = false; // said once, not after every solve
-
-function watchCube(solve) {
-  if (!settings.camera) return;
-  if (cameraTrouble) { toast(cameraTrouble); cameraTrouble = null; return; }
-  if (!camera) return;
-
-  clearInterval(emptyTimer);
-  emptyTimer = null;
-  emptyMat = reference(emptyFrames);
-  emptyFrames = [];
-
-  // Not one photograph of the empty mat: either the solve was over within the
-  // blink it takes to take one, or the camera opened but never handed a frame
-  // over -- a page that was not allowed to start playing video, most likely.
-  // It used to give up here without a word, which is what "soms rekent hij
-  // niets aan" looked like from the outside.
-  if (!emptyMat) {
-    const blink = performance.now() - startedAt < EMPTY_EVERY_MS * 2;
-    releaseCamera();
-    if (!blink && !silenceExplained) {
-      silenceExplained = true;
-      toast('De camera ging open maar gaf geen beeld, dus deze solve is niet bekeken. Kijk eens bij instellingen → wat de camera ziet.');
-    }
-    return;
-  }
-
-  matShape = camera.shape();
-  cameraSubject = solve;
-  lastReading = null;
-  agreed = 0;
-  recognisedThisSolve = false;
-  el.cameraPeek.hidden = false;
-  el.cameraPeek.dataset.state = 'looking';
-  cameraDeadline = performance.now() + SETTLE_MS + GIVE_UP_MS;
-
-  clearInterval(cameraTimer);
-  setTimeout(() => {
-    if (!cameraSubject) return;
-    cameraTimer = setInterval(look, LOOK_EVERY_MS);
-  }, SETTLE_MS);
-}
-
-function look() {
-  if (!camera || !cameraSubject) return;
-
-  if (performance.now() > cameraDeadline) { // never seen well enough to say
-    releaseCamera();
-    return;
-  }
-
-  // The picture turned under it mid-solve; the mat it learned is of somewhere
-  // else now. Better to say nothing than to say something about that.
-  if (camera.shape() !== matShape) { releaseCamera(); return; }
-
-  const frame = camera.grab(FRAME_SIZE, settings.crop);
-  if (!frame) return;
-
-  const reading = inspectFrame(frame, emptyMat, cropShape(settings.crop), settings.cubeColours);
-  el.peekOutline.setAttribute('d', foundPath(reading.found));
-  if (reading.found && !reading.found.rejected) recogniseCube(reading.found);
-
-  const sure = reading.verdict !== 'none' && reading.confidence >= CERTAIN;
-  el.cameraPeek.dataset.state = sure
-    ? (reading.verdict === '+2' ? 'one-move' : 'scrambled')
-    : reading.found ? 'found' : 'looking';
-
-  if (!sure) { lastReading = null; agreed = 0; return; }
-  agreed = reading.verdict === lastReading ? agreed + 1 : 1;
-  lastReading = reading.verdict;
-  if (agreed < AGREEMENTS) return;
-
-  offerVerdict(reading.verdict);
-}
-
-/* ---------- which cube is on the mat ----------
-
-   Cheap, because it asks nothing of the geometry: two cubes are two sets of six
-   colours, and the colours are the one thing a camera can read off a cube
-   without knowing where anything on it is. Taught two cubes, the palette on the
-   mat is compared with both.
-
-   It only speaks when it is clearly right -- see whichCube -- because two cubes
-   of the same make are two identical palettes, and inventing an answer there
-   would quietly file your times under the wrong cube. */
-
-let recognisedThisSolve = false;
-
-function recogniseCube(found) {
-  if (recognisedThisSolve) return;
-  if (Object.keys(settings.cubeKits || {}).length < 2) return;
-
-  const learned = learnColours(found, { faces: 3 });
-  if (!learned?.colours?.length) return;
-
-  const guess = whichCube(learned.colours, settings.cubeKits);
-  if (!guess) return;
-  recognisedThisSolve = true;
-  if (guess.name === settings.cube) return;
-
-  // The solve is already stored, so the correction has to go onto the solve
-  // rather than only onto the setting -- otherwise the one solve that told us
-  // which cube it was is the one filed under the wrong one.
-  settings.cube = guess.name;
-  storeSettings();
-  renderCubes();
-  if (cameraSubject) cameraSubject.cube = guess.name;
-  const last = counting(solves)[counting(solves).length - 1];
-  if (last && last === cameraSubject) persist();
-  toast(`Dit is je ${guess.name} — genoteerd.`);
-}
-
-/**
- * Applied when it can prove it, offered when it can only guess.
- *
- * Guessing is what it does with no colours to go on: which stickers match which
- * has to come out of the picture alone, and swept over 972 setups that is wrong
- * about a solved cube roughly as often as it is right about a scrambled one --
- * nine false alarms against forty-three catches, and raising the bar only
- * trades one for the other. So without a taught cube it asks, and nothing
- * changes unless the button is pressed.
- *
- * Taught this cube's six colours, it is not guessing any more. Every cell goes
- * to the nearest known colour and the patches those make are counted: three, one
- * per visible face, is a solved cube. Over 108 setups across four different
- * lights that is wrong once, and catches every single one-move and scrambled
- * cube -- including the +2, which counting colours could never see at all. That
- * is worth acting on, with an undo for the once.
- */
-function offerVerdict(verdict) {
-  const solve = cameraSubject;
-  const index = solves.indexOf(solve);
-  const taught = settings.cubeColours.length >= ALL_SIX;
-  releaseCamera();
-  if (index < 0 || verdict === 'none') return;
-
-  const apply = () => {
-    if (solves.indexOf(solve) < 0) return false;
-    solve.penalty = verdict;
-    persist();
-    render();
-    cue('miss');
-    return true;
-  };
-
-  if (!taught) {
-    toast('Camera denkt: meer dan één zet ernaast.', {
-      label: 'DNF zetten',
-      run: () => { if (apply()) toast(`DNF gezet op ${formatSolve(solve)}.`); }
-    });
-    return;
-  }
-
-  const was = solve.penalty || 'none';
-  if (!apply()) return;
-  toast(verdict === '+2'
-    ? `Eén zet ernaast — +2 op ${formatSolve(solve)}.`
-    : `Meer dan één zet ernaast — DNF op ${formatSolve(solve)}.`, {
-    label: 'Toch niet',
-    run: () => {
-      if (solves.indexOf(solve) < 0) return;
-      solve.penalty = was;
-      persist();
-      render();
-      toast(`Straf weer weg bij ${formatSolve(solve)}.`);
-    }
-  });
-}
-
-/* ---------- watching it work ----------
-
-   The same two steps a solve goes through, only visible: learn the empty mat,
-   then read whatever is put on it. Worth having because everything that can go
-   wrong is a thing about the room -- where the phone stands, how the light
-   falls, how big the cube comes out -- and none of that is answerable from a
-   description. */
-
-const LEARN_MS = 2600;
-
-let lookTimer = null;
-let lookLearning = false;
-// Nudging the crop twice in a row starts two learns, and the older one landing
-// after the newer had begun used to wipe what the newer had collected.
-let learning = 0;
-
-/** Plain words for what the reading came back with. */
-const LOOK_WORDS = {
-  'geen kubus': ['Niets nieuws op het matje', 'Leg er een kubus op.'],
-  'geen kubusvorm': ['Dat heeft geen kubusvorm', 'Te langwerpig of te rafelig — een hand erbij?'],
-  'niet volledig in beeld': ['Valt buiten beeld', 'Zet de telefoon verder weg of schuif de kubus naar het midden.'],
-  'te klein in beeld': ['Te klein in beeld', 'Zet de camera dichterbij, of trek de vier hoeken strakker om je matje.'],
-  'niet leesbaar': ['Niet te lezen', 'Te donker, of te weinig van de kubus in zicht.'],
-  'niet zeker genoeg': ['Niet zeker genoeg', 'Hier zou hij zwijgen en je solve met rust laten.'],
-  'te weinig zicht': ['Te weinig zicht', 'Genoeg om te zien dat er iets ligt, te weinig om iets te bewijzen.'],
-  'te klein om te oordelen': ['Te klein om iets te durven zeggen', 'Hij leest hem wel, maar zo klein in beeld splitst hij drie kleuren net zo makkelijk in zes. Trek de hoeken strakker om je matje.'],
-  'niets te zien': ['Niets aan te merken', 'Eén vlek per zichtbaar vlak — zo ziet een opgeloste kubus eruit.'],
-  'een zet ernaast': ['Eén zet ernaast', 'Een streep van een andere kleur over twee vlakken. Dit wordt een +2.'],
-  'kleuren kloppen niet': ['Kleuren kloppen niet', 'Veel hiervan lijkt op geen van de geleerde kleuren. Ander licht? Leer de kleuren opnieuw.'],
-  'niets te bewijzen': ['Niets aan te merken', 'Te weinig kleuren voor een straf — hier laat hij je solve met rust. Let op: drie vlakken kunnen opgelost niet bewijzen, alleen niet tegenspreken.'],
-  'meer dan een zet': ['Meer dan één zet ernaast', 'Dit zou een DNF voorstellen.']
-};
-
-function lookOnce() {
-  if (!camera) return;
-  const frame = camera.grab(FRAME_SIZE, settings.crop);
-  if (!frame) return;
-
-  // Turned the tablet round: what was learned was of the picture as it stood,
-  // and the corners were drawn on it. Both have to be looked at again.
-  if (!lookLearning && matShape && camera.shape() !== matShape) {
-    learnMat();
-    el.lookDetail.textContent = 'Het beeld is gedraaid — kijk of de vier hoeken nog op je matje staan.';
-    return;
-  }
-
-  if (lookLearning) {
-    emptyFrames.push(coarse(frame));
-    if (emptyFrames.length > EMPTY_FRAMES) emptyFrames.shift();
-    return;
-  }
-
-  const reading = inspectFrame(frame, emptyMat, cropShape(settings.crop), settings.cubeColours);
-  el.lookOutline.setAttribute('d', foundPath(reading.found));
-
-  let [headline, detail] = LOOK_WORDS[reading.state] || [reading.state, ''];
-  // Advice to crop harder is no use to someone who has already cropped as hard
-  // as their camera can stand -- past a point the picture stops gaining detail
-  // and only loses room.
-  if (reading.state === 'te klein in beeld' && frame.width < FRAME_SIZE) {
-    detail = `Je camera geeft hier maar ${frame.width} pixels; strakker bijsnijden levert niets meer op. Zet de camera dichterbij.`;
-  }
-  el.lookStatus.textContent = headline;
-  el.lookStatus.dataset.sure = String(reading.verdict !== 'none');
-  el.lookDetail.textContent = reading.patches !== undefined
-    ? `${detail} · ${reading.patches} vlek${reading.patches === 1 ? '' : 'ken'}, ${reading.colours} kleuren, zekerheid ${Math.round(reading.confidence * 100)}%`
-    : reading.colours
-      ? `${detail} · ${reading.colours} kleuren, zekerheid ${Math.round(reading.confidence * 100)}%`
-      : detail;
-}
-
-function learnMat() {
-  const round = ++learning;
-  lookLearning = true;
-  emptyFrames = [];
-  emptyMat = null;
-  el.lookOutline.setAttribute('d', '');
-  el.lookStatus.textContent = 'Het lege matje leren…';
-  el.lookStatus.dataset.sure = 'false';
-  el.lookDetail.textContent = `Haal de kubus even weg. Dit is wat er tijdens je solve ook gebeurt. · ${camera?.which || 'camera'}`;
-
-  setTimeout(() => {
-    if (!lookTimer || round !== learning) return;
-    emptyMat = reference(emptyFrames);
-    emptyFrames = [];
-    lookLearning = false;
-    matShape = camera?.shape() ?? null;
-    if (!emptyMat) {
-      el.lookStatus.textContent = 'Geen beeld van het matje';
-      el.lookDetail.textContent = '';
-    }
-  }, LEARN_MS);
-}
-
-/* ---------- the shape that gets read ----------
-
-   A camera set up so a whole desk fits spends most of its pixels on the desk.
-   Marking out the mat is the difference between nine stickers coming out six
-   pixels across and coming out two, and it is the reason the reading kept
-   coming back "te klein in beeld".
-
-   Four corners rather than a box, because a camera on a chair sees the mat as
-   a trapezium. A box drawn around that trapezium takes in the desk at two of
-   its corners, and a hand or a phone landing there reads as something arriving
-   on the mat. The corners are stored in the camera's own coordinates, so they
-   survive the preview being mirrored. */
-
-/** No smaller than this across, or there is nothing left to look at. */
-const MIN_CROP = 0.12;
-
-const CORNER_NAMES = ['linksboven', 'rechtsboven', 'rechtsonder', 'linksonder'];
-
-/** Puts the handles, the outline and the corner window where the crop says. */
-function showCrop() {
-  const corners = settings.crop.corners;
-
-  el.cropHandles.forEach((handle, i) => {
-    handle.style.left = `${corners[i][0] * 100}%`;
-    handle.style.top = `${corners[i][1] * 100}%`;
-  });
-
-  const path = corners.map(([x, y], i) => `${i ? 'L' : 'M'}${x} ${y}`).join(' ') + ' Z';
-  el.cropOutline.setAttribute('d', path);
-  // The frame's own outline first, then the mat's, filled even-odd: what is
-  // left dark is everything the camera is being told to ignore.
-  el.cropShade.setAttribute('d', `M0 0 H1 V1 H0 Z ${path}`);
-
-  // What the reading draws is drawn in the coordinates of the square that was
-  // grabbed, so the layer it is drawn on is put over exactly that square.
-  const box = cropBox(settings.crop);
-  const guide = el.lookGuide.style;
-  guide.left = `${(box.x - box.size / 2) * 100}%`;
-  guide.top = `${(box.y - box.size / 2) * 100}%`;
-  guide.width = `${box.size * 100}%`;
-  guide.height = `${box.size * 100}%`;
-
-  // The little window in the corner shows that same square, blown up to fill
-  // it, rather than the room around it.
-  el.peekVideo.style.transform =
-    `scale(${1 / box.size}) translate(${(0.5 - box.x) * 100}%, ${(0.5 - box.y) * 100}%)`;
-}
-
-/** How wide and tall the four corners reach. */
-function cropSpan(corners) {
-  const xs = corners.map(([x]) => x);
-  const ys = corners.map(([, y]) => y);
-  return Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
-}
-
-/** Takes the corners if they leave anything worth looking at, and shows them. */
-function setCrop(corners) {
-  const held = corners.map(([x, y]) => [
-    Math.min(Math.max(x, 0), 1),
-    Math.min(Math.max(y, 0), 1)
-  ]);
-  if (cropSpan(held) < MIN_CROP) return;
-  settings.crop = { corners: held };
-  showCrop();
-}
-
-/**
- * Where a finger is, in the camera's coordinates. The preview is mirrored, so
- * left on the screen is right in the picture; that flip happens here and
- * nowhere else.
- */
-function atPointer(event) {
-  const rect = el.lookFrame.getBoundingClientRect();
-  const within = (value, size) => Math.min(Math.max(value / size, 0), 1);
-  return [
-    1 - within(event.clientX - rect.left, rect.width),
-    within(event.clientY - rect.top, rect.height)
-  ];
-}
-
-let cropDrag = null;
-
-/**
- * @param {number|null} corner which one is being pulled, or null to slide the
- * whole shape about without changing it.
- */
-function startCropDrag(event, corner) {
-  event.preventDefault();
-  const at = atPointer(event);
-  // Every drag keeps hold of the spot you grabbed rather than snapping to it,
-  // so nothing jumps out from under your finger on the first pixel of movement.
-  cropDrag = {
-    corner,
-    from: settings.crop.corners.map((c) => c.slice()),
-    grabbed: at
-  };
-  el.cropShape.dataset.dragging = 'true';
-}
-
-function dragCrop(event) {
-  if (!cropDrag) return;
-  event.preventDefault();
-  const [x, y] = atPointer(event);
-  const dx = x - cropDrag.grabbed[0];
-  const dy = y - cropDrag.grabbed[1];
-
-  if (cropDrag.corner === null) {
-    setCrop(cropDrag.from.map(([cx, cy]) => [cx + dx, cy + dy]));
-    return;
-  }
-  const moved = cropDrag.from.map((c) => c.slice());
-  const [cx, cy] = cropDrag.from[cropDrag.corner];
-  moved[cropDrag.corner] = [cx + dx, cy + dy];
-  setCrop(moved);
-}
-
-/** A different shape means the mat was learned through the wrong window. */
-function cropSettled() {
-  storeSettings();
-  if (lookTimer) learnMat();
-}
-
-function endCropDrag() {
-  if (!cropDrag) return;
-  cropDrag = null;
-  delete el.cropShape.dataset.dragging;
-  cropSettled();
-}
-
-el.cropHandles.forEach((handle, i) => {
-  handle.title = `Hoek ${CORNER_NAMES[i]}`;
-  handle.setAttribute('aria-label', `Hoek ${CORNER_NAMES[i]}`);
-  handle.addEventListener('pointerdown', (event) => {
-    event.stopPropagation();
-    startCropDrag(event, i);
-  });
-});
-
-el.cropShape.addEventListener('pointerdown', (event) => startCropDrag(event, null));
-window.addEventListener('pointermove', dragCrop, { passive: false });
-window.addEventListener('pointerup', endCropDrag);
-window.addEventListener('pointercancel', endCropDrag);
-
-el.cropReset.addEventListener('click', () => {
-  el.cropReset.blur();
-  setCrop(FULL_FRAME.corners.map((corner) => corner.slice()));
-  cropSettled();
-});
-
-showCrop(); // whatever came out of storage, already cleaned up on the way in
-
 /** Opening a sheet from inside another one has been known to throw on Safari. */
 function openSheet(sheet) {
   try {
@@ -5749,174 +5155,6 @@ function openSheet(sheet) {
   }
   return sheet.open;
 }
-
-el.cameraLook.addEventListener('click', async () => {
-  el.cameraLook.blur();
-  el.lookStatus.textContent = 'Camera starten…';
-  el.lookStatus.dataset.sure = 'false';
-  el.lookDetail.textContent = '';
-  el.lookOutline.setAttribute('d', '');
-
-  if (!openSheet(el.lookSheet)) {
-    toast('Dit venster gaat niet open in deze browser.');
-    return;
-  }
-
-  try {
-    await useCamera(el.lookVideo);
-    el.lookStatus.textContent = `Camera aan — ${camera.which}`;
-  } catch (error) {
-    el.lookStatus.textContent = 'Camera lukt niet';
-    el.lookDetail.textContent = cameraFailed(error);
-    return;
-  }
-
-  if (!el.lookSheet.open) { releaseCamera(); return; }
-  lookTimer = setInterval(lookOnce, LOOK_EVERY_MS);
-  learnMat();
-});
-
-/* ---------- teaching it this cube's colours ----------
-
-   The reading was unsupervised: work out from the picture alone which stickers
-   match which. That is the part that kept going wrong, because under noise it
-   would split one face into two tidy groups and nothing in the arithmetic knew
-   better. Shown the six colours of the cube once, it no longer has to guess:
-   every cell goes to the nearest of six known colours, the patches those make
-   are counted, and a solved cube is three patches -- one per visible face.
-
-   Two goes are needed, because a cube on a mat only ever shows three of its six
-   faces. Put it down, teach, turn it over, teach again. */
-
-/** Near enough to be the same sticker colour, so a second go does not add
-    six more of what it already has. */
-const SAME_COLOUR = 0.03;
-
-function showColours() {
-  const learned = settings.cubeColours;
-  el.colourSwatches.replaceChildren(...learned.map(([x, y]) => {
-    const swatch = document.createElement('i');
-    // Chromaticity back to something to look at: the proportions are what was
-    // kept, so pick the brightest colour with those proportions.
-    const parts = [x, y, Math.max(0, 1 - x - y)];
-    const scale = 255 / Math.max(...parts);
-    swatch.style.background = `rgb(${parts.map((p) => Math.round(p * scale)).join(' ')})`;
-    return swatch;
-  }));
-  el.colourCount.textContent = learned.length
-    ? `${learned.length} van ${ALL_SIX} kleuren${learned.length >= ALL_SIX ? ' — compleet' : ''}`
-    : 'nog geen kleuren';
-  el.learnColours.dataset.done = String(learned.length >= ALL_SIX);
-  el.learnColours.textContent = learned.length
-    ? (learned.length >= ALL_SIX ? 'Opnieuw leren' : 'Draai hem om en leer de rest')
-    : 'Kleuren van deze kubus leren';
-
-  // With two cubes taught, the camera can also say which of them is on the mat.
-  const kits = Object.keys(settings.cubeKits || {});
-  if (el.colourCubes) {
-    el.colourCubes.hidden = !settings.cubes.length;
-    el.colourCubes.textContent = kits.length >= 2
-      ? `Kleuren geleerd van ${kits.join(' en ')} — de camera zegt zelf welke van de twee op het matje ligt.`
-      : settings.cube
-        ? `Wat je nu leert komt op naam van "${settings.cube}". Leer een tweede kubus en de camera herkent ze uit elkaar.`
-        : 'Kies eerst een kubus bij "je kubussen", dan onthoudt hij deze kleuren op naam.';
-  }
-
-  el.cameraBlurb.textContent = learned.length >= ALL_SIX
-    ? 'Zodra de tijd stopt zoekt de camera de kubus op het matje, telt de vlekken en zet zelf een +2 of een DNF — met een knop om het terug te draaien. Hij kent de kleuren van je kubus.'
-    : 'Zodra de tijd stopt zoekt de camera de kubus op het matje. Leer hem eerst de kleuren van je kubus bij "wat de camera ziet" — dan ziet hij een +2 en een DNF zelf. Zonder dat kan hij alleen gokken, en dan vraagt hij het.';
-}
-
-el.learnColours.addEventListener('click', () => {
-  el.learnColours.blur();
-  if (!camera || !emptyMat) {
-    el.lookStatus.textContent = 'Eerst het matje leren';
-    el.lookDetail.textContent = 'Haal de kubus even weg, wacht tot hij het matje kent, en leg hem er dan op.';
-    return;
-  }
-
-  // Six already means this is a fresh start under a different light.
-  if (settings.cubeColours.length >= ALL_SIX) settings.cubeColours = [];
-
-  const frame = camera.grab(FRAME_SIZE, settings.crop);
-  const found = frame && findCube(frame, emptyMat, cropShape(settings.crop));
-  if (!found || found.rejected) {
-    el.lookStatus.textContent = 'Geen kubus gezien';
-    el.lookDetail.textContent = 'Leg je opgeloste kubus midden op het matje, binnen de vier hoeken.';
-    return;
-  }
-
-  const learned = learnColours(found);
-  if (!learned) {
-    el.lookStatus.textContent = 'Kleuren niet af te lezen';
-    el.lookDetail.textContent = 'Te donker, of de kubus komt te klein uit.';
-    return;
-  }
-
-  const before = settings.cubeColours.length;
-  const kept = settings.cubeColours.slice();
-  for (const colour of learned.colours) {
-    if (!kept.some((known) => Math.hypot(known[0] - colour[0], known[1] - colour[1]) < SAME_COLOUR)) {
-      kept.push(colour);
-    }
-  }
-  settings.cubeColours = kept.slice(0, ALL_SIX);
-  // Kept under the cube's name as well, so that with two cubes taught the
-  // camera can say which one is on the mat instead of only what state it is in.
-  if (settings.cube) settings.cubeKits = { ...settings.cubeKits, [settings.cube]: settings.cubeColours };
-  storeSettings();
-  showColours();
-
-  const added = settings.cubeColours.length - before;
-  el.lookStatus.textContent = added ? `${added} kleur${added === 1 ? '' : 'en'} erbij` : 'Deze kende hij al';
-  el.lookDetail.textContent = settings.cubeColours.length >= ALL_SIX
-    ? 'Alle zes binnen. Vanaf nu leest hij de vlakken in plaats van kleuren te tellen — een +2 ziet hij nu ook.'
-    : 'Draai de kubus zodat er drie andere vlakken boven liggen, leg hem terug en druk nog eens.';
-});
-
-showColours();
-
-el.lookRelearn.addEventListener('click', () => { if (lookTimer) learnMat(); });
-el.lookClose.addEventListener('click', () => el.lookSheet.close());
-
-el.lookSheet.addEventListener('close', () => {
-  clearInterval(lookTimer);
-  lookTimer = null;
-  lookLearning = false;
-  // A solve is not running while the settings are open, so this camera is ours
-  // to put away.
-  releaseCamera();
-  el.lookVideo.srcObject = null;
-});
-
-/**
- * The permission question, asked at the first touch of the page instead of in
- * the middle of a solve. It cannot be asked on load: a browser will only put
- * that question up in answer to something the user did, so the first thing the
- * user does is what it waits for.
- */
-let permissionAsked = false;
-
-async function askEarly() {
-  if (permissionAsked || !settings.camera) return;
-  permissionAsked = true;
-  el.cameraState.textContent = 'Toestemming vragen…';
-  const answer = await askForCamera();
-  el.cameraState.textContent = answer === 'toegestaan'
-    ? 'Camera toegestaan.'
-    : `Camera ${answer}.`;
-  if (answer !== 'toegestaan') toast(`Camera ${answer}. Zet de controle uit als je hem niet wilt.`);
-}
-
-for (const moment of ['pointerdown', 'keydown']) {
-  addEventListener(moment, askEarly, { once: true, passive: true });
-}
-
-el.cameraAllow.addEventListener('click', () => {
-  el.cameraAllow.blur();
-  permissionAsked = false;
-  askEarly();
-});
 
 /* ---------- screen wake lock ---------- */
 
@@ -5941,17 +5179,8 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     keepAwake();
     adoptElsewhere(); // it may have been the other window you were away in
-    return;
   }
-  // Away from the page, the camera goes off. Nobody wants a lens still live
-  // behind another app, and the frames it would keep grabbing are of a page
-  // the browser has stopped painting anyway.
-  if (el.lookSheet.open) el.lookSheet.close();
-  else releaseCamera();
 });
-
-// Safari on iOS can put a page away without ever calling it hidden.
-window.addEventListener('pagehide', () => releaseCamera());
 
 /* ---------- settings ---------- */
 
@@ -6155,7 +5384,6 @@ const switches = [
   bindSwitch('set-haptics', 'haptics'),
   bindSwitch('set-celebrate', 'celebrate'),
   bindSwitch('set-highlight', 'highlight'),
-  bindSwitch('set-camera', 'camera'),
   bindSwitch('set-splits', 'splits'),
   bindSwitch('set-pace', 'pace'),
   bindSwitch('set-crosstip', 'crossTip'),
@@ -6457,8 +5685,7 @@ function fold(how) {
   selected.clear();
 
   // Only what the file carried, and only over what this device has not been
-  // told otherwise -- the camera's own settings are never in there to begin
-  // with, so they cannot be trodden on.
+  // told otherwise.
   if (arriving.settings && Object.keys(arriving.settings).length) {
     settings = { ...settings, ...arriving.settings };
     storeSettings();
@@ -6842,15 +6069,14 @@ const RAIL = {
   'drill-open': () => openDrill(),
   'cases-times': () => openCaseTimes(),
   'mode-open': () => el.modeOpen.click(),
-  'metro-open': () => el.metroOpen.click(),
+  'metro-open': () => openMetro(),
   stats: () => el.statsButton.click(),
   records: () => { el.statsButton.click(); el.recordsOpen.click(); },
   'solves-open': () => el.solvesOpen.click(),
   closing: () => { el.statsButton.click(); el.closingOpen.click(); },
   share: () => { el.statsButton.click(); el.shareOpen.click(); },
-  'look-open': () => el.cameraLook.click(),
-  'big-open': () => el.bigOpen.click(),
-  'keys-open': () => el.keysOpen.click(),
+  'big-open': () => setBig(true),
+  'keys-open': () => openKeys(),
   'transfer-open': () => el.transferOpen.click(),
   'paste-open': () => el.pasteOpen.click(),
   'settings-open': () => el.settingsOpen.click()
@@ -6875,6 +6101,22 @@ el.railOpen.addEventListener('click', () => {
 el.railClose.addEventListener('click', () => showRail(false));
 el.railShade.addEventListener('click', () => showRail(false));
 WIDE.addEventListener('change', fitRail);
+
+/**
+ * Which groups you leave folded away, kept between visits. The browser handles
+ * the folding itself; all this does is put them back the way you had them.
+ */
+for (const group of el.rail.querySelectorAll('.rail-group')) {
+  const shut = new Set(settings.railShut || []);
+  group.open = !shut.has(group.dataset.group);
+  group.addEventListener('toggle', () => {
+    const closed = [...el.rail.querySelectorAll('.rail-group')]
+      .filter((one) => !one.open)
+      .map((one) => one.dataset.group);
+    settings.railShut = closed;
+    storeSettings();
+  });
+}
 
 for (const button of el.rail.querySelectorAll('[data-go]')) {
   button.addEventListener('click', () => {

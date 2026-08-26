@@ -192,200 +192,6 @@ haalden krijgen een streep in de recordkleur.
 
 Alles telt over al je sessies samen — oefenen is oefenen, op welke puzzel dan ook.
 
-## De kubus laten controleren
-
-Staat **kubus controleren** aan, dan gaat de selfiecamera open zodra je solve begint en
-kijkt hij naar het matje zodra de tijd stopt.
-
-Wat er dan gebeurt hangt af van één ding: of je hem de kleuren van je kubus geleerd hebt.
-
-### Leer hem je kleuren, dan hoeft hij niet meer te gokken
-
-Ga naar **instellingen → wat de camera ziet**, leg je **opgeloste** kubus op het matje en
-druk op *kleuren van deze kubus leren*. Hij ziet drie vlakken, dus draai hem om en druk
-nog eens. Na twee keer heeft hij alle zes, en staan ze als kleurvlakjes in het venster.
-
-Dat verandert alles, want de moeilijkheid zat nooit in de regel maar in het aflezen. Zonder
-die kleuren moet hij uit het beeld alleen afleiden welke stickers bij elkaar horen, en juist
-dát ging mis: onder ruis splitste hij één vlak in twee nette, goed gescheiden groepjes en
-niets in de rekensom wist beter.
-
-Mét die kleuren gaat elk stukje kubus naar de dichtstbijzijnde van zes bekende kleuren, en
-dan telt hij **vlekken** in plaats van kleuren. Dat is de eigenlijke vorm van je regel: een
-opgeloste kubus is één ononderbroken vlek per zichtbaar vlak, dus drie op een hoekaanzicht.
-Eén kwartslag legt een streep van een andere kleur over twee vlakken — vier of vijf vlekken.
-Alles daarboven is meer dan één zet. Een gescrambelde kubus komt uit op een stuk of twintig.
-
-Uitgemeten over 324 opstellingen — vier verschillende lichten, drie kubusgroottes,
-zevenentwintig camerahoeken, met kleuren die één keer onder één licht geleerd zijn. Vier
-keer gedraaid, want er zit ruis in:
-
-| | telt kleuren (ongeleerd) | telt vlekken (geleerd) |
-|---|---|---|
-| valse straf op opgeloste kubussen | 9 op 324 | **2 tot 5 op 324** |
-| gescrambelde kubus betrapt | 43 op 648 | **324 op 324**, elke keer |
-| +2 herkend | onmogelijk | **293 op 324** |
-
-De eenendertig +2's die niet als +2 langskwamen zijn niet gemist — die kwamen als DNF
-binnen. Er is geen enkele opstelling waarin een kubus die niet opgelost was, ongemoeid
-bleef.
-
-Vandaar: **is hij geleerd, dan zet hij de straf zelf**, met een *toch niet* in de melding
-om het terug te draaien. Is hij niet geleerd, dan blijft hij bij vragen — de rest van deze
-paragraaf gaat over waarom.
-
-Twee eerlijke kanttekeningen. Die getallen komen uit een tekening van een kubus, niet uit
-jouw kamer; **wat de camera ziet** is er om te controleren of het bij jou ook zo gaat. En
-de kleuren zijn geleerd onder het licht van dat moment: verhuis je lamp, dan is het één
-druk op *opnieuw leren*.
-
-### Waarom vragen en niet zetten, als hij niets geleerd heeft
-
-Jouw regel klopt volledig: één vlak dat niet één kleur is maar zes-en-drie, dat is één zet
-ernaast; een vlak met kleuren door elkaar is verder weg. Nagerekend op het echte
-kubusmodel is dat zelfs bewijs — na precies één zet is géén van de 108 vlakken rommelig,
-en van 400 scrambles heeft er 400 minstens één rommelig vlak.
-
-Het probleem is niet de regel maar het aflezen. Om negen stickers van één vlak apart te
-lezen moet de hoek van de kubus tot op een paar pixels bekend zijn. Uitgemeten over 162
-camerastanden — hoogte 24 tot 42 graden, drie richtingen rond, drie scheefstanden —
-schoof dat raster vaak genoeg mis om **31 straffen uit te delen op kubussen die opgelost
-waren**. Eén op vijf.
-
-Zonder dat raster, door alleen de kleuren over de hele kubus te tellen, wordt het beter
-maar niet goed — en dit is precies wat je overhoudt als hij je kleuren niet kent.
-Uitgemeten over 972 opstellingen — drie matjes, vier kubusgroottes,
-zevenentwintig camerahoeken — deelt hij negen valse straffen uit op 324 opgeloste
-kubussen en betrapt hij er 43 van 648 gescrambelde. Ongeveer één misser tegenover vijf
-vangsten, en de drempel verhogen ruilt het ene tegen het andere. Beter dan het was, nog
-altijd niet goed genoeg om zelf iets te zetten. Vandaar dat het bij een vraag blijft.
-
-### Toestemming en welke camera
-
-De toestemmingsvraag komt zodra je de pagina voor het eerst aanraakt, niet midden in een
-solve. Eerder kan niet: een browser stelt die vraag alleen naar aanleiding van iets wat je
-zelf doet. Onder **instellingen → toestemming** staat wat eruit kwam, en er staat ook bij
-**welke camera** hij daadwerkelijk kreeg — voorcamera of achtercamera. Lukt het niet, dan
-staat de reden er in plaats van een leeg scherm.
-
-De voorcamera wordt met `exact` gevraagd en pas daarna met een wens als reserve. Alleen
-een wens bleek niet genoeg: Safari op een iPad geeft je dan gewoon de achterkant.
-
-### Live meekijken
-
-**Instellingen → wat de camera ziet** laat zien wat hij doet: eerst leert hij een paar
-seconden het lege matje, daarna leg je er een kubus op en zie je live wat hij ervan maakt.
-Dat is het eerlijkste stuk van de hele functie — je ziet zelf of je hem in jouw kamer,
-met jouw licht en jouw camerahoek, wilt geloven.
-
-### Wat blauw op blauw kapotmaakte
-
-Een gescrambelde kubus kwam er steevast uit als *te klein in beeld* of *geen kubusvorm*,
-en een opgeloste niet. Dat verschil zat in de blauwe stickers. De kubus wordt gevonden
-door hem van het lege matje af te trekken, en waar er één drempel was, werd die gezet op
-een deel van het grootste verschil in beeld. Eén wit vlakje bepaalt dat verschil; elk
-blauw vlakje op een blauw matje valt er dan onder. De omtrek viel uit elkaar en het
-grootste overgebleven stuk was een hoek van een kubus in plaats van een kubus. Een
-opgeloste kubus met wit, rood en groen in beeld heeft dat ene lastige vlakje niet en ging
-gewoon door.
-
-Er staan nu twee drempels: wat er ruim boven zit is de kubus, en alles wat er nét boven
-zit en daaraan raakt hoort erbij. Een blauw vlakje midden tussen de andere haalt het zo
-alsnog, en wat volledig wegvalt wordt opgevuld — een kubus heeft geen ramen, dus een gat
-middenin is een sticker die zoek is, geen gat in de kubus. Over diezelfde 972 opstellingen
-ging het van **194 keer afgewezen als geen kubusvorm naar nul**.
-
-### Groot genoeg om te lezen, groot genoeg om iets te zeggen
-
-Dat zijn twee verschillende dingen. Onder de 56 pixels breed is er niets te lezen. Tussen
-56 en 180 leest hij hem wel, maar zijn de monsters te weinig pixels elk om hun kleur vast
-te houden, en splitst de indeling drie kleuren met veel vertrouwen in zes: op 140 pixels
-zat hij zes keer op de zevenentwintig mis over een opgeloste kubus, op 200 geen enkele
-keer. Daartussenin zegt hij dus wat hij ziet en houdt hij zijn mening voor zich — met de
-raad het beeld bij te snijden, want dat is precies wat de kubus groter maakt.
-
-Die pixels zijn er echte. Een uitsnede wordt nooit groter uitgelezen dan de camera hem
-geeft: snijd je een klein stukje uit een camera die maar 640 pixels aanlevert, dan zou
-opblazen tot volle grootte een kubus van 40 pixels als een comfortabele 250 laten meten,
-en dan gaat elke regel hierboven over verzonnen detail. Levert je camera te weinig, dan
-zegt hij dat ook met zoveel woorden in plaats van je nóg strakker te laten bijsnijden.
-
-### Het beeld bijsnijden
-
-Een camera die de hele kamer ziet, besteedt de meeste pixels aan de kamer. Stond er
-telkens *te klein in beeld*, dan is dat het probleem: negen stickers moeten er samen zo'n
-zesenvijftig pixels breed uitkomen, en een kubus in de hoek van een wijd beeld haalt dat
-niet.
-
-In **wat de camera ziet** staan daarom vier hoeken. Sleep ze op de vier hoeken van je
-matje — het mag scheef, want een camera die op een stoel staat ziet je matje ook niet als
-een keurige rechthoek maar als een trapezium. Sleep ernaast om de hele vorm in één keer te
-verschuiven, en **hele beeld** zet alles terug.
-
-Vier hoeken en geen kader, omdat een kader om zo'n trapezium heen aan twee kanten het
-bureau meepakt. Alles wat buiten de vorm ligt telt niet meer mee: legt er iemand een
-telefoon naast, of komt er een hand langs, dan is dat geen verandering op het matje meer.
-Nagemeten met iets lichts naast het matje ging een kubus die zonder de vorm werd
-weggegooid als *geen kubusvorm*, met de vorm gewoon door.
-
-En omdat er alleen nog gekeken wordt naar het kleinste vierkant waar die hoeken in passen,
-komt de kubus er evenredig groter uit. De keuze wordt bewaard, geldt ook tijdens je solves,
-en het venstertje in de hoek toont voortaan precies dat stuk en niet meer de kamer eromheen.
-
-Verzet je de vorm, dan leert hij het lege matje meteen opnieuw: door een ander raampje
-gekeken zegt het oude beeld van het matje niets meer.
-
-### Hoe hij de kubus vindt
-
-Terwijl je solvet ligt de kubus in je handen, dus het matje is leeg. De camera neemt
-tijdens de solve een reeks foto's van dat lege matje en neemt daar de middelste waarde
-van, zodat langsschietende handen wegvallen. Wat er daarna anders is, is de kubus. Geen
-kalibratie, en het werkt op een blauw matje zonder te weten dat het blauw is. Dat deel
-werkt wel goed: lege matjes, rommel, een hand ervoor en een kubus half uit beeld worden
-allemaal netjes herkend en overgeslagen.
-
-## Wat er in een echte kamer misgaat
-
-Een paar dingen die je pas tegenkomt als de app op een tafel staat en niet in een test.
-
-**De app twee keer open.** Een tabblad én de geïnstalleerde app zijn twee kopieën van
-dezelfde tijden. Het tweede venster las het bestand toen het openging en houdt die kopie
-vast; de eerste keer dat het iets opslaat, gaat alles wat je in het andere venster hebt
-gesolved eraan. Nagemeten: drie solves in venster A, één in venster B, en er bleef er
-**één** over. De browser meldt wél dat een ander venster geschreven heeft, dus dit venster
-neemt dat nieuwere bestand nu over in plaats van eroverheen te schrijven. Diezelfde test
-houdt nu alle vier de tijden.
-
-**De camera bleef aanstaan.** Ging je tijdens een solve naar een andere app, dan bleef de
-lens draaien op een pagina die de browser niet eens meer tekent. Nu gaat hij uit zodra je
-weg bent, en ook als iOS de pagina wegzet zonder het te melden.
-
-**Elke tweede solve werd overgeslagen.** Startte je een nieuwe solve terwijl hij de vorige
-nog bekeek, dan zag hij de camera al openstaan en dacht dat er niets te doen was — waarmee
-hij die solve zonder foto's van het lege matje inging, en er dus niets mee kon. Zonder één
-woord.
-
-**De camera werd afgepakt.** Neemt een andere app hem over, of trek je de toestemming in,
-dan stopt de stroom beelden zonder fout: hij bleef het laatste beeld bestuderen dat hij
-ooit kreeg. Dat wordt nu opgemerkt en gezegd.
-
-**Je draaide je iPad.** De vier hoeken staan in de coördinaten van het beeld, en dat beeld
-kantelt mee. Wat hij van het matje geleerd had, sloeg dan nergens meer op. Hij merkt de
-verandering nu op, leert het matje opnieuw en vraagt je de hoeken na te kijken.
-
-**De timer viel weg tijdens je solve.** Buiten bereik of een lege batterij, en de klok op
-het scherm liep gewoon door zonder uitleg. Er staat nu bij dat hij op de klok van de app
-verder telt en hoe je hem stopt.
-
-**Eén streepje bereik.** De service worker ging eerst naar het netwerk. Offline is dat
-geen probleem — dat mislukt meteen — maar een hotelwifi die de verbinding aanneemt en dan
-zwijgt, is dat wél: de bestanden importeren elkaar, dus de wachttijden stapelen op.
-Gemeten tegen zo'n server duurde laden **15,7 seconden**. De schil komt nu uit de cache en
-wordt daarachter ververst; dezelfde meting: **2,7 seconden**. Een uitrol landt nog steeds
-op de eerstvolgende keer dat je herlaadt. En een bestand dat er niet is krijgt geen
-HTML-pagina meer als antwoord — dat maakte van een ontbrekend bestand een syntaxfout,
-wat eruitziet alsof de hele app stuk is.
-
 ## Naar een ander toestel
 
 **Instellingen → naar een ander toestel** maakt één bestand met al je sessies, tijden,
@@ -406,10 +212,10 @@ notities, +2's, DNF's en de momenten komen mee; de puzzel wordt overgenomen waar
 hem meestuurt en valt anders terug op 3x3, wat dan zichtbaar fout staat en met één tik te
 verplaatsen is. Wie overstapt hoeft dus geen jaar tijden over te typen.
 
-Wat niet meegaat: wat de camera van je matje en je kubus geleerd heeft. De vier hoeken zijn
-tegen één camera in één kamer getekend en de zes kleuren zijn onder één lamp geleerd; die
-aan een nieuw toestel geven is het drie instellingen geven die niet kloppen. Je thema,
-kleuren, inspectietijd en doelen gaan wel mee.
+Wat niet meegaat: welk tabblad van een venster je open had staan en welke groepen van de
+lijst links je dichtgeklapt had. Dat zijn gewoontes van een scherm, niet van een persoon,
+en een telefoon en een laptop zijn niet hetzelfde scherm. Je thema, kleuren, inspectietijd,
+doelen en de namen van je kubussen gaan wel mee.
 
 Wil je toch alles op dit toestel weggooien en precies het bestand overhouden, dan is er
 **alles vervangen**, met een vraag ervoor die zegt hoeveel tijden eraan gaan.
@@ -767,7 +573,9 @@ src/app.js        state machine, invoer en UI
 src/scramble.js   scramble-generator (random-state via cubing.js, met reserve)
 src/preview.js    het plaatje bij de scramble, voor alle zes de puzzels
 src/gan-timer.js  Web Bluetooth client voor de GAN Smart Timer
-src/vision.js     de kubus op het matje vinden en lezen
+src/diagram.js    het plaatje van een OLL of PLL, uit het net van de puzzel zelf
+src/cases.js      de gevallen om te trainen, en de controle die een fout geval weigert
+src/insight.js    de vragen die een lijst tijden zelf niet beantwoordt
 src/stats.js      tijdnotatie, ao5/ao12, mean
 src/practice.js   dagen, reeksen en de oefenmeter
 src/store.js      opslag van de sessies

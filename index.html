@@ -52,7 +52,69 @@
 
 <!-- Everything the app can do, in one list.
      Half of this used to live behind "openen" inside the settings, which is
-     where features go to be never found again. -->
+     where features go to be never found again.
+
+     One line each: a mark and a name. The marks are drawn rather than typed --
+     an emoji is a picture from somebody else's font, so it lands at a different
+     size and in a different style on every device, and fifteen of them in a
+     column look like a sticker sheet rather than a menu. -->
+<svg class="rail-marks" aria-hidden="true">
+  <defs>
+    <g id="mark-cases" fill="none" stroke="currentColor" stroke-width="1.6">
+      <rect x="3.2" y="3.2" width="17.6" height="17.6" rx="2.6"/>
+      <path d="M9.1 3.2v17.6M14.9 3.2v17.6M3.2 9.1h17.6M3.2 14.9h17.6"/>
+    </g>
+    <g id="mark-times" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.2 2"/>
+    </g>
+    <g id="mark-play" fill="none" stroke="currentColor" stroke-width="1.6">
+      <rect x="3.4" y="3.4" width="17.2" height="17.2" rx="4"/>
+      <circle cx="8.6" cy="8.6" r="1.35" fill="currentColor" stroke="none"/>
+      <circle cx="15.4" cy="15.4" r="1.35" fill="currentColor" stroke="none"/>
+    </g>
+    <g id="mark-metro" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+      <path d="M9.4 3.6h5.2l4 16.8H5.4Z"/><path d="M7.4 13.6h9.2M12 20.4V8.6" stroke-linecap="round"/>
+    </g>
+    <g id="mark-stats" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <path d="M4.4 20.2V13M9.6 20.2V6.4M14.8 20.2v-9M20 20.2V9"/>
+    </g>
+    <g id="mark-records" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+      <path d="M7.4 3.8h9.2v5.4a4.6 4.6 0 0 1-9.2 0Z"/>
+      <path d="M7.4 5.4H4.6v1.8a3 3 0 0 0 2.8 3M16.6 5.4h2.8v1.8a3 3 0 0 1-2.8 3" stroke-linecap="round"/>
+      <path d="M12 13.8v3.4M8.4 20.2h7.2" stroke-linecap="round"/>
+    </g>
+    <g id="mark-list" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <path d="M4 6.6h16M4 12h16M4 17.4h10"/>
+    </g>
+    <g id="mark-close-day" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5.4 20.4V4.2h9.4l-1.2 3.2 1.2 3.2H5.4"/>
+    </g>
+    <g id="mark-share" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 15.4V4.2M8.2 7.8 12 4l3.8 3.8"/>
+      <path d="M5.2 13.6v5.2a1.4 1.4 0 0 0 1.4 1.4h10.8a1.4 1.4 0 0 0 1.4-1.4v-5.2"/>
+    </g>
+    <g id="mark-big" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.2 4.2H4.2v5M14.8 4.2h5v5M9.2 19.8H4.2v-5M14.8 19.8h5v-5"/>
+    </g>
+    <g id="mark-keys" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <rect x="2.8" y="6.2" width="18.4" height="11.6" rx="2.2"/>
+      <path d="M6.4 10h.01M9.6 10h.01M12.8 10h.01M16 10h.01M8.6 14h6.8"/>
+    </g>
+    <g id="mark-file" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3.8v10.4M8.2 10.6 12 14.4l3.8-3.8"/>
+      <path d="M4.6 16.4v2.4a1.4 1.4 0 0 0 1.4 1.4h12a1.4 1.4 0 0 0 1.4-1.4v-2.4"/>
+    </g>
+    <g id="mark-paste" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+      <path d="M8.6 4.6H6.4A1.4 1.4 0 0 0 5 6v13a1.4 1.4 0 0 0 1.4 1.4h11.2A1.4 1.4 0 0 0 19 19V6a1.4 1.4 0 0 0-1.4-1.4h-2.2"/>
+      <rect x="8.6" y="2.8" width="6.8" height="3.6" rx="1.2"/>
+    </g>
+    <g id="mark-gear" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3.1"/>
+        <path d="M12 2.6a1.4 1.4 0 0 1 1.4 1.4v.5a1.4 1.4 0 0 0 .85 1.28 1.4 1.4 0 0 0 1.54-.28l.35-.35a1.4 1.4 0 1 1 1.98 1.98l-.35.35a1.4 1.4 0 0 0-.28 1.54 1.4 1.4 0 0 0 1.28.85h.5a1.4 1.4 0 0 1 0 2.8h-.5a1.4 1.4 0 0 0-1.28.85 1.4 1.4 0 0 0 .28 1.54l.35.35a1.4 1.4 0 1 1-1.98 1.98l-.35-.35a1.4 1.4 0 0 0-1.54-.28 1.4 1.4 0 0 0-.85 1.28v.5a1.4 1.4 0 0 1-2.8 0v-.5a1.4 1.4 0 0 0-.85-1.28 1.4 1.4 0 0 0-1.54.28l-.35.35a1.4 1.4 0 1 1-1.98-1.98l.35-.35a1.4 1.4 0 0 0 .28-1.54 1.4 1.4 0 0 0-1.28-.85H4a1.4 1.4 0 0 1 0-2.8h.5a1.4 1.4 0 0 0 1.28-.85 1.4 1.4 0 0 0-.28-1.54l-.35-.35a1.4 1.4 0 1 1 1.98-1.98l.35.35a1.4 1.4 0 0 0 1.54.28h.05A1.4 1.4 0 0 0 10.1 4.5V4A1.4 1.4 0 0 1 12 2.6Z"/>
+    </g>
+  </defs>
+</svg>
+
 <nav id="rail" class="rail" aria-label="Alles">
   <div class="rail-inner">
     <div class="rail-head">
@@ -60,28 +122,35 @@
       <button type="button" id="rail-close" class="icon-button" aria-label="Sluiten">✕</button>
     </div>
 
-    <h3>Oefenen</h3>
-    <button type="button" data-go="drill-open"><span>🎯</span><b>Gevallen trainen</b><small>PLL, alle 57 OLL, en reeksen die je zelf samenstelt</small></button>
-    <button type="button" data-go="cases-times"><span>📇</span><b>Tijden per geval</b><small>Wat je van elk geval gedaan hebt, en hoe snel</small></button>
-    <button type="button" data-go="mode-open"><span>🎲</span><b>Spelletjes en modi</b><small>Marathon, sprint, blind, ronde, duel, dagscramble</small></button>
-    <button type="button" data-go="metro-open"><span>🥁</span><b>Metronoom</b><small>Om te horen of je gelijkmatig draait</small></button>
+    <details class="rail-group" data-group="practise" open>
+      <summary>Oefenen</summary>
+      <button type="button" data-go="drill-open"><svg viewBox="0 0 24 24"><use href="#mark-cases"/></svg>Gevallen trainen</button>
+      <button type="button" data-go="cases-times"><svg viewBox="0 0 24 24"><use href="#mark-times"/></svg>Tijden per geval</button>
+      <button type="button" data-go="mode-open"><svg viewBox="0 0 24 24"><use href="#mark-play"/></svg>Spelletjes en modi</button>
+      <button type="button" data-go="metro-open"><svg viewBox="0 0 24 24"><use href="#mark-metro"/></svg>Metronoom</button>
+    </details>
 
-    <h3>Terugkijken</h3>
-    <button type="button" data-go="stats"><span>📊</span><b>Statistieken</b><small>Alle gemiddelden van deze sessie</small></button>
-    <button type="button" data-go="records"><span>🏆</span><b>Records en terugblik</b><small>Kast, jaar aan dagen, dagboek, en of je echt beter wordt</small></button>
-    <button type="button" data-go="solves-open"><span>📋</span><b>Al je tijden</b><small>De hele lijst, met zoeken</small></button>
-    <button type="button" data-go="closing"><span>🌙</span><b>Sessie afsluiten</b><small>Wat deze zitting was, in één kaartje</small></button>
-    <button type="button" data-go="share"><span>📤</span><b>Deel je ao5</b><small>Als plaatje of als link zonder server</small></button>
+    <details class="rail-group" data-group="back" open>
+      <summary>Terugkijken</summary>
+      <button type="button" data-go="stats"><svg viewBox="0 0 24 24"><use href="#mark-stats"/></svg>Statistieken</button>
+      <button type="button" data-go="records"><svg viewBox="0 0 24 24"><use href="#mark-records"/></svg>Records en terugblik</button>
+      <button type="button" data-go="solves-open"><svg viewBox="0 0 24 24"><use href="#mark-list"/></svg>Al je tijden</button>
+      <button type="button" data-go="closing"><svg viewBox="0 0 24 24"><use href="#mark-close-day"/></svg>Sessie afsluiten</button>
+      <button type="button" data-go="share"><svg viewBox="0 0 24 24"><use href="#mark-share"/></svg>Deel je ao5</button>
+    </details>
 
-    <h3>Gereedschap</h3>
-    <button type="button" data-go="look-open"><span>📷</span><b>Camera</b><small>Kijkt na je solve of de kubus opgelost is</small></button>
-    <button type="button" data-go="big-open"><span>🔭</span><b>Groot scherm</b><small>Alleen de tijd, leesbaar van ver</small></button>
-    <button type="button" data-go="keys-open"><span>⌨️</span><b>Toetsen en gebaren</b><small>Alles wat je kunt indrukken en vegen</small></button>
+    <details class="rail-group" data-group="tools">
+      <summary>Gereedschap</summary>
+      <button type="button" data-go="big-open"><svg viewBox="0 0 24 24"><use href="#mark-big"/></svg>Groot scherm</button>
+      <button type="button" data-go="keys-open"><svg viewBox="0 0 24 24"><use href="#mark-keys"/></svg>Toetsen en gebaren</button>
+    </details>
 
-    <h3>Je tijden bewaren</h3>
-    <button type="button" data-go="transfer-open"><span>💾</span><b>Naar een ander toestel</b><small>Eén bestand, heen en terug</small></button>
-    <button type="button" data-go="paste-open"><span>📥</span><b>Tijden plakken</b><small>Uit csTimer of van ergens anders</small></button>
-    <button type="button" data-go="settings-open"><span>⚙️</span><b>Instellingen</b><small>Kleuren, skins, inspectie, kubussen, alles</small></button>
+    <details class="rail-group" data-group="keeping">
+      <summary>Bewaren en instellen</summary>
+      <button type="button" data-go="transfer-open"><svg viewBox="0 0 24 24"><use href="#mark-file"/></svg>Naar een ander toestel</button>
+      <button type="button" data-go="paste-open"><svg viewBox="0 0 24 24"><use href="#mark-paste"/></svg>Tijden plakken</button>
+      <button type="button" data-go="settings-open"><svg viewBox="0 0 24 24"><use href="#mark-gear"/></svg>Instellingen</button>
+    </details>
   </div>
 </nav>
 <div id="rail-shade" class="rail-shade" hidden></div>
@@ -154,7 +223,13 @@
 
     <button type="button" id="practice" class="practice" title="Je oefengeschiedenis" hidden>
       <span class="practice-run">
-        <span class="practice-flame" id="practice-flame" aria-hidden="true">🔥</span>
+        <!-- A ring that fills as the day's goal fills: drawn, so it follows the
+             theme and the accent colour instead of being an emoji from the
+             device's own font. -->
+        <svg class="practice-flame" id="practice-flame" viewBox="0 0 24 24" aria-hidden="true">
+          <circle class="practice-ring-back" cx="12" cy="12" r="9"/>
+          <circle class="practice-ring" cx="12" cy="12" r="9"/>
+        </svg>
         <span class="practice-days-count" id="practice-run">0</span>
       </span>
       <span class="practice-body">
@@ -242,8 +317,7 @@
     </header>
 
     <p class="detail-meta">Eén bestand met al je sessies, tijden, scrambles en voorkeuren.
-      Bewaar het hier, open het daar. Wat de camera van je matje en je kubus geleerd heeft
-      gaat niet mee — dat hoort bij dit toestel.</p>
+      Bewaar het hier, open het daar.</p>
 
     <h3 class="transfer-head">Van dit toestel af</h3>
     <p id="transfer-here" class="import-note"></p>
@@ -296,72 +370,7 @@
   </div>
 </dialog>
 
-<!-- The same thing a solve does, but watched: learn the empty mat, then read
-     whatever is put on it. -->
-<dialog id="look-sheet" class="sheet" tabindex="-1">
-  <div class="sheet-inner">
-    <header class="sheet-head">
-      <h2>Wat de camera ziet</h2>
-      <button type="button" id="look-close" class="icon-button" aria-label="Sluiten">✕</button>
-    </header>
 
-    <div class="camera-frame look-frame">
-      <!-- Everything the camera hands over sits in here, mirrored once so the
-           preview behaves like a mirror. Inside it, positions are the camera's
-           own, which is what the crop is stored in. -->
-      <div class="camera-mirror">
-        <!-- The picture is clipped to the frame; the handles are not, so a
-             corner sitting on the very edge still has a whole handle to grab. -->
-        <div class="camera-clip">
-          <video id="look-video" playsinline muted></video>
-          <svg id="crop-shape" class="crop-shape" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
-            <path id="crop-shade" class="crop-shade" fill-rule="evenodd" />
-            <path id="crop-outline" class="crop-outline" fill="none" />
-          </svg>
-          <svg id="look-guide" class="camera-guide" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
-            <path id="look-outline" fill="none" />
-          </svg>
-        </div>
-        <button type="button" class="crop-handle"></button>
-        <button type="button" class="crop-handle"></button>
-        <button type="button" class="crop-handle"></button>
-        <button type="button" class="crop-handle"></button>
-      </div>
-    </div>
-
-    <p id="look-status" class="camera-status">Camera starten…</p>
-    <p id="look-detail" class="import-note"></p>
-
-    <p class="import-note">Sleep de vier hoeken op de hoeken van je matje — het mag scheef, want zo zie je het matje ook. Alleen wat binnen die vorm ligt wordt bekeken, en hoe strakker eromheen, hoe groter je kubus uitkomt. Sleep ernaast om de hele vorm te verschuiven.</p>
-
-    <div class="colour-teach">
-      <div class="colour-row">
-        <span id="colour-swatches" class="colour-swatches"></span>
-        <span id="colour-count" class="colour-count">nog geen kleuren</span>
-      </div>
-      <button type="button" id="learn-colours" class="wide">Kleuren van deze kubus leren</button>
-      <p id="colour-cubes" class="import-note" hidden></p>
-      <p id="colour-note" class="import-note">Leg je <em>opgeloste</em> kubus op het matje en druk hierop. Draai hem daarna om en druk nog eens, tot alle zes de kleuren binnen zijn. Daarmee ziet hij een +2 en een DNF zelf, in plaats van te gokken.</p>
-    </div>
-
-    <div class="detail-actions">
-      <button type="button" id="crop-reset">Hele beeld</button>
-      <button type="button" id="look-relearn">Matje opnieuw leren</button>
-    </div>
-  </div>
-</dialog>
-
-<!-- What the camera sees while it is judging a solve, small and out of the way. -->
-<div id="camera-peek" class="camera-peek" hidden>
-  <div class="camera-mirror">
-    <!-- Zoomed to the chosen uitsnede, so this little window shows the pixels
-         that are actually being read and not a wider view of the room. -->
-    <video id="peek-video" playsinline muted></video>
-    <svg class="camera-guide" viewBox="0 0 1 1" aria-hidden="true">
-      <path id="peek-outline" fill="none" />
-    </svg>
-  </div>
-</div>
 
 <!-- The solves a number in the statistics was made of. -->
 <dialog id="picked-sheet" class="sheet sheet-tall" tabindex="-1">
@@ -569,7 +578,7 @@
       leren houden. Loopt door terwijl je solvet.</p>
 
     <p id="metro-figure" class="round-headline">120</p>
-    <label class="crop-row">
+    <label class="slider-row">
       <span>Tempo</span>
       <input type="range" id="metro-speed" min="30" max="300" step="5" value="120" aria-label="Tikken per minuut">
       <output id="metro-unit">tpm</output>
@@ -972,7 +981,7 @@
             </section>
       </section>
       <section class="settings-group" data-group="cube" data-name="Kubus">
-        <p class="settings-about">Je kubussen, de camera en de timer</p>
+        <p class="settings-about">Je kubussen en je timer</p>
         <section class="setting stacked">
               <div class="setting-label">
                 <span>Je kubussen</span>
@@ -984,29 +993,6 @@
                 <button type="button" id="cube-add" class="text-button">toevoegen</button>
               </div>
               <div id="cube-list" class="cube-list"></div>
-            </section>
-        <section class="setting">
-              <div class="setting-label">
-                <span>Kubus controleren</span>
-                <small id="camera-blurb">Zodra de tijd stopt zoekt de camera de kubus op het matje. Leer hem
-                  eerst de kleuren van je kubus bij "wat de camera ziet" — dan ziet hij een +2 en een
-                  DNF zelf. Zonder dat kan hij alleen gokken, en dan vraagt hij het</small>
-              </div>
-              <button type="button" class="switch" id="set-camera" role="switch" aria-checked="false" aria-label="Kubus controleren"><span></span></button>
-            </section>
-        <section class="setting">
-              <div class="setting-label">
-                <span>Wat de camera ziet</span>
-                <small>Kijk live mee, snijd het beeld bij op je matje, en leer hem je kleuren</small>
-              </div>
-              <button type="button" id="camera-look" class="text-button">bekijken</button>
-            </section>
-        <section class="setting">
-              <div class="setting-label">
-                <span>Toestemming</span>
-                <small id="camera-state">Wordt gevraagd zodra je iets aanraakt.</small>
-              </div>
-              <button type="button" id="camera-allow" class="text-button">opnieuw vragen</button>
             </section>
         <section class="setting stacked">
               <div class="setting-label">
@@ -1023,39 +1009,6 @@
               <button type="button" id="connect-any" class="text-button">Toon alle bluetooth-apparaten</button>
               <p id="connect-any-note" class="device-hint">Staat je timer niet in de lijst? Deze knop laat alles zien wat in de buurt is, zonder te filteren op naam.</p>
               <div id="device-details" class="device-details" hidden></div>
-            </section>
-      </section>
-      <section class="settings-group" data-group="tools" data-name="Gereedschap">
-        <p class="settings-about">Ook te vinden in de lijst links</p>
-        <section class="setting">
-              <div class="setting-label">
-                <span>Trainen op losse gevallen</span>
-                <small>PLL en OLL apart oefenen. Elk geval krijgt een opzet die je op je opgeloste
-                  kubus draait, en je ziet daarna welke je het slechtst kent</small>
-              </div>
-              <button type="button" id="drill-open" class="text-button">openen</button>
-            </section>
-        <section class="setting">
-              <div class="setting-label">
-                <span>Metronoom</span>
-                <small>Een tik op een vast tempo terwijl je draait</small>
-              </div>
-              <button type="button" id="metro-open" class="text-button">openen</button>
-            </section>
-        <section class="setting">
-              <div class="setting-label">
-                <span>Grote weergave</span>
-                <small>Alleen de scramble en de tijd, groot genoeg voor aan de andere kant van de
-                  kamer. Escape brengt je terug</small>
-              </div>
-              <button type="button" id="big-open" class="text-button">aanzetten</button>
-            </section>
-        <section class="setting">
-              <div class="setting-label">
-                <span>Toetsen en gebaren</span>
-                <small>Wat spatie, escape en een veeg allemaal doen</small>
-              </div>
-              <button type="button" id="keys-open" class="text-button">bekijken</button>
             </section>
       </section>
       <section class="settings-group" data-group="data" data-name="Je tijden">

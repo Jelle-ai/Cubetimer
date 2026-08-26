@@ -11,16 +11,16 @@ const MARK = 'cubetimer';
 const VERSION = 1;
 
 /**
- * Settings worth carrying across. What is left out is left out on purpose: the
- * camera crop is drawn against one camera in one room, the cube's colours are
- * learned under one lamp, and permission to use a camera at all belongs to the
- * device that granted it. Handing those to a new phone would be handing it
- * three settings that are wrong.
+ * Settings worth carrying across. What is left out is left out on purpose:
+ * which tab of a sheet you had open and which groups of the side list you had
+ * folded away are habits of a screen, not of a person, and a phone and a laptop
+ * are not the same screen.
  */
 const PORTABLE = [
-  'theme', 'led', 'colors', 'decimals', 'holdMs', 'font',
+  'theme', 'skin', 'led', 'colors', 'decimals', 'holdMs', 'font',
   'inspection', 'hideTime', 'sound', 'haptics', 'celebrate', 'highlight',
-  'preview', 'countUp', 'wakeLock', 'practice', 'goalKind', 'goalMinutes', 'goalSolves'
+  'preview', 'countUp', 'wakeLock', 'splits', 'pace', 'crossTip', 'crossFace', 'taste',
+  'practice', 'goalKind', 'goalMinutes', 'goalSolves', 'cubes', 'cube', 'shareName'
 ];
 
 /** @returns {object} everything worth carrying, ready to be written out. */

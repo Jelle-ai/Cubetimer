@@ -1681,7 +1681,20 @@ body[data-miss] .halo {
 /* The count belongs against the flame: it is the flame's number. */
 .practice-run { flex: none; display: flex; align-items: center; gap: .25rem; }
 
-.practice-flame { font-size: 1.15rem; line-height: 1; filter: grayscale(1); opacity: .5; transition: filter .3s, opacity .3s; }
+.practice-flame { width: 1.35rem; height: 1.35rem; flex: 0 0 auto; transform: rotate(-90deg); }
+.practice-ring-back, .practice-ring {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.practice-ring-back { stroke: var(--sunken); }
+.practice-ring {
+  stroke: var(--led);
+  /* 2 * pi * 9, so the dash can be set as a share of the way round. */
+  stroke-dasharray: 56.5;
+  stroke-dashoffset: calc(56.5 * (1 - var(--filled, 0)));
+  transition: stroke-dashoffset .4s ease;
+}
 
 .practice-days-count {
   font-family: var(--digits);
@@ -1695,7 +1708,7 @@ body[data-miss] .halo {
 .practice[data-done="true"] .practice-days-count { color: var(--record); }
 
 /* The flame only lights once the day is actually earned. */
-.practice[data-done="true"] .practice-flame { filter: none; opacity: 1; }
+.practice[data-done="true"] .practice-ring { stroke: var(--ready); }
 
 .practice-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .3rem; }
 
@@ -1804,158 +1817,6 @@ body[data-miss] .halo {
 /* The statistics carry a three-column table, which wants a little more width
    than a sheet of settings rows does. */
 #stats-sheet { width: min(500px, 94vw); }
-
-/* ---------- checking the cube with the camera ---------- */
-
-.camera-frame {
-  position: relative;
-  /* Square, and never taller than the room there is: in landscape a sheet is
-     shorter than it is wide, and a flex column will happily squash a picture
-     down to a sliver rather than let it stick out. */
-  flex: none;
-  width: min(100%, 52dvh);
-  aspect-ratio: 1;
-  margin: .2rem auto .6rem;
-  border-radius: 16px;
-  overflow: hidden;
-  background: #10181d;
-}
-
-.camera-frame video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover; /* the same centred square the frame is cropped to */
-  display: block;
-}
-
-.camera-guide {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-.camera-guide path {
-  stroke: rgba(255, 255, 255, .9);
-  stroke-width: .006;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 .004px rgba(0, 0, 0, .6));
-}
-
-.camera-guide path:last-child { stroke: rgba(255, 255, 255, .5); }
-
-.camera-status {
-  margin: 0 0 .4rem;
-  font-size: .88rem;
-  font-weight: 500;
-  text-align: center;
-  color: var(--muted);
-  transition: color .2s;
-}
-
-.camera-status[data-sure="true"] { color: var(--ink); }
-
-
-/* A front camera hands the picture over as the lens sees it, which reads
-   backwards to the person sitting in front of it. Flipping the whole inside of
-   the frame once makes it a mirror -- and keeps everything within it, the crop
-   box included, in the camera's own coordinates, which is what the crop is
-   stored in. Only pointer input has to be turned back round. */
-.camera-mirror {
-  position: absolute;
-  inset: 0;
-  transform: scaleX(-1);
-}
-
-.camera-mirror video { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-/* The picture, clipped to the frame. Only the look sheet needs it as a layer
-   of its own, so that the crop handles can hang over the edge. */
-.camera-clip {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: 16px;
-}
-
-/* The frame lets the crop handles hang over its edge; the picture inside it
-   is clipped by .camera-clip instead. */
-.look-frame { overflow: visible; }
-
-.look-frame .camera-guide path { stroke: rgba(255, 255, 255, .92); stroke-width: .008; fill: none; }
-
-/* ---------- marking out the mat ----------
-
-   Four corners, dragged onto the corners of the mat. The shape they make is
-   drawn as one path and everything outside it is dimmed by a second path
-   filled even-odd, which is the only way to dim around a shape that is not a
-   rectangle. */
-
-.crop-shape {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  cursor: grab;
-  touch-action: none;
-}
-
-.crop-shape[data-dragging="true"] { cursor: grabbing; }
-
-.crop-shade { fill: rgba(0, 0, 0, .5); }
-
-/* The box is one unit wide whatever size it is drawn at, so the stroke is
-   given in those units too -- non-scaling-stroke would read .006 as .006 of a
-   pixel and draw nothing at all. */
-.crop-outline {
-  stroke: rgba(255, 255, 255, .95);
-  stroke-width: .008;
-  stroke-linejoin: round;
-}
-
-.crop-shape[data-dragging="true"] .crop-outline { stroke: var(--led); }
-
-/* Big enough for a thumb, and centred on the corner rather than tucked inside
-   it, so the middle of the handle is the corner it stands for. */
-.crop-handle {
-  position: absolute;
-  width: 34px;
-  height: 34px;
-  margin: -17px 0 0 -17px;
-  padding: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, .22);
-  border: 3px solid rgba(255, 255, 255, .95);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .45);
-  cursor: move;
-  touch-action: none;
-}
-
-.crop-handle:focus-visible { outline: 2px solid var(--led); outline-offset: 3px; }
-
-/* On a phone held sideways the sheet is wider than it is tall, so the picture
-   goes beside the controls rather than pushing them off the bottom. */
-@media (min-width: 620px) and (max-height: 560px) {
-  #look-sheet { width: min(760px, 92vw); }
-
-  #look-sheet .sheet-inner {
-    display: grid;
-    grid-template-columns: minmax(0, 56dvh) minmax(0, 1fr);
-    align-content: start;
-    column-gap: 1.1rem;
-  }
-
-  #look-sheet .sheet-head { grid-column: 1 / -1; }
-  #look-sheet .camera-frame { grid-column: 1; grid-row: 2 / span 5; width: 100%; margin: 0; }
-  #look-sheet .camera-status,
-  #look-sheet .import-note,
-  #look-sheet .colour-teach,
-  #look-sheet .detail-actions { grid-column: 2; }
-
-  #look-sheet .camera-frame { grid-row: 2 / span 8; }
-  #look-sheet .detail-actions { margin-top: .6rem; }
-}
 
 /* ---------- carrying it all to another device ---------- */
 
@@ -2452,28 +2313,8 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
 
 /* ---------- this cube's own colours ---------- */
 
-.colour-teach { margin-top: .5rem; }
-
-.colour-row {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-  margin-bottom: .45rem;
-}
-
-.colour-swatches { display: flex; gap: .3rem; }
-
 /* A dark rim rather than a light one: white is one of the six, and a white
    swatch on a white sheet with a pale outline is nothing at all. */
-.colour-swatches i {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .35);
-}
-
-.colour-count { font-size: .82rem; color: var(--muted); }
-
 #learn-colours.wide {
   width: 100%;
   min-height: 44px;
@@ -2486,42 +2327,6 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
 
 #learn-colours.wide:hover { background: var(--hover); color: var(--ink); }
 #learn-colours.wide[data-done="true"] { background: color-mix(in srgb, var(--ready) 18%, transparent); color: var(--ink); }
-
-/* ---------- what the camera sees while it judges ----------
-
-   Small, in a corner, and only there while it is actually looking: enough to
-   see that it is aimed at the right place, not enough to be in the way. */
-.camera-peek {
-  position: fixed;
-  left: 1rem;
-  bottom: 1rem;
-  z-index: 40;
-  width: 92px;
-  aspect-ratio: 1;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #10181d;
-  box-shadow: var(--shadow);
-  border: 2px solid color-mix(in srgb, var(--led) 60%, transparent);
-  transition: border-color .25s;
-  animation: peekIn .25s ease both;
-}
-
-.camera-peek path { stroke: rgba(255, 255, 255, .85); stroke-width: .012; fill: none; }
-
-.camera-peek[data-state="found"] { border-color: var(--ready); }
-.camera-peek[data-state="one-move"] { border-color: var(--record); }
-.camera-peek[data-state="scrambled"] { border-color: var(--hold); }
-
-@keyframes peekIn {
-  from { opacity: 0; transform: translateY(8px) scale(.9); }
-  to { opacity: 1; transform: none; }
-}
-
-/* On a phone the bar is at the bottom, so it sits above that instead. */
-@media (max-width: 860px) {
-  body[data-compact="true"] .camera-peek { bottom: calc(4.6rem + env(safe-area-inset-bottom)); }
-}
 
 /* A row that is a shape as well as a number: the bar says at a glance which
    stretch is out of step, which the figures beside it only say if you read
@@ -2573,40 +2378,6 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
   font-size: .72rem;
   border-radius: 8px;
 }
-
-/* A cube whose colours the camera has learned wears a dot, so you can see at a
-   glance which of yours it would recognise on the mat. */
-.cube-chip[data-taught='true']::before {
-  content: '';
-  width: .38rem;
-  height: .38rem;
-  border-radius: 50%;
-  background: var(--led);
-  flex: 0 0 auto;
-}
-
-/* On the selected chip the dot would vanish into the fill, so it turns white. */
-.cube-chip[data-active='true'][data-taught='true']::before { background: rgba(255, 255, 255, .9); }
-
-/* Said once, before the first solve, and then never again: an app that keeps
-   telling you what it is has nothing else to say. */
-.welcome {
-  max-width: 34rem;
-  margin: .4rem auto 0;
-  padding: .9rem 1.1rem;
-  border-radius: 14px;
-  background: var(--sunken);
-  text-align: center;
-}
-
-.welcome-line { margin: 0 0 .4rem; font-size: .95rem; color: var(--ink); }
-.welcome-note {
-  margin: 0 0 .4rem;
-  font-size: .82rem;
-  line-height: 1.45;
-  color: var(--ink-soft, var(--muted));
-}
-.welcome-note:last-child { margin-bottom: 0; }
 
 /* ---------- last-layer pictures ---------- */
 
@@ -2763,12 +2534,17 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
 
    One list of everything the app can do. Beside the timer when the screen is
    wide enough to spare the room, a drawer over it when it is not -- the same
-   markup either way, so there is nothing to keep in step. */
+   markup either way, so there is nothing to keep in step.
+
+   Four groups, each one a <details>: the browser already knows how to open and
+   close one of those, so there is no state to write down and nothing to go
+   wrong with the keyboard or a screen reader. Which ones you leave open is
+   remembered. */
 
 .rail {
   position: fixed;
   inset: 0 auto 0 0;
-  width: 17.5rem;
+  width: 16.5rem;
   max-width: 86vw;
   z-index: 40;
   background: var(--card-solid, #fff);
@@ -2784,8 +2560,8 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
 .rail-inner {
   display: flex;
   flex-direction: column;
-  gap: .2rem;
-  padding: .8rem .7rem 2rem;
+  gap: .1rem;
+  padding: .8rem .6rem 2rem;
   padding-top: max(.8rem, env(safe-area-inset-top));
 }
 
@@ -2798,37 +2574,64 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
 
 .rail-head b { font-size: 1rem; letter-spacing: .01em; }
 
-.rail h3 {
-  margin: .7rem 0 .15rem;
-  padding: 0 .3rem;
-  font-size: .7rem;
+/* The heading of a group, and the thing you press to fold it away. */
+.rail-group > summary {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  margin-top: .5rem;
+  padding: .35rem .45rem;
+  border-radius: 8px;
+  list-style: none;
+  cursor: pointer;
+  font-size: .72rem;
   font-weight: 600;
   letter-spacing: .09em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
+.rail-group > summary::-webkit-details-marker { display: none; }
+.rail-group > summary:hover { background: var(--sunken); color: var(--ink-soft, var(--ink)); }
+
+/* The arrow, drawn rather than typed, turning as the group opens. */
+.rail-group > summary::before {
+  content: '';
+  width: .42rem;
+  height: .42rem;
+  border-right: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform .18s ease;
+}
+
+.rail-group[open] > summary::before { transform: rotate(45deg) translate(-1px, -1px); }
+
 .rail [data-go] {
-  display: grid;
-  grid-template-columns: 1.5rem 1fr;
-  grid-template-rows: auto auto;
+  display: flex;
   align-items: center;
-  gap: 0 .5rem;
-  padding: .45rem .5rem;
-  border-radius: 10px;
+  gap: .6rem;
+  width: 100%;
+  padding: .5rem .55rem;
+  border-radius: 9px;
   text-align: left;
+  font-size: .88rem;
   color: var(--ink);
 }
 
 .rail [data-go]:hover { background: var(--sunken); }
-.rail [data-go] span { grid-row: 1 / span 2; font-size: 1.05rem; line-height: 1; }
-.rail [data-go] b { font-size: .87rem; font-weight: 600; }
-.rail [data-go] small {
-  grid-column: 2;
-  font-size: .73rem;
-  line-height: 1.3;
-  color: var(--muted);
+
+.rail [data-go] svg {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: var(--ink-soft, var(--muted));
 }
+
+.rail [data-go]:hover svg { color: var(--led); }
+
+/* The marks live in one hidden sprite at the top of the page. */
+.rail-marks { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 .rail-shade {
   position: fixed;
@@ -2841,7 +2644,7 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
    ever sits underneath it. */
 @media (min-width: 1180px) {
   body[data-rail='beside'] .bar,
-  body[data-rail='beside'] .shell { padding-left: 18.2rem; }
+  body[data-rail='beside'] .shell { padding-left: 17.2rem; }
   body[data-rail='beside'] .rail-toggle,
   body[data-rail='beside'] #rail-close { display: none; }
   .rail { top: 0; }
@@ -2856,111 +2659,9 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
   .rail-inner { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
 }
 
-/* ---------- a slider you can actually drag ----------
-
-   The metronome's speed was a bare native range: sixteen pixels tall and half
-   the width of the sheet, which is a fiddle with a mouse and close to
-   impossible with a thumb. */
-input[type='range'] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 2.2rem;
-  background: none;
-  cursor: pointer;
-}
-
-input[type='range']::-webkit-slider-runnable-track {
-  height: .45rem;
-  border-radius: 999px;
-  background: var(--sunken);
-}
-
-input[type='range']::-moz-range-track {
-  height: .45rem;
-  border-radius: 999px;
-  background: var(--sunken);
-}
-
-input[type='range']::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 1.5rem;
-  height: 1.5rem;
-  margin-top: -.53rem;
-  border-radius: 50%;
-  background: var(--led);
-  border: 3px solid var(--card-solid, #fff);
-  box-shadow: 0 1px 5px rgba(0, 0, 0, .28);
-}
-
-input[type='range']::-moz-range-thumb {
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  background: var(--led);
-  border: 3px solid var(--card-solid, #fff);
-  box-shadow: 0 1px 5px rgba(0, 0, 0, .28);
-}
-
-input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offset: 4px; }
-
-/* ---------- room for a thumb ----------
-
-   Measured rather than guessed: everything interactive was swept on an
-   emulated phone and anything under forty pixels either way is grown here.
-   Only on a touch screen -- with a mouse the same controls are fine small, and
-   growing them everywhere would push the desktop layout about for nothing. */
 @media (pointer: coarse) {
-  .icon-button { width: 44px; min-width: 44px; height: 44px; }
-  .pill { min-height: 42px; }
-
-  /* The metronome slider and the mat's corner handles are dragged, not tapped,
-     so they get more room than a tap target would need. */
-  input[type='range'] { height: 2.75rem; }
-  .crop-handle { width: 42px; height: 42px; margin: -21px 0 0 -21px; }
-
-  /* Rows of small choosers: theme, font, skin, and the colour wells beside
-     them. */
-  .choice button,
-  .segmented button { min-height: 42px; }
-  .colour-field input[type='color'],
-  input[type='color'] { min-height: 40px; }
-  .swatch { width: 40px; height: 40px; }
-
-  /* Full-width rows are easy to hit sideways, but still want a thumb's height. */
-  .make-set,
-  .record-run button,
-  .records-block .stats-row,
-  .stats-row { min-height: 42px; }
-
-  /* The little word-buttons: under the scramble, over the times list, and in
-     the set builder's tools. Padding rather than height, so they stay words. */
-  .scramble-tools .link,
-  .session-tools .link,
-  .selection-actions .link,
-  .filter-chips button,
-  .set-tools .link,
-  .text-button {
-    min-height: 40px;
-    display: inline-flex;
-    align-items: center;
-    padding: .3rem .55rem;
-  }
-
-  .session-tools, .selection-actions { gap: .1rem; }
-
-  .field-select,
-  select { min-height: 42px; }
-
-  .chip, .cube-chip { min-height: 40px; }
-  .colour-swatches i { width: 30px; height: 30px; }
-
-  /* Buttons that sit inside a list row, like "nog eens" on a bad solve. */
-  .worst-row .tiny { min-height: 36px; padding: .3rem .6rem; }
-
-  /* A row of the times list is a tap target in its own right. */
-  .solves-slot .solve { min-height: 52px; }
+  .rail [data-go] { min-height: 44px; }
+  .rail-group > summary { min-height: 40px; }
 }
 
 /* ---------- settings in groups ----------
