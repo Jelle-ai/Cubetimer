@@ -311,3 +311,127 @@ export function weakCase(standing) {
   const sorted = known.slice().sort((a, b) => b.mean - a.mean);
   return { slowest: sorted[0], quickest: sorted[sorted.length - 1], counted: known.length };
 }
+
+/* ---------- the day it clicked ---------- */
+
+/**
+ * When a case stopped being one you had to think about.
+ *
+ * Learning an algorithm does not show up as a slope; it shows up as a step. So
+ * this looks for the split where everything after is a good deal quicker than
+ * everything before, with enough on both sides for that to mean something, and
+ * takes the biggest one. No step, no claim.
+ *
+ * @param {{ms: number, penalty: string, at: number}[]} times oldest first
+ * @returns {{at: number, before: number, after: number, index: number}|null}
+ */
+const CLICK_DROP = 0.75;   // after has to be this much of before, or less
+const CLICK_SIDE = 4;      // and there have to be this many on each side
+
+export function learnedWhen(times) {
+  const values = times.map((one) => effective(one));
+  if (values.filter(Number.isFinite).length < CLICK_SIDE * 2) return null;
+
+  let best = null;
+  for (let split = CLICK_SIDE; split <= values.length - CLICK_SIDE; split++) {
+    const before = median(values.slice(0, split).filter(Number.isFinite));
+    const after = median(values.slice(split).filter(Number.isFinite));
+    if (!Number.isFinite(before) || !Number.isFinite(after)) continue;
+    if (after > before * CLICK_DROP) continue;
+    const drop = before - after;
+    if (!best || drop > best.drop) {
+      best = { drop, at: times[split]?.at || 0, before, after, index: split };
+    }
+  }
+  if (!best) return null;
+  const { drop, ...rest } = best;
+  return rest;
+}
+
+/* ---------- you, against you ---------- */
+
+const A_WHILE_MS = 21 * 86400000;
+
+/**
+ * Your best five in a row from a while back, against your best five lately.
+ *
+ * Not your average then and your average now -- those move for all sorts of
+ * reasons. Your best run then against your best run now is the fairest version
+ * of the question you actually want answered, which is whether the good days
+ * are better than the good days used to be.
+ *
+ * @returns {{then: {value: number, times: object[], at: number},
+ *   now: {value: number, times: object[], at: number}, gap: number}|null}
+ */
+export function thenAndNow(solves, now = Date.now(), window = 5) {
+  const scored = counting(solves).filter((solve) => Number.isFinite(solve.at));
+  if (scored.length < window * 4) return null;
+
+  const bestRun = (list) => {
+    let found = null;
+    for (let start = 0; start + window <= list.length; start++) {
+      const slice = list.slice(start, start + window);
+      const times = slice.map(effective);
+      if (times.filter((one) => !Number.isFinite(one)).length > 1) continue;
+      const sorted = times.slice().sort((a, b) => a - b).slice(1, -1);
+      const value = sorted.reduce((sum, one) => sum + one, 0) / sorted.length;
+      if (!Number.isFinite(value)) continue;
+      if (!found || value < found.value) found = { value, times: slice, at: slice[slice.length - 1].at };
+    }
+    return found;
+  };
+
+  const cut = now - A_WHILE_MS;
+  const older = scored.filter((solve) => solve.at < cut);
+  const lately = scored.filter((solve) => solve.at >= cut);
+  if (older.length < window * 2 || lately.length < window * 2) return null;
+
+  const then = bestRun(older);
+  const current = bestRun(lately);
+  if (!then || !current) return null;
+  return { then, now: current, gap: then.value - current.value };
+}
+
+/* ---------- a goal with a date on it ---------- */
+
+/**
+ * Whether a time by a date is still on.
+ *
+ * Worked out from how fast you have actually been improving rather than from
+ * hope: the last hundred solves against the hundred before them give a rate per
+ * day, and the rate says whether the gap that is left closes in time. A rate of
+ * nothing or the wrong way round means there is no date to give, and it says
+ * that instead of inventing one.
+ *
+ * @returns {{now: number, target: number, byDay: number|null, rate: number,
+ *   onTrack: boolean|null, needed: number}|null}
+ */
+export function aimAt(solves, target, deadline, now = Date.now()) {
+  const scored = counting(solves).filter((solve) => Number.isFinite(solve.at));
+  if (scored.length < 40 || !Number.isFinite(target)) return null;
+
+  const half = Math.min(100, Math.floor(scored.length / 2));
+  const older = scored.slice(-half * 2, -half);
+  const lately = scored.slice(-half);
+  const middle = (list) => median(list.map(effective).filter(Number.isFinite));
+
+  const was = middle(older);
+  const is = middle(lately);
+  if (!Number.isFinite(was) || !Number.isFinite(is)) return null;
+
+  const days = Math.max(1, (lately[lately.length - 1].at - older[0].at) / 86400000);
+  const rate = (was - is) / days;          // milliseconds a day, faster is positive
+  const left = is - target;
+  const daysLeft = Number.isFinite(deadline) ? Math.max(0, (deadline - now) / 86400000) : null;
+
+  return {
+    now: is,
+    target,
+    rate,
+    needed: left,
+    daysLeft,
+    // Reached already, or fast enough to close the gap in the time that is left.
+    onTrack: left <= 0 ? true : rate <= 0 ? false : daysLeft === null ? null : rate * daysLeft >= left,
+    byDay: rate > 0 ? now + (left / rate) * 86400000 : null
+  };
+}

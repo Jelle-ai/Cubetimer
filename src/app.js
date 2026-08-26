@@ -11,10 +11,12 @@ import {
   without, yearOfDays
 } from './history.js';
 import { badges, newlyWon, tally, wonIds } from './badges.js';
+import { card as bingoCard, lines as bingoLines } from './bingo.js';
 import { cardFor, drawCard, readShared, shareLink } from './share.js';
 import { MODES, absorb, begin, describe, expired, hushed, ownsSolves, result, runSolves } from './modes.js';
 import {
-  bestOf, caseStanding, cleanPlay, dailyHistory, dailyStreak, dayStamp, dropSet, duelTally, keepSet, setsOf,
+  bestOf, caseStanding, cleanPlay, dailyHistory, dailyStreak, dayStamp, dropSet, duelTally, keepSet,
+  recordSpot, setsOf, spotStanding,
   recordCase, recordDaily, recordDuel, recordRun, runsOf, scoreOf, spellScore
 } from './play.js';
 import { COLOR_SLOTS, LED_COLORS, SKINS, colorOf, loadSettings, saveSettings } from './settings.js';
@@ -25,7 +27,8 @@ import {
   dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
 } from './practice.js';
 import {
-  fairAverage, inspectionPays, sessionShape, trend, weakCase, weakStage, worstSolves
+  aimAt, fairAverage, inspectionPays, learnedWhen, sessionShape, thenAndNow, trend,
+  weakCase, weakStage, worstSolves
 } from './insight.js';
 
 const TAP_WINDOW_MS = 600;    // window in which a second short touch counts as a double tap
@@ -200,6 +203,15 @@ const el = {
   casesGroups: document.getElementById('cases-groups'),
   casesBody: document.getElementById('cases-body'),
   casesFilter: document.getElementById('cases-filter'),
+  warmToggle: document.getElementById('warm-toggle'),
+  aimTime: document.getElementById('aim-time'),
+  aimBy: document.getElementById('aim-by'),
+  aimNote: document.getElementById('aim-note'),
+  spotSheet: document.getElementById('spot-sheet'),
+  spotTitle: document.getElementById('spot-title'),
+  spotClose: document.getElementById('spot-close'),
+  spotGroups: document.getElementById('spot-groups'),
+  spotBody: document.getElementById('spot-body'),
   recordsTabs: document.getElementById('records-tabs'),
   settingsTabs: document.getElementById('settings-tabs'),
   settingsGroups: document.getElementById('settings-groups'),
@@ -1548,6 +1560,12 @@ const play = () => saveFile.play;
 
 /** Where a game solve lands: on the run, and in the strip above the ring. */
 function finishGameSolve(solve) {
+  // The cross round is the one mode that can mark its own homework: the table
+  // knows how short the cross could have been on the scramble you just had.
+  // Not waited for -- building the table takes a few seconds the first time,
+  // and the clock should not sit there while it happens.
+  if (run?.kind === 'cross') sayCrossLength(solve);
+
   const { ended, broke } = absorb(run, solve);
   if (broke) cue('miss');
   renderMode();
@@ -1559,6 +1577,42 @@ function finishGameSolve(solve) {
   runTicker = null;
   keepRun();
   showResult();
+}
+
+/**
+ * How short the cross could have been, said after the solve rather than before:
+ * knowing the number in advance changes how you look at the scramble, and the
+ * point of the round is to look at it the way you always do.
+ */
+async function sayCrossLength(solve) {
+  const hold = run;
+  if (!solve.scramble || currentSession().puzzle !== '333') {
+    hold?.moves.push(NaN);
+    return;
+  }
+  let kit;
+  try {
+    kit = await loadCross();
+  } catch {
+    hold?.moves.push(NaN);
+    return;
+  }
+  if (run !== hold) return;   // the round ended while the table was being built
+
+  const lengths = kit.cross.crossLengths(solve.scramble, kit.kpuzzle, kit.Alg, kit.table);
+  const own = lengths.find((entry) => entry.id === settings.crossFace);
+  hold.moves.push(own ? own.moves : NaN);
+  renderMode();
+  // The last solve's number arrives after the round has already put its result
+  // up, so the result is drawn again once it is in rather than being short by
+  // one for good.
+  if (hold.over && el.roundSheet.open) showResult();
+  if (!own) return;
+
+  const shortest = lengths[0];
+  toast(own.moves === shortest.moves
+    ? `Het kruis kon in ${own.moves} zetten, en op geen enkele kleur korter.`
+    : `Het kruis kon in ${own.moves} zetten op ${own.name} — op ${shortest.name} in ${shortest.moves}.`);
 }
 
 /** A finished run, remembered under its own game. */
@@ -1803,12 +1857,18 @@ function renderMode() {
   } else if (drilling) {
     text = `Trainen — ${drilling.id}`;
     kind = 'drill';
+  } else if (grinding) {
+    text = `Dezelfde scramble tot je onder ${formatTime(grinding.target)} zit — poging ${grinding.tries + 1}`;
+    kind = 'grind';
+  } else if (warmingUp) {
+    text = 'Opwarmen — deze tellen niet mee';
+    kind = 'warm';
   }
 
   el.modeStrip.textContent = text;
   el.modeStrip.hidden = !text;
   el.modeStrip.dataset.kind = kind;
-  el.modeOpen.dataset.active = String(Boolean(run || duel || dailyRun));
+  el.modeOpen.dataset.active = String(Boolean(run || duel || dailyRun || grinding || warmingUp));
   el.body.dataset.hushed = String(hushed(run));
 }
 
@@ -1990,6 +2050,30 @@ el.duelTwo.addEventListener('input', renderDuelNote);
 el.modeClose.addEventListener('click', () => el.modeSheet.close());
 el.roundClose.addEventListener('click', () => el.roundSheet.close());
 
+/** A time to be under, and a date to be under it by. */
+function renderAim() {
+  if (!el.aimTime) return;
+  el.aimTime.value = settings.aimTime ? (settings.aimTime / 1000).toFixed(2).replace(/\.?0+$/, '') : '';
+  el.aimBy.value = settings.aimBy || '';
+}
+
+el.aimTime?.addEventListener('change', () => {
+  const seconds = Number(String(el.aimTime.value).replace(',', '.'));
+  settings.aimTime = Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1000) : 0;
+  storeSettings();
+  renderAim();
+});
+
+el.aimBy?.addEventListener('change', () => {
+  settings.aimBy = el.aimBy.value || '';
+  storeSettings();
+});
+
+el.warmToggle.addEventListener('click', () => {
+  el.modeSheet.close();
+  setWarmUp(!warmingUp);
+});
+
 el.modeStart.addEventListener('click', () => {
   el.modeSheet.close();
   if (picked === 'normal') {
@@ -2003,6 +2087,9 @@ el.modeStart.addEventListener('click', () => {
   }
 
   const number = Number(String(el.modeNumber.value).replace(',', '.'));
+  // The cross round needs the table, and building it takes a few seconds. Start
+  // it now rather than in the pause after the first solve.
+  if (picked === 'cross') loadCross().catch(() => {});
   drilling = null;
   duel = null;
   dailyRun = false;
@@ -2470,6 +2557,160 @@ async function openCaseBook(group = null) {
 }
 
 el.casesClose.addEventListener('click', () => el.casesSheet.close());
+
+
+/* ---------- recognising a case ----------
+
+   No cube, no turning: a picture and four names, and how long you take to say
+   which one you are looking at. That is the half of a case that is usually slow
+   -- knowing the algorithm and finding the case are two different skills, and
+   only one of them is measured by drilling with a cube in your hands.
+
+   The three wrong answers are drawn from the same group, so it is never a
+   guess between a PLL and an F2L. */
+
+let spotGroup = 'pll';
+let spotting = null;    // { entry, choices, at }
+let spotRound = { asked: 0, right: 0, times: [] };
+
+function nextSpot() {
+  const pool = groupCases(spotGroup);
+  if (pool.length < 4) { spotting = null; return; }
+
+  // What you are slowest and least sure about comes up more often, but not
+  // always: a drill that only ever asks the hard ones stops measuring the rest.
+  const standing = spotStanding(play(), spotGroup);
+  const shaky = standing.slice(0, Math.max(4, Math.ceil(standing.length / 3)))
+    .map((row) => pool.find((entry) => entry.id === row.id)).filter(Boolean);
+  const from = shaky.length && Math.random() < 0.5 ? shaky : pool;
+  const entry = from[Math.floor(Math.random() * from.length)];
+
+  const others = pool.filter((one) => one.id !== entry.id);
+  const wrong = [];
+  while (wrong.length < 3 && others.length) {
+    wrong.push(...others.splice(Math.floor(Math.random() * others.length), 1));
+  }
+  const choices = [entry, ...wrong].sort(() => Math.random() - 0.5);
+  spotting = { entry, choices, at: performance.now() };
+}
+
+function renderSpot() {
+  if (!caseSet) return;
+
+  el.spotGroups.replaceChildren(...['f2l', 'oll', 'pll'].map((group) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.dataset.active = String(group === spotGroup);
+    chip.textContent = caseSet.GROUPS[group].name;
+    chip.addEventListener('click', () => {
+      spotGroup = group;
+      spotRound = { asked: 0, right: 0, times: [] };
+      nextSpot();
+      renderSpot();
+    });
+    return chip;
+  }));
+
+  const parts = [];
+  if (!spotting) {
+    parts.push(line('Te weinig gevallen in deze groep om uit te kiezen.', 'import-note'));
+    el.spotBody.replaceChildren(...parts);
+    return;
+  }
+
+  const card = document.createElement('div');
+  card.className = 'spot-card';
+  card.append(caseThumb(spotting.entry));
+  parts.push(card);
+
+  const answers = document.createElement('div');
+  answers.className = 'spot-answers';
+  for (const choice of spotting.choices) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'spot-answer';
+    const name = document.createElement('b');
+    name.textContent = choice.id;
+    button.append(name);
+    if (choice.name && choice.name !== choice.id) {
+      const about = document.createElement('small');
+      about.textContent = choice.name;
+      button.append(about);
+    }
+    button.addEventListener('click', () => answerSpot(choice, button));
+    answers.append(button);
+  }
+  parts.push(answers);
+
+  const score = document.createElement('p');
+  score.className = 'records-aside';
+  if (spotRound.asked) {
+    const middle = spotRound.times.slice().sort((a, b) => a - b)[spotRound.times.length >> 1];
+    score.textContent = `${spotRound.right} van ${spotRound.asked} goed · ${formatTime(middle)} per keer`;
+  } else {
+    score.textContent = 'Welk geval zie je? Tik de naam aan.';
+  }
+  parts.push(score);
+
+  const standing = spotStanding(play(), spotGroup);
+  if (standing.length >= 3) {
+    const rows = standing.slice(0, 6).map((row) => [
+      row.id,
+      `${formatTime(row.mean)} · ${row.right}/${row.count} goed`
+    ]);
+    const block = document.createElement('section');
+    block.className = 'records-block';
+    const heading = document.createElement('h3');
+    heading.textContent = 'Waar je het langst over doet';
+    block.append(heading, figures(rows));
+    parts.push(block);
+  }
+
+  el.spotBody.replaceChildren(...parts);
+}
+
+function answerSpot(choice, button) {
+  if (!spotting || button.dataset.said) return;
+  const took = performance.now() - spotting.at;
+  const right = choice.id === spotting.entry.id;
+
+  recordSpot(play(), spotGroup, spotting.entry.id, took, right);
+  persist();
+  spotRound.asked++;
+  spotRound.times.push(took);
+  if (right) spotRound.right++;
+
+  // The answer stays on screen for a moment: getting it wrong and being shown
+  // which one it was is the only part of this that teaches you anything.
+  for (const other of el.spotBody.querySelectorAll('.spot-answer')) {
+    other.dataset.said = 'true';
+    if (other.querySelector('b').textContent === spotting.entry.id) other.dataset.right = 'true';
+  }
+  if (!right) button.dataset.wrong = 'true';
+  cue(right ? 'target' : 'miss');
+
+  setTimeout(() => {
+    nextSpot();
+    renderSpot();
+  }, right ? 320 : 1100);
+}
+
+async function openSpot(group = null) {
+  if (group) spotGroup = group;
+  try {
+    await loadCases();
+  } catch {
+    toast('De gevallen konden niet geladen worden.');
+    return;
+  }
+  spotRound = { asked: 0, right: 0, times: [] };
+  nextSpot();
+  renderSpot();
+  openSheet(el.spotSheet);
+}
+
+el.spotClose.addEventListener('click', () => el.spotSheet.close());
 
 /* ---------- the drill itself ---------- */
 
@@ -3056,6 +3297,100 @@ function showShared() {
   openSheet(el.pickedSheet);
 }
 
+
+
+/* ---------- warming up ----------
+
+   Measured over every sitting in the app: the first few solves are slower than
+   the rest, reliably. Until now they went into your average anyway and dragged
+   it about. Switched on, they are marked as not counting -- the same mark the
+   list already has -- so they are yours to look at and nobody's to average. */
+
+let warmingUp = false;
+
+function setWarmUp(on) {
+  warmingUp = on;
+  el.body.dataset.warm = String(on);
+  renderMode();
+  toast(on
+    ? 'Opwarmen — deze tellen niet mee. Zet het uit als je begint.'
+    : 'Opwarmen uit. Vanaf nu telt alles weer mee.');
+}
+
+/* ---------- one scramble until it goes right ----------
+
+   A solve that went badly is worth doing again, and again, until it goes the
+   way it should have. The app keeps the scramble, so it can simply keep handing
+   it back -- and it knows what your ordinary pace is, so it knows when to stop. */
+
+let grinding = null;   // { scramble, target, tries }
+
+function startGrind(solve) {
+  const scored = counting(solves).map(effective).filter(Number.isFinite);
+  if (scored.length < 5) { toast('Nog te weinig tijden om te weten wat goed genoeg is.'); return; }
+  const middle = scored.slice().sort((a, b) => a - b)[scored.length >> 1];
+
+  grinding = { scramble: solve.scramble, target: middle, tries: 0 };
+  setScramble(solve.scramble);
+  keepScramble = true;
+  renderMode();
+  toast(`Deze scramble blijft staan tot je onder ${formatTime(middle)} zit.`);
+}
+
+function stopGrind(said) {
+  grinding = null;
+  keepScramble = false;
+  renderMode();
+  newScramble();
+  if (said) toast(said);
+}
+
+function judgeGrind(solve) {
+  grinding.tries++;
+  const value = effective(solve);
+  const beat = Number.isFinite(value) && value < grinding.target;
+
+  if (beat) {
+    cue('win');
+    if (settings.celebrate) confetti('burst');
+    stopGrind(`${formatSolve(solve)} — onder ${formatTime(grinding.target)} na ${grinding.tries} ${grinding.tries === 1 ? 'poging' : 'pogingen'}.`);
+    return;
+  }
+
+  keepScramble = true;
+  setScramble(grinding.scramble);
+  renderMode();
+  toast(`${formatSolve(solve)} — nog niet onder ${formatTime(grinding.target)}. Poging ${grinding.tries + 1}.`, {
+    label: 'Genoeg',
+    run: () => stopGrind('')
+  });
+}
+
+/* ---------- when to stop ----------
+
+   The shape of a sitting says people get slower towards the end, and nobody
+   notices it happening. Eight in a row slower than the eight you opened with is
+   not a bad patch, it is being tired -- so it is said once, quietly, and not
+   again for half an hour. */
+
+const REST_GAP_MS = 30 * 60 * 1000;
+let restSaid = 0;
+
+function restIfFlagging() {
+  if (Date.now() - restSaid < REST_GAP_MS) return;
+  const run = thisSitting();
+  if (run.length < 16) return;
+
+  const values = run.map(effective).filter(Number.isFinite);
+  if (values.length < 16) return;
+  const middle = (list) => list.slice().sort((a, b) => a - b)[list.length >> 1];
+  const opened = middle(values.slice(0, 8));
+  const lately = middle(values.slice(-8));
+  if (!(lately > opened * 1.06)) return;
+
+  restSaid = Date.now();
+  toast(`Je laatste acht zijn ${formatTime(lately - opened)} trager dan je eerste acht. Even vijf minuten?`);
+}
 
 /* ---------- the closing ritual ----------
 
@@ -3785,12 +4120,11 @@ function worstBlock() {
       const again = document.createElement('button');
       again.type = 'button';
       again.className = 'ghost tiny';
-      again.textContent = 'Nog eens';
+      again.textContent = 'Tot hij zit';
+      again.title = 'Deze scramble blijft komen tot je er onder je gewone tempo op zit';
       again.addEventListener('click', () => {
-        setScramble(entry.solve.scramble);
-        keepScramble = true;
         el.recordsSheet.close();
-        toast('Diezelfde scramble staat klaar.');
+        startGrind(entry.solve);
       });
       row.append(again);
     }
@@ -3817,11 +4151,12 @@ function worstBlock() {
  * page is worse than no tab.
  */
 const RECORD_TABS = [
-  { id: 'now', name: 'Nu', blocks: (kit) => [todayBlock(), podiumBlock(), counterBlock()] },
+  { id: 'now', name: 'Nu', blocks: (kit) => [bingoBlock(), todayBlock(), podiumBlock(), counterBlock()] },
   {
     id: 'better',
     name: 'Vooruitgang',
-    blocks: (kit) => [trendBlock(), shapeBlock(), inspectionBlock(), kit ? fairBlock(kit) : null]
+    blocks: (kit) => [trendBlock(), aimBlock(), thenNowBlock(), shapeBlock(),
+      inspectionBlock(), kit ? fairBlock(kit) : null]
   },
   {
     id: 'weak',
@@ -3836,11 +4171,193 @@ const RECORD_TABS = [
   {
     id: 'back',
     name: 'Terugblik',
-    blocks: (kit) => [badgesBlock(), calendarBlock(), diaryBlock(), longAgoBlock()]
+    blocks: (kit) => [badgesBlock(), calendarBlock(), clickedBlock(), diaryBlock(),
+      longAgoBlock(), yearBlock()]
   }
 ];
 
 let recordTab = settings.recordTab || 'now';
+
+
+/**
+ * You, against you. Your best five in a row from three weeks ago or more,
+ * against your best five lately -- not the averages, which move for all sorts
+ * of reasons, but the good days against the good days.
+ */
+function thenNowBlock() {
+  const shape = thenAndNow(solves);
+  if (!shape) return null;
+
+  const list = document.createElement('div');
+  list.className = 'round-lines';
+  for (const [when, side] of [['Toen', shape.then], ['Nu', shape.now]]) {
+    const row = document.createElement('div');
+    const label = document.createElement('b');
+    label.textContent = `${when} · ${describeMoment(side.at)}`;
+    const figure = document.createElement('span');
+    figure.textContent = `${formatTime(side.value)} — ${side.times.map(formatSolve).join(' ')}`;
+    row.append(label, figure);
+    list.append(row);
+  }
+
+  const note = shape.gap > 200
+    ? `Je beste vijf zijn ${formatTime(shape.gap)} sneller dan je beste vijf van toen. Dat is jij tegen jou, en jij wint.`
+    : shape.gap < -200
+      ? `Je beste vijf van toen waren ${formatTime(-shape.gap)} sneller. Die dag zat er iets in dat er nu niet in zit.`
+      : 'Je beste dagen zijn even goed als ze waren. Dat is niet niets — een piek vasthouden is moeilijker dan hem halen.';
+
+  return recordBlock('Jij tegen jou', [list, line(note, 'records-aside')]);
+}
+
+/**
+ * The day a case stopped being one you had to think about. Learning shows up as
+ * a step rather than a slope, so a step is what is looked for.
+ */
+function clickedBlock() {
+  // Straight out of what has been drilled -- no need for the case library to be
+  // loaded, since the times are keyed by name and the name is all this shows.
+  const found = [];
+  for (const cases of Object.values(play().cases || {})) {
+    for (const [id, times] of Object.entries(cases)) {
+      const moment = learnedWhen(times);
+      if (moment?.at) found.push({ id, ...moment });
+    }
+  }
+  if (!found.length) return null;
+  found.sort((a, b) => b.at - a.at);
+
+  const list = document.createElement('div');
+  list.className = 'round-lines';
+  for (const one of found.slice(0, 8)) {
+    const row = document.createElement('div');
+    const label = document.createElement('b');
+    label.textContent = one.id;
+    const figure = document.createElement('span');
+    figure.textContent = `${new Date(one.at).toLocaleDateString('nl-BE')} · ${formatTime(one.before)} → ${formatTime(one.after)}`;
+    row.append(label, figure);
+    list.append(row);
+  }
+  return recordBlock('Toen het klikte', [list, line(
+    'Een algoritme leren is geen helling maar een trede: op een dag hoef je niet meer na te denken. Dit zijn de dagen waarop dat gebeurde.',
+    'records-aside')]);
+}
+
+/** A time by a date, and whether you are on track for it. */
+function aimBlock() {
+  if (!settings.aimTime) return null;
+  const deadline = settings.aimBy ? new Date(`${settings.aimBy}T23:59:59`).getTime() : NaN;
+  const shape = aimAt(counting(solves), settings.aimTime, deadline);
+  if (!shape) return recordBlock('Je doel', line('Nog te weinig tijden om te zeggen of je op schema ligt.', 'records-aside'));
+
+  const rows = [
+    ['Doel', formatTime(shape.target) + (settings.aimBy ? ` voor ${new Date(deadline).toLocaleDateString('nl-BE')}` : '')],
+    ['Nu', formatTime(shape.now)],
+    ['Nog te gaan', shape.needed <= 0 ? 'gehaald' : formatTime(shape.needed)],
+    ['Je wint per week', shape.rate > 0 ? formatTime(shape.rate * 7) : 'niets op dit moment']
+  ];
+
+  const note = shape.needed <= 0
+    ? 'Gehaald. Zet er een nieuw doel onder, dan blijft dit iets zeggen.'
+    : shape.rate <= 0
+      ? 'Op dit tempo kom je er niet — je tijden zakken op het moment niet. Dat hoeft niets ergs te betekenen, maar een datum kan de app er niet op plakken.'
+      : shape.onTrack === null
+        ? `Op dit tempo haal je het rond ${new Date(shape.byDay).toLocaleDateString('nl-BE')}. Zet er een datum bij en hij zegt of dat op tijd is.`
+        : shape.onTrack
+          ? `Je ligt op schema: op dit tempo zit je er rond ${new Date(shape.byDay).toLocaleDateString('nl-BE')}.`
+          : `Op dit tempo haal je het rond ${new Date(shape.byDay).toLocaleDateString('nl-BE')} — na je datum. Dat is geen ramp, het is alleen eerlijk.`;
+
+  return recordBlock('Je doel', [figures(rows), line(note, 'records-aside')]);
+}
+
+
+/**
+ * Nine small things to go and do this week, sized off your own level.
+ *
+ * Nothing is written down when a square fills: whether it is done is asked of
+ * the week's solves each time the card is drawn, the same way the cabinet works.
+ * A card cannot go wrong by having been recorded wrong.
+ */
+function bingoBlock() {
+  const week = bingoCard(saveFile.sessions, play());
+  if (!week) return null;
+
+  const grid = document.createElement('div');
+  grid.className = 'bingo';
+  for (const square of week.squares) {
+    const cell = document.createElement('div');
+    cell.className = 'bingo-cell';
+    cell.dataset.done = String(square.done);
+    cell.textContent = square.text;
+    grid.append(cell);
+  }
+
+  const rows = bingoLines(week.squares);
+  const note = week.filled === 9
+    ? 'Vol. De volgende kaart staat er maandag.'
+    : rows
+      ? `${week.filled} van de negen, en ${rows} ${rows === 1 ? 'rij' : 'rijen'} vol.`
+      : `${week.filled} van de negen. Elke maandag een nieuwe kaart.`;
+
+  return recordBlock(`Deze week — ${week.name}`, [grid, line(note, 'records-aside')]);
+}
+
+/**
+ * A year in one card. Everything in it is already in the save file; the only
+ * work is choosing which four numbers are worth the space.
+ */
+function yearBlock() {
+  const all = totals(saveFile.sessions);
+  if (all.solves < 50) return null;
+
+  const shape = trend(counting(solves), Math.min(50, Math.floor(counting(solves).length / 2)));
+  const days = byDay(saveFile.sessions);
+  let bestDay = null;
+  for (const [day, seen] of days) {
+    if (seen.best !== null && (!bestDay || seen.best < bestDay.best)) bestDay = { day, ...seen };
+  }
+
+  const rows = [
+    ['Solves', String(all.solves)],
+    ['Aan het draaien', spellDuration(all.ms)],
+    ['Dagen', String(all.days)],
+    ['Sneller geworden', shape && shape.gap > 0 ? formatTime(shape.gap) : '—']
+  ];
+
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.textContent = 'Bewaar als kaart';
+  save.addEventListener('click', async () => {
+    const canvas = drawCard({
+      title: 'mijn cubetimer',
+      headline: String(all.solves),
+      lines: [
+        `solves in ${all.days} ${all.days === 1 ? 'dag' : 'dagen'}`,
+        `${spellDuration(all.ms)} aan het draaien`,
+        bestDay ? `beste dag ${new Date(`${bestDay.day}T12:00:00`).toLocaleDateString('nl-BE')} — ${formatTime(bestDay.best)}` : '',
+        shape && shape.gap > 0 ? `${formatTime(shape.gap)} sneller dan toen je begon` : ''
+      ].filter(Boolean),
+      footer: [settings.shareName, new Date().toLocaleDateString('nl-BE')].filter(Boolean).join(' \u00b7 '),
+      accent: colorOf(settings, 'led'),
+      dark: settings.theme === 'dark'
+    });
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    const address = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = address;
+    link.download = `cubetimer-alles-${new Date().toISOString().slice(0, 10)}.png`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(address), 20000);
+    toast('Kaartje bewaard.');
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'detail-actions';
+  actions.append(save);
+
+  return recordBlock('Alles bij elkaar', [figures(rows), actions]);
+}
 
 function renderRecords(kit = crossKit) {
   el.recordsTitle.textContent = `Records — ${currentSession().name}`;
@@ -4360,6 +4877,7 @@ function persist() {
  */
 function addSolve(ms, marks = []) {
   const solve = { ms, penalty: pendingPenalty, scramble, at: Date.now() };
+  if (warmingUp) solve.skip = true;
   if (marks.length) solve.splits = marks;
   if (settings.cube) solve.cube = settings.cube;
   if (Number.isFinite(lastInspection)) solve.inspect = lastInspection;
@@ -4382,6 +4900,9 @@ function addSolve(ms, marks = []) {
   rematch = null;
   renderRematch();
   delete el.repeatScramble.dataset.active;
+
+  if (grinding) { judgeGrind(solve); return; }
+  restIfFlagging();
 
   judgeSolve(previousBest);
 
@@ -6163,6 +6684,7 @@ const WIDE = matchMedia('(min-width: 1180px)');
 const RAIL = {
   'drill-open': () => openDrill(),
   'cases-times': () => openCaseBook(),
+  'spot-open': () => openSpot(),
   'mode-open': () => el.modeOpen.click(),
   'metro-open': () => openMetro(),
   stats: () => el.statsButton.click(),
@@ -6247,6 +6769,7 @@ setPhase('idle');
 renderScramble();
 applySettings(); // sets the ring colour, decimals, hint and renders the session
 renderCubes();
+renderAim();
 renderCrossFace();
 renderTastePick();
 renderSkins();

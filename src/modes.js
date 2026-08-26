@@ -35,6 +35,11 @@ export const MODES = {
     name: 'Wedstrijdronde',
     about: 'Vijf solves, beste en slechtste eraf. Aan het eind een resultaat.',
     number: { label: 'Aantal solves', unit: 'solves', fallback: 5 }
+  },
+  cross: {
+    name: 'Alleen het kruis',
+    about: 'Leg alleen het kruis en stop. Achteraf zie je in hoeveel zetten het had gekund — de enige oefening waarbij de app je kan nakijken.',
+    number: { label: 'Aantal solves', unit: 'solves', fallback: 12 }
   }
 };
 
@@ -56,6 +61,7 @@ export function begin(kind, number) {
     solves: [],
     streak: 0,     // marathon only: how many are alive right now
     bestStreak: 0,
+    moves: [],     // cross only: how short each cross could have been
     over: false
   };
 }
@@ -94,6 +100,10 @@ export function absorb(run, solve) {
     return { ended: true, broke: false };
   }
   if (run.kind === 'blind' && done >= run.number) {
+    run.over = true;
+    return { ended: true, broke: false };
+  }
+  if (run.kind === 'cross' && done >= run.number) {
     run.over = true;
     return { ended: true, broke: false };
   }
@@ -136,6 +146,15 @@ export function describe(run, now) {
       : `Verrassing — nog ${left} te gaan, je ziet ze straks allemaal`;
   }
 
+  if (run.kind === 'cross') {
+    const left = Math.max(0, run.number - done);
+    const known = run.moves.filter(Number.isFinite);
+    const spent = known.length ? ` · kruis kon in ${(known.reduce((sum, n) => sum + n, 0) / known.length).toFixed(1)} zetten` : '';
+    return run.over
+      ? `Kruis-ronde voorbij — ${done} solves${spent}`
+      : `Alleen het kruis — nog ${left} te gaan${spent}`;
+  }
+
   if (run.kind === 'round') {
     return run.over
       ? 'Ronde afgelopen'
@@ -149,6 +168,23 @@ export function describe(run, now) {
  * @returns {{lines: [string, string][], headline: string}}
  */
 export function result(run) {
+  if (run?.kind === 'cross') {
+    const times = runSolves(run).map(effective).filter(Number.isFinite);
+    const known = (run.moves || []).filter(Number.isFinite);
+    const middle = times.slice().sort((a, b) => a - b)[times.length >> 1];
+    return {
+      title: 'Alleen het kruis',
+      headline: Number.isFinite(middle) ? formatTime(middle) : '—',
+      lines: [
+        ['Solves', String(times.length)],
+        ['Snelste', times.length ? formatTime(Math.min(...times)) : '—'],
+        ['Kruis kon in', known.length ? `${(known.reduce((sum, n) => sum + n, 0) / known.length).toFixed(1)} zetten` : '—'],
+        ['Langste kruis', known.length ? `${Math.max(...known)} zetten` : '—']
+      ],
+      score: Number.isFinite(middle) ? middle : 0
+    };
+  }
+
   const mine = run.solves;
   const shape = MODES[run.kind];
   const lines = [];

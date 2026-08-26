@@ -26,7 +26,7 @@ const KEEP_SETS = 40;
 const KEEP_IN_SET = 60;
 
 export function emptyPlay() {
-  return { runs: [], daily: {}, cases: {}, duels: [], sets: [] };
+  return { runs: [], daily: {}, cases: {}, duels: [], sets: [], spot: {} };
 }
 
 /**
@@ -77,6 +77,20 @@ export function cleanPlay(play) {
         // youngest last, rather than one of them being quietly dropped.
         safe.cases[home][id] = (safe.cases[home][id] || []).concat(kept)
           .sort((a, b) => (a.at || 0) - (b.at || 0))
+          .slice(-KEEP_CASE_TIMES);
+      }
+    }
+  }
+
+  if (play.spot && typeof play.spot === 'object') {
+    for (const [group, cases] of Object.entries(play.spot)) {
+      if (!cases || typeof cases !== 'object') continue;
+      safe.spot[group] = {};
+      for (const [id, tries] of Object.entries(cases)) {
+        if (!Array.isArray(tries)) continue;
+        safe.spot[group][id] = tries
+          .filter((one) => one && Number.isFinite(one.ms) && one.ms >= 0)
+          .map((one) => ({ ms: one.ms, right: one.right !== false, at: Number.isFinite(one.at) ? one.at : 0 }))
           .slice(-KEEP_CASE_TIMES);
       }
     }
@@ -160,7 +174,7 @@ export function dailyStreak(play, today = dayStamp()) {
 export function scoreOf(kind, times, best) {
   if (kind === 'marathon') return best;
   if (kind === 'sprint' || kind === 'blind') return times.length;
-  if (kind === 'round') {
+  if (kind === 'round' || kind === 'cross') {
     const average = averageOf(times, times.length);
     return Number.isFinite(average) ? Math.round(average) : 0;
   }
@@ -168,7 +182,7 @@ export function scoreOf(kind, times, best) {
 }
 
 /** Lower is better for a round; higher is better for the rest. */
-export const lowerWins = (kind) => kind === 'round';
+export const lowerWins = (kind) => kind === 'round' || kind === 'cross';
 
 export function recordRun(play, kind, number, times, score) {
   play.runs.push({
@@ -199,7 +213,7 @@ export function bestOf(play, kind) {
 export function spellScore(kind, score) {
   if (kind === 'marathon') return `${score} op rij`;
   if (kind === 'sprint' || kind === 'blind') return `${score} ${score === 1 ? 'solve' : 'solves'}`;
-  if (kind === 'round') return formatTime(score);
+  if (kind === 'round' || kind === 'cross') return formatTime(score);
   return String(score);
 }
 
@@ -224,6 +238,48 @@ export function caseStanding(play, group) {
         count: values.length,
         best: Math.min(...values),
         mean: values.reduce((sum, t) => sum + t, 0) / values.length
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.mean - a.mean);
+}
+
+/* ---------- recognising a case ----------
+
+   Knowing an algorithm and being able to use it are two different skills, and
+   the second one is usually what is slow. So this is timed separately: no cube,
+   no turning, only how long it takes you to say which case you are looking at.
+   Right and wrong are both kept, because a case you get wrong quickly is a
+   worse problem than one you get right slowly. */
+
+export function recordSpot(play, group, id, ms, right) {
+  play.spot ||= {};
+  play.spot[group] ||= {};
+  const tries = (play.spot[group][id] ||= []);
+  tries.push({ ms: Math.round(ms), right, at: Date.now() });
+  if (tries.length > KEEP_CASE_TIMES) tries.splice(0, tries.length - KEEP_CASE_TIMES);
+}
+
+/**
+ * How well you know each case by sight, worst first. A case you get wrong is
+ * counted as the time it took plus a penalty, because the point of the drill is
+ * the delay a shaky case costs you and a wrong answer costs you all of it.
+ */
+const SPOT_MISS = 4000;
+
+export function spotStanding(play, group) {
+  const cases = play.spot?.[group] || {};
+  return Object.entries(cases)
+    .map(([id, tries]) => {
+      if (!tries.length) return null;
+      const scored = tries.map((one) => (one.right ? one.ms : one.ms + SPOT_MISS));
+      const right = tries.filter((one) => one.right).length;
+      return {
+        id,
+        count: tries.length,
+        right,
+        best: Math.min(...tries.filter((one) => one.right).map((one) => one.ms), Infinity),
+        mean: scored.reduce((sum, ms) => sum + ms, 0) / scored.length
       };
     })
     .filter(Boolean)
@@ -344,6 +400,16 @@ export function mergePlay(mine, theirs) {
   // A set from the other device is taken as it is unless there is already one
   // of that name in that group, which stays: a name you chose here means more
   // than the same name chosen there.
+  for (const [group, cases] of Object.entries(arriving.spot || {})) {
+    merged.spot[group] ||= {};
+    for (const [id, tries] of Object.entries(cases)) {
+      const have = new Set((merged.spot[group][id] || []).map((one) => one.at));
+      const kept = (merged.spot[group][id] || []).concat(tries.filter((one) => !have.has(one.at)));
+      kept.sort((a, b) => (a.at || 0) - (b.at || 0));
+      merged.spot[group][id] = kept.slice(-KEEP_CASE_TIMES);
+    }
+  }
+
   for (const set of arriving.sets) {
     const clash = merged.sets.some((mine) =>
       mine.group === set.group && mine.name.toLowerCase() === set.name.toLowerCase());

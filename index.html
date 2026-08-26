@@ -108,6 +108,10 @@
       <path d="M8.6 4.6H6.4A1.4 1.4 0 0 0 5 6v13a1.4 1.4 0 0 0 1.4 1.4h11.2A1.4 1.4 0 0 0 19 19V6a1.4 1.4 0 0 0-1.4-1.4h-2.2"/>
       <rect x="8.6" y="2.8" width="6.8" height="3.6" rx="1.2"/>
     </g>
+    <g id="mark-eye" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2.4 12S6 5.4 12 5.4 21.6 12 21.6 12 18 18.6 12 18.6 2.4 12 2.4 12Z"/>
+      <circle cx="12" cy="12" r="2.9"/>
+    </g>
     <g id="mark-gear" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="3.1"/>
         <path d="M12 2.6a1.4 1.4 0 0 1 1.4 1.4v.5a1.4 1.4 0 0 0 .85 1.28 1.4 1.4 0 0 0 1.54-.28l.35-.35a1.4 1.4 0 1 1 1.98 1.98l-.35.35a1.4 1.4 0 0 0-.28 1.54 1.4 1.4 0 0 0 1.28.85h.5a1.4 1.4 0 0 1 0 2.8h-.5a1.4 1.4 0 0 0-1.28.85 1.4 1.4 0 0 0 .28 1.54l.35.35a1.4 1.4 0 1 1-1.98 1.98l-.35-.35a1.4 1.4 0 0 0-1.54-.28 1.4 1.4 0 0 0-.85 1.28v.5a1.4 1.4 0 0 1-2.8 0v-.5a1.4 1.4 0 0 0-.85-1.28 1.4 1.4 0 0 0-1.54.28l-.35.35a1.4 1.4 0 1 1-1.98-1.98l.35-.35a1.4 1.4 0 0 0 .28-1.54 1.4 1.4 0 0 0-1.28-.85H4a1.4 1.4 0 0 1 0-2.8h.5a1.4 1.4 0 0 0 1.28-.85 1.4 1.4 0 0 0-.28-1.54l-.35-.35a1.4 1.4 0 1 1 1.98-1.98l.35.35a1.4 1.4 0 0 0 1.54.28h.05A1.4 1.4 0 0 0 10.1 4.5V4A1.4 1.4 0 0 1 12 2.6Z"/>
@@ -126,6 +130,7 @@
       <summary>Oefenen</summary>
       <button type="button" data-go="drill-open"><svg viewBox="0 0 24 24"><use href="#mark-cases"/></svg>Gevallen trainen</button>
       <button type="button" data-go="cases-times"><svg viewBox="0 0 24 24"><use href="#mark-times"/></svg>Gevallenboek</button>
+      <button type="button" data-go="spot-open"><svg viewBox="0 0 24 24"><use href="#mark-eye"/></svg>Herkennen</button>
       <button type="button" data-go="mode-open"><svg viewBox="0 0 24 24"><use href="#mark-play"/></svg>Spelletjes en modi</button>
       <button type="button" data-go="metro-open"><svg viewBox="0 0 24 24"><use href="#mark-metro"/></svg>Metronoom</button>
     </details>
@@ -473,7 +478,10 @@
 
     <div class="detail-actions">
       <button type="button" id="mode-start">Beginnen</button>
+      <button type="button" id="warm-toggle">Opwarmen</button>
     </div>
+    <p class="import-note">Tijdens het opwarmen tellen je solves niet mee in je gemiddelden — je
+      eerste paar zijn meetbaar trager en die hoeven je cijfers niet te vertroebelen.</p>
 
     <h3 class="transfer-head">Met zijn tweeën</h3>
     <div class="move-new">
@@ -545,6 +553,19 @@
 </dialog>
 
 <!-- Every case you have ever drilled, with the times under it. -->
+<!-- Recognising a case, without a cube and without turning anything: how long
+     it takes you to say what you are looking at. -->
+<dialog id="spot-sheet" class="sheet sheet-tall" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2 id="spot-title">Herkennen</h2>
+      <button type="button" id="spot-close" class="icon-button" aria-label="Sluiten">✕</button>
+    </header>
+    <div id="spot-groups" class="chip-row"></div>
+    <div id="spot-body" class="sheet-scroll"></div>
+  </div>
+</dialog>
+
 <dialog id="cases-sheet" class="sheet sheet-tall" tabindex="-1">
   <div class="sheet-inner">
     <header class="sheet-head">
@@ -977,6 +998,18 @@
               <div class="setting-control">
                 <input id="set-target-value" class="number-input" type="number" min="1" max="600" step="0.5" inputmode="decimal">
                 <button type="button" class="switch" id="set-target" role="switch" aria-checked="false" aria-label="Doeltijd"><span></span></button>
+              </div>
+            </section>
+
+        <section class="setting stacked">
+              <div class="setting-label">
+                <span>Doel met een datum</span>
+                <small id="aim-note">Een tijd waar je onder wilt, en wanneer. Uit je eigen tempo van de
+                  afgelopen honderd solves rekent hij uit of je op schema ligt</small>
+              </div>
+              <div class="move-new">
+                <input type="text" id="aim-time" inputmode="decimal" autocomplete="off" placeholder="bv. 15 of 14.5">
+                <input type="date" id="aim-by" aria-label="Voor wanneer">
               </div>
             </section>
       </section>

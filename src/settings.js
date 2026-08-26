@@ -106,6 +106,9 @@ const DEFAULTS = {
   // Whether a drilled case turns up facing a random way. On while you are
   // learning to recognise it; off while you are learning the algorithm itself.
   caseAuf: true,
+  // A time to be under, and a date to be under it by. Both optional.
+  aimTime: 0,
+  aimBy: '',
   wonBadges: [],
   badgesSeeded: false,
   cubes: [],
@@ -167,6 +170,9 @@ export function loadSettings() {
       if (typeof where === 'string' && Number.isInteger(at) && at >= 0 && at < 12) picked[where] = at;
     }
     settings.pickedAlg = picked;
+
+    settings.aimTime = clampNumber(settings.aimTime, 0, 600000, 0);
+    settings.aimBy = /^\d{4}-\d{2}-\d{2}$/.test(settings.aimBy) ? settings.aimBy : '';
 
     settings.railShut = Array.isArray(settings.railShut)
       ? settings.railShut.filter((id) => typeof id === 'string').slice(0, 12)

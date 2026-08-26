@@ -3043,3 +3043,100 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
   .alg-star { min-width: 34px; min-height: 34px; }
   .alg-row .tiny { min-height: 32px; }
 }
+
+/* ---------- recognising a case ----------
+
+   One picture, big enough to read the way you would read it off a cube, and
+   four names under it. Nothing else on the screen: the whole point is the
+   fraction of a second between seeing and knowing. */
+.spot-card {
+  display: grid;
+  place-items: center;
+  padding: .8rem 0 1rem;
+}
+
+.spot-card .case-thumb {
+  width: min(11rem, 52vw);
+  height: min(11rem, 52vw);
+  background: none;
+}
+
+.spot-answers {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: .45rem;
+  margin-bottom: .7rem;
+}
+
+.spot-answer {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  min-height: 54px;
+  padding: .5rem .7rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  border: 2px solid transparent;
+  text-align: left;
+  color: var(--ink);
+  transition: background .12s, border-color .12s;
+}
+
+.spot-answer:hover { background: var(--hover); }
+.spot-answer b { font-size: .95rem; font-weight: 600; }
+.spot-answer small { font-size: .7rem; line-height: 1.2; color: var(--muted); }
+
+/* Once you have answered, the right one lights up and the one you picked, if it
+   was not that one, says so. */
+.spot-answer[data-said='true'] { pointer-events: none; }
+.spot-answer[data-right='true'] {
+  border-color: var(--ready);
+  background: color-mix(in srgb, var(--ready) 16%, var(--sunken));
+}
+.spot-answer[data-wrong='true'] {
+  border-color: var(--hold);
+  background: color-mix(in srgb, var(--hold) 14%, var(--sunken));
+}
+
+/* ---------- the card of the week ----------
+
+   Nine squares that are meant to be just out of reach. A filled one is not
+   ticked off in a list somewhere -- it is worked out from the week's solves
+   every time the card is drawn -- so what it shows is always true. */
+.bingo {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .3rem;
+}
+
+.bingo-cell {
+  display: grid;
+  place-items: center;
+  min-height: 4.6rem;
+  padding: .4rem;
+  border-radius: 10px;
+  background: var(--sunken);
+  border: 2px solid transparent;
+  font-size: .7rem;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--ink-soft, var(--muted));
+}
+
+.bingo-cell[data-done='true'] {
+  border-color: color-mix(in srgb, var(--ready) 60%, transparent);
+  background: color-mix(in srgb, var(--ready) 14%, var(--sunken));
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* A tick in the corner rather than over the words, which have to stay readable. */
+.bingo-cell[data-done='true']::after {
+  content: '✓';
+  position: absolute;
+  transform: translate(2.2rem, -1.4rem);
+  font-size: .7rem;
+  color: var(--ready);
+}
+
+.bingo-cell { position: relative; }
