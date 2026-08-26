@@ -98,6 +98,8 @@ const DEFAULTS = {
   taste: 'any',
   // Which group of the settings you were last looking at.
   settingsTab: 'timer',
+  // And which part of the look-back sheet.
+  recordTab: 'now',
   wonBadges: [],
   badgesSeeded: false,
   cubes: [],

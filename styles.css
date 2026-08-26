@@ -2849,6 +2849,11 @@ body[data-phase="running"] .halo { transition: box-shadow .45s ease, background 
 
 @media (max-width: 1179px) {
   .rail { box-shadow: 0 0 40px -8px rgba(0, 0, 0, .35); }
+
+  /* On a phone the bar sits along the bottom, and the drawer runs the full
+     height behind it -- so the last item or two could never be scrolled clear
+     of it, whichever way you flicked. The list ends a bar's height early. */
+  .rail-inner { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
 }
 
 /* ---------- a slider you can actually drag ----------
@@ -2933,6 +2938,8 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
      the set builder's tools. Padding rather than height, so they stay words. */
   .scramble-tools .link,
   .session-tools .link,
+  .selection-actions .link,
+  .filter-chips button,
   .set-tools .link,
   .text-button {
     min-height: 40px;
@@ -2941,7 +2948,7 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
     padding: .3rem .55rem;
   }
 
-  .session-tools { gap: .1rem; }
+  .session-tools, .selection-actions { gap: .1rem; }
 
   .field-select,
   select { min-height: 42px; }

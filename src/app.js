@@ -229,6 +229,7 @@ const el = {
   casesGroups: document.getElementById('cases-groups'),
   casesBody: document.getElementById('cases-body'),
   welcome: document.getElementById('welcome'),
+  recordsTabs: document.getElementById('records-tabs'),
   settingsTabs: document.getElementById('settings-tabs'),
   settingsGroups: document.getElementById('settings-groups'),
   rail: document.getElementById('rail'),
@@ -3733,18 +3734,79 @@ function worstBlock() {
     'records-aside')]);
 }
 
+/**
+ * The look-back sheet, in five parts.
+ *
+ * Nineteen blocks in one scroll is a scroll nobody finishes, and the good bits
+ * are at the bottom. They are grouped the way you would ask for them -- how is
+ * it going now, am I getting better, where am I losing it, what have I ever
+ * done, what does the whole history look like -- with a strip of tabs to step
+ * between them.
+ *
+ * A group that has nothing in it is not offered at all: with twelve solves to
+ * your name there is no progress to show yet, and a tab leading to an empty
+ * page is worse than no tab.
+ */
+const RECORD_TABS = [
+  { id: 'now', name: 'Nu', blocks: (kit) => [todayBlock(), podiumBlock(), counterBlock()] },
+  {
+    id: 'better',
+    name: 'Vooruitgang',
+    blocks: (kit) => [trendBlock(), shapeBlock(), inspectionBlock(), kit ? fairBlock(kit) : null]
+  },
+  {
+    id: 'weak',
+    name: 'Zwaktes',
+    blocks: (kit) => [weakBlock(), splitsBlock(), worstBlock(), kit ? crossBlock(kit) : null]
+  },
+  {
+    id: 'records',
+    name: 'Records',
+    blocks: (kit) => [recordHistoryBlock(), runsBlock(), whatIfBlock(), cubesBlock()]
+  },
+  {
+    id: 'back',
+    name: 'Terugblik',
+    blocks: (kit) => [badgesBlock(), calendarBlock(), diaryBlock(), longAgoBlock()]
+  }
+];
+
+let recordTab = settings.recordTab || 'now';
+
 function renderRecords(kit = crossKit) {
   el.recordsTitle.textContent = `Records — ${currentSession().name}`;
-  const blocks = [
-    todayBlock(), podiumBlock(), trendBlock(), shapeBlock(), inspectionBlock(),
-    badgesBlock(), calendarBlock(), splitsBlock(), weakBlock(),
-    recordHistoryBlock(), runsBlock(), kit ? crossBlock(kit) : null,
-    kit ? fairBlock(kit) : null, cubesBlock(), worstBlock(),
-    whatIfBlock(), diaryBlock(), longAgoBlock(), counterBlock()
-  ].filter(Boolean);
 
-  el.recordsBody.replaceChildren(...(blocks.length ? blocks
-    : [line('Nog te weinig tijden om iets terug te kijken. Solve er een paar en kom terug.')]));
+  const built = RECORD_TABS
+    .map((tab) => ({ ...tab, made: tab.blocks(kit).filter(Boolean) }))
+    .filter((tab) => tab.made.length);
+
+  if (!built.length) {
+    el.recordsTabs.replaceChildren();
+    el.recordsBody.replaceChildren(
+      line('Nog te weinig tijden om iets terug te kijken. Solve er een paar en kom terug.'));
+    return;
+  }
+
+  if (!built.some((tab) => tab.id === recordTab)) recordTab = built[0].id;
+
+  el.recordsTabs.replaceChildren(...built.map((tab) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.dataset.active = String(tab.id === recordTab);
+    chip.textContent = tab.name;
+    chip.addEventListener('click', () => {
+      recordTab = tab.id;
+      settings.recordTab = tab.id;
+      storeSettings();
+      renderRecords(kit);
+      el.recordsBody.scrollTo({ top: 0 });
+    });
+    return chip;
+  }));
+
+  const showing = built.find((tab) => tab.id === recordTab);
+  el.recordsBody.replaceChildren(...showing.made);
 }
 
 el.shareOpen.addEventListener('click', () => {
