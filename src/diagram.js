@@ -187,6 +187,26 @@ async function build() {
   return { net, places, up: [...upColours][0] };
 }
 
+/**
+ * The six faces of a solved cube as three-by-three grids of stickers, in the
+ * net's own orientation, plus the way to read a colour off any state.
+ *
+ * The three-dimensional cube is built on this: it needs all fifty-four
+ * facelets, and the whole point of deriving them from the puzzle's own net is
+ * that a table typed out by hand can disagree with the puzzle that makes the
+ * scrambles. Everything here is derived once and checked before it is handed
+ * out.
+ */
+export async function faceMap() {
+  const built = await lastLayerMap();
+  if (!built) return null;
+  return {
+    faces: built.places.faces,
+    kpuzzle: built.net.kpuzzle,
+    colourOf: (pattern, sticker) => colourAt(built.net, pattern, sticker)
+  };
+}
+
 /** Built once, and never again -- the answer cannot change. */
 export function lastLayerMap() {
   mapping ??= build().catch((error) => {

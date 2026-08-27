@@ -3762,3 +3762,84 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
   .road-stop[data-here='true'] .road-halo { animation: none !important; }
   .chip:active, .link:active { transform: none; }
 }
+
+/* ---------- the cube you can watch and turn ----------
+
+   Twenty-six little boxes at fixed places; only their sticker colours change.
+   A turn is a temporary group of nine of them rotating a quarter, and when it
+   lands the group is dissolved and everything is repainted from the real state.
+   So there is nothing to keep in step and nothing to drift. */
+
+.cube3d {
+  width: var(--cube-size, 200px);
+  height: var(--cube-size, 200px);
+  perspective: calc(var(--cube-size, 200px) * 4);
+  perspective-origin: 50% 50%;
+  flex: none;
+  touch-action: none;
+}
+
+.cube3d[data-drag='true'] { cursor: grab; }
+.cube3d[data-drag='true']:active { cursor: grabbing; }
+
+.cube3d-box {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* One little box is one em, so the whole cube scales with the one number. */
+  font-size: calc(var(--cube-size, 200px) / 3.9);
+  transform-style: preserve-3d;
+  transition: transform .4s cubic-bezier(.2, .9, .3, 1);
+}
+
+.cube3d-layer {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.cube3d-cubie {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1em;
+  height: 1em;
+  margin: -.5em 0 0 -.5em;
+  transform-style: preserve-3d;
+}
+
+.cube3d-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 14%;
+  border: .055em solid rgba(0, 0, 0, .55);
+  background: #222;
+  box-shadow: inset 0 0 .18em rgba(0, 0, 0, .35);
+}
+
+/* Where a cube sits in a lesson: it holds its place while the words scroll. */
+.cube-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .5rem;
+}
+
+.cube-tools {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.cube-hint {
+  margin: 0;
+  font-size: .72rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cube3d-box { transition: none; }
+}
