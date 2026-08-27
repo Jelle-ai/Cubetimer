@@ -1,8 +1,10 @@
-import { PUZZLES, nextScramble, puzzleById, randomMoveScramble, seeded, warmUp } from './scramble.js';
+import {
+  GROUPS as PUZZLE_GROUPS, PUZZLES, nextScramble, puzzleById, randomMoveScramble, seeded, warmUp
+} from './scramble.js';
 import { bluetoothAvailable, connectGanTimer, isSupported, TimerState } from './gan-timer.js';
 import {
   averageOf, best, bestAverageAt, bestAverageOf, bestMeanAt, bestMeanOf, counting, counts,
-  effective, formatSolve, formatTime, meanOf, sessionMean, setDecimals, worst
+  effective, formatSolve, formatTime, meanOf, sessionMean, setDecimals, setUnit, worst
 } from './stats.js';
 import { KEY as SAVE_KEY, load, save } from './store.js';
 import { backupName, buildBackup, foldIn, inOrder, readBackup, summarise } from './backup.js';
@@ -62,6 +64,7 @@ const el = {
   settings: document.getElementById('settings'),
   puzzles: document.getElementById('puzzles'),
   preview: document.getElementById('preview'),
+  eventExtra: document.getElementById('event-extra'),
   progress: document.getElementById('progress'),
   insight: document.getElementById('insight'),
   colorSlots: document.getElementById('color-slots'),
@@ -558,6 +561,14 @@ function renderStats() {
   el.stats.ao5Best.textContent = formatTime(bestAverageOf(scored, 5));
   el.stats.ao12.textContent = formatTime(averageOf(scored, 12));
   el.stats.ao12Best.textContent = formatTime(bestAverageOf(scored, 12));
+
+  // Blindfolded and fewest moves are scored on a mean of three, not an average
+  // of five. The bar shows the same four numbers either way; which one counts
+  // is marked rather than moved, so nothing jumps about between events.
+  const lead = puzzleById(currentSession().puzzle).score === 'mo3' ? 'mo3' : 'ao5';
+  for (const cell of el.statsButton.querySelectorAll('.stat')) {
+    cell.dataset.lead = String(cell.querySelector('.stat-label')?.textContent === lead);
+  }
 }
 
 /** Which day a solve belongs to, as a number that sorts and compares cleanly. */
@@ -963,18 +974,36 @@ function renderInsight() {
 
 /* ---------- puzzles ---------- */
 
+/**
+ * Seventeen events do not fit in a row of chips, so they are a menu, in four
+ * drawers: the cubes, the blindfolded ones, the two other things you do with a
+ * 3x3, and the puzzles that are not cubes at all. A native select opens the
+ * system picker on a phone and groups properly on a desktop, which is more than
+ * a home-made menu would manage on either.
+ */
 function renderPuzzles() {
-  el.puzzles.innerHTML = '';
   const current = currentSession().puzzle;
-  for (const puzzle of PUZZLES) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'puzzle';
-    button.textContent = puzzle.name;
-    button.dataset.active = String(puzzle.id === current);
-    button.addEventListener('click', () => usePuzzle(puzzle.id));
-    el.puzzles.append(button);
+  const pick = document.createElement('select');
+  pick.className = 'puzzle-pick';
+  pick.setAttribute('aria-label', t('Puzzle'));
+
+  for (const group of PUZZLE_GROUPS) {
+    const mine = PUZZLES.filter((puzzle) => puzzle.group === group.id);
+    if (!mine.length) continue;
+    const drawer = document.createElement('optgroup');
+    drawer.label = t(group.name);
+    for (const puzzle of mine) {
+      const option = document.createElement('option');
+      option.value = puzzle.id;
+      option.textContent = t(puzzle.name);
+      option.selected = puzzle.id === current;
+      drawer.append(option);
+    }
+    pick.append(drawer);
   }
+
+  pick.addEventListener('change', () => usePuzzle(pick.value));
+  el.puzzles.replaceChildren(pick);
 }
 
 /** Switching puzzle moves to that puzzle's session, creating one if needed. */
@@ -995,6 +1024,140 @@ function usePuzzle(id) {
  * Ask for the next official scramble. One is always queued up, so this normally
  * resolves at once; while it does not, the previous scramble stays on screen.
  */
+/* ---------- the events that end with a question ----------
+
+   Two of the seventeen do not end with a time. Fewest moves is scored in moves,
+   so you type your solution in and the app puts it on a real cube to see
+   whether it solves this scramble -- the same machinery that checks the
+   algorithms in the case book. Multi-blind is scored in points, so it asks how
+   many you got right out of how many you went for.
+
+   Everything else on this page ignores both of them entirely. */
+
+/** Moves that count towards a fewest-moves result: turns, not rotations. */
+const countsAsMove = (move) => !/^[xyz]/.test(move);
+
+async function judgeSolution(text, forScramble) {
+  const [{ puzzles }, { Alg }] = await Promise.all([
+    import('../vendor/cubing/puzzles/index.js'),
+    import('../vendor/cubing/alg/index.js')
+  ]);
+  const kpuzzle = await puzzles['3x3x3'].kpuzzle();
+  let end;
+  try {
+    end = kpuzzle.defaultPattern().applyAlg(new Alg(forScramble)).applyAlg(new Alg(text));
+  } catch (error) {
+    return { ok: false, why: t('I cannot read that as a sequence of moves.') };
+  }
+  const solved = kpuzzle.defaultPattern();
+  const done = Object.keys(solved.patternData).every((orbit) =>
+    solved.patternData[orbit].pieces.every((piece, at) =>
+      end.patternData[orbit].pieces[at] === piece
+      && (end.patternData[orbit].orientation?.[at] ?? 0) === (solved.patternData[orbit].orientation?.[at] ?? 0)));
+  if (!done) return { ok: false, why: t('That does not solve this scramble.') };
+  return { ok: true, moves: text.trim().split(/\s+/).filter(Boolean).filter(countsAsMove).length };
+}
+
+function renderEventExtra() {
+  if (!el.eventExtra) return;
+  const puzzle = puzzleById(currentSession().puzzle);
+  el.eventExtra.replaceChildren();
+  el.eventExtra.hidden = !(puzzle.moves || puzzle.many);
+  if (el.eventExtra.hidden) return;
+
+  if (puzzle.moves) {
+    const field = document.createElement('input');
+    field.type = 'text';
+    field.placeholder = t("Your solution, e.g. R' U' F …");
+    field.autocomplete = 'off';
+    field.spellcheck = false;
+
+    const said = document.createElement('p');
+    said.className = 'import-note';
+
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'text-button';
+    go.textContent = t('Count it');
+
+    const judge = async () => {
+      const text = field.value.trim();
+      if (!text) return;
+      go.disabled = true;
+      const verdict = await judgeSolution(text, scramble);
+      go.disabled = false;
+      if (!verdict.ok) {
+        said.textContent = verdict.why;
+        said.dataset.bad = 'true';
+        return;
+      }
+      delete said.dataset.bad;
+      said.textContent = '';
+      field.value = '';
+      // A fewest-moves result is kept as its move count, so every average in
+      // the app goes on working without knowing anything about it.
+      addSolve(verdict.moves * 1000, []);
+      const last = solves[solves.length - 1];
+      if (last) { last.solution = text; persist(); }
+      toast(t('{n} moves, and it solves the scramble.', { n: verdict.moves }));
+    };
+
+    go.addEventListener('click', judge);
+    field.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') { event.preventDefault(); judge(); }
+    });
+    el.eventExtra.append(field, go, said);
+    return;
+  }
+
+  // Multi-blind: how many you are going for, and afterwards how many you got.
+  const many = document.createElement('label');
+  many.append(document.createTextNode(t('Cubes')));
+  const count = document.createElement('input');
+  count.type = 'number';
+  count.min = '2';
+  count.max = '30';
+  count.value = String(settings.mbldCubes || 3);
+  count.addEventListener('change', () => {
+    settings.mbldCubes = Math.max(2, Math.min(Number(count.value) || 3, 30));
+    count.value = String(settings.mbldCubes);
+    storeSettings();
+    newScramble({ allowRematch: false });
+  });
+  many.append(count);
+  el.eventExtra.append(many);
+
+  const last = solves[solves.length - 1];
+  if (!last) {
+    el.eventExtra.append(line(t('Set how many you are going for, then start.'), 'import-note'));
+    return;
+  }
+
+  const got = document.createElement('label');
+  got.append(document.createTextNode(t('Solved')));
+  const right = document.createElement('input');
+  right.type = 'number';
+  right.min = '0';
+  right.max = '30';
+  right.value = String(last.solved ?? '');
+  right.addEventListener('change', () => {
+    last.solved = Math.max(0, Math.min(Number(right.value) || 0, 30));
+    last.tried = settings.mbldCubes || 3;
+    persist();
+    renderEventExtra();
+  });
+  got.append(right);
+  el.eventExtra.append(got);
+
+  if (Number.isInteger(last.solved)) {
+    const tried = last.tried || settings.mbldCubes || 3;
+    const points = last.solved - (tried - last.solved);
+    el.eventExtra.append(line(
+      t('{got} of {tried} — {points} points, in {time}',
+        { got: last.solved, tried, points, time: formatTime(last.ms) }), 'import-note'));
+  }
+}
+
 /* ---------- a scramble you have met before ----------
 
    Every so often the scramble is not a new one but one of your own, from long
@@ -1088,7 +1251,7 @@ let rematch = null;
 function renderTaste() {
   if (!el.scrambleTaste) return;
   const taste = TASTES.find((entry) => entry.id === settings.taste);
-  const on = taste && taste.id !== 'any' && currentSession().puzzle === '333';
+  const on = taste && taste.id !== 'any' && holdingA333();
   el.scrambleTaste.hidden = !on;
   if (!on) return;
   el.scrambleTaste.textContent = tasteMissed
@@ -1139,7 +1302,20 @@ async function newScramble({ allowRematch = true } = {}) {
   let { text, official } = await nextScramble(puzzle);
   if (token !== scrambleToken) return; // a newer request already won
 
-  if (settings.taste !== 'any' && puzzle === '333') {
+  // Multi-blind is not one scramble but as many as you say you will attempt.
+  if (puzzleById(puzzle).many) {
+    const many = Math.max(2, Math.min(settings.mbldCubes || 3, 30));
+    const rest = [];
+    for (let at = 1; at < many; at++) {
+      const one = await nextScramble(puzzle);
+      if (token !== scrambleToken) return;
+      rest.push(one.text);
+      official = official && one.official;
+    }
+    text = [text, ...rest].map((line, at) => `${at + 1}. ${line}`).join('\n');
+  }
+
+  if (settings.taste !== 'any' && holdingA333()) {
     const fitted = await toTaste(text, official, token);
     if (token !== scrambleToken) return;
     text = fitted.text;
@@ -1163,6 +1339,12 @@ async function newScramble({ allowRematch = true } = {}) {
 
 /** This session's goal time in milliseconds, or null when it has none. */
 const currentTarget = () => currentSession().target;
+
+/** The puzzle you are actually holding, which is not the same as the event. */
+const heldCube = () => puzzleById(currentSession().puzzle).cube;
+
+/** Whether the thing in your hands is a 3x3, whatever the event is called. */
+const holdingA333 = () => heldCube() === '333';
 
 function currentSession() {
   return saveFile.sessions[saveFile.active];
@@ -1188,6 +1370,9 @@ function renderSessions() {
 function useSession(index) {
   saveFile.active = index;
   syncTargetUi();
+  // Fewest moves is counted in moves; everything else in seconds. The unit
+  // follows the session, the same way the number of decimals does.
+  setUnit(puzzleById(currentSession().puzzle).moves ? 'moves' : 'time');
   solves = currentSession().solves;
   selecting = false;
   selected.clear();
@@ -1616,7 +1801,7 @@ function finishGameSolve(solve) {
  */
 async function sayCrossLength(solve) {
   const hold = run;
-  if (!solve.scramble || currentSession().puzzle !== '333') {
+  if (!solve.scramble || !holdingA333()) {
     hold?.moves.push(NaN);
     return;
   }
@@ -3266,10 +3451,12 @@ el.drillClose.addEventListener('click', () => el.drillSheet.close());
 
 const PHASES = {
   333: ['cross', 'F2L', 'OLL', 'PLL'],
-  other: ['deel 1', 'deel 2', 'deel 3', 'deel 4']
+  other: ['part 1', 'part 2', 'part 3', 'part 4']
 };
 
-const phaseNames = (puzzle) => PHASES[puzzle] || PHASES.other;
+// A one-handed or blindfolded solve is still cross, F2L, OLL, PLL: the stages
+// belong to the puzzle in your hands, not to the event on the entry form.
+const phaseNames = (puzzle) => (PHASES[puzzleById(puzzle).cube] || PHASES.other).map((name) => t(name));
 
 let splitTimes = [];
 
@@ -3465,7 +3652,7 @@ async function loadCross() {
 
 /** The scrambles of this session, newest first, that are 3x3 and were kept. */
 function scramblesHere(most = 200) {
-  if (currentSession().puzzle !== '333') return [];
+  if (!holdingA333()) return [];
   return counting(solves).slice(-most).map((solve) => solve.scramble).filter(Boolean);
 }
 
@@ -3538,7 +3725,7 @@ function renderCrossFace() {
  * enough for the answer to stick.
  */
 async function sayCross(usedScramble) {
-  if (!settings.crossTip || currentSession().puzzle !== '333' || !usedScramble) return;
+  if (!settings.crossTip || !holdingA333() || !usedScramble) return;
   let kit;
   try {
     kit = await loadCross();
@@ -4395,7 +4582,7 @@ function inspectionBlock() {
  * known here, so the question is answerable rather than arguable.
  */
 function fairBlock(kit) {
-  if (!kit || currentSession().puzzle !== '333') return null;
+  if (!kit || !holdingA333()) return null;
   const face = settings.crossFace;
   const difficulty = (scramble) => {
     const lengths = kit.cross.crossLengths(scramble, kit.kpuzzle, kit.Alg, kit.table);
@@ -5161,6 +5348,7 @@ el.detailRemove.addEventListener('click', () => {
 function render() {
   renderStats();
   renderSolves();
+  renderEventExtra();
   renderSelection();
   renderSessions();
   renderPuzzles();
@@ -6261,6 +6449,10 @@ function applySettings() {
   if (settings.wakeLock) keepAwake();
   else letSleep();
   setDecimals(settings.decimals);
+  // The unit belongs to the event, not to the settings, but applySettings is
+  // the one thing that runs both at startup and after every change -- and
+  // getting this wrong once means fewest-moves results printed as seconds.
+  setUnit(puzzleById(currentSession().puzzle).moves ? 'moves' : 'time');
   if (!settings.inspection) cancelInspection();
   renderSplit();
   renderScramble();

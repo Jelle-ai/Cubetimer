@@ -26,9 +26,25 @@ export function setDecimals(value) {
   decimals = value === 3 ? 3 : 2;
 }
 
+/**
+ * What a result is measured in.
+ *
+ * Fewest moves is scored in moves, not in seconds, and the whole averaging
+ * machinery here works on one number per attempt -- so a fewest-moves result is
+ * kept as its move count times a thousand and written back out as a bare
+ * number. That way "mean of three" means the same thing for both without two of
+ * everything, and the WCA's own scoring falls out unchanged.
+ */
+let unit = 'time';
+
+export function setUnit(next) {
+  unit = next === 'moves' ? 'moves' : 'time';
+}
+
 export function formatTime(ms) {
   if (ms == null) return '–';
   if (!Number.isFinite(ms)) return 'DNF';
+  if (unit === 'moves') return String(Math.round(ms / 1000));
 
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);

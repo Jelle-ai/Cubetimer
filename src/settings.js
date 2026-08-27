@@ -116,6 +116,8 @@ const DEFAULTS = {
   bookWide: true,
   // How fast the cube in the course turns: 0 slow, 1 normal, 2 quick.
   coursePace: 1,
+  // How many cubes a multi-blind attempt goes for.
+  mbldCubes: 3,
   // Whether a drilled case turns up facing a random way. On while you are
   // learning to recognise it; off while you are learning the algorithm itself.
   caseAuf: true,
@@ -196,6 +198,7 @@ export function loadSettings() {
     if (!settings.sheetGroups.length) settings.sheetGroups = [...DEFAULTS.sheetGroups];
     if (!['all', 'mine', 'drilled'].includes(settings.sheetOnly)) settings.sheetOnly = DEFAULTS.sheetOnly;
     settings.coursePace = clampNumber(settings.coursePace, 0, 2, DEFAULTS.coursePace);
+    settings.mbldCubes = clampNumber(settings.mbldCubes, 2, 30, DEFAULTS.mbldCubes);
 
     settings.aimTime = clampNumber(settings.aimTime, 0, 600000, 0);
     settings.aimBy = /^\d{4}-\d{2}-\d{2}$/.test(settings.aimBy) ? settings.aimBy : '';

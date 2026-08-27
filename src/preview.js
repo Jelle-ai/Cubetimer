@@ -7,10 +7,27 @@
 // wrong way round, which no amount of "four turns is a full circle" testing
 // catches.
 
+/**
+ * Which cubing.js puzzle draws each event. Blindfolded, one-handed and fewest
+ * moves are all a 3x3, so they get the 3x3's net -- the event is different, the
+ * puzzle in your hands is not.
+ *
+ * Clock and Square-1 are missing on purpose: the library has no net for them,
+ * so there is no honest picture to draw and the app shows none.
+ */
 const PUZZLES = {
-  333: '3x3x3',
   222: '2x2x2',
+  333: '3x3x3',
+  '333bf': '3x3x3',
+  '333oh': '3x3x3',
+  '333fm': '3x3x3',
+  '333mbf': '3x3x3',
   444: '4x4x4',
+  '444bf': '4x4x4',
+  555: '5x5x5',
+  '555bf': '5x5x5',
+  666: '6x6x6',
+  777: '7x7x7',
   pyra: 'pyraminx',
   skewb: 'skewb',
   minx: 'megaminx'
