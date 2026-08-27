@@ -22,7 +22,10 @@ import {
 } from './play.js';
 import { recallStanding, whenDue } from './recall.js';
 import { REELS, countText, faceOf, idsOf, progressOf, rebuild, spin } from './slot.js';
-import { MAP, STEPS, hoursLeft, howFar, nextStep, roadPath } from './course.js';
+import {
+  DEMO_SCRAMBLE, MAP, STEPS, cubeAfter, hoursLeft, howFar, isOpen, nextStep, roadPath, stepAt
+} from './course.js';
+import { makeCube } from './cube3d.js';
 import { COLOR_SLOTS, LED_COLORS, SKINS, colorOf, loadSettings, saveSettings } from './settings.js';
 import { chord, confetti, flashMiss, together, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
@@ -223,6 +226,8 @@ const el = {
   courseSheet: document.getElementById('course-sheet'),
   courseClose: document.getElementById('course-close'),
   courseRoad: document.getElementById('course-road'),
+  courseCube: document.getElementById('course-cube'),
+  courseTools: document.getElementById('course-tools'),
   courseBody: document.getElementById('course-body'),
   warmToggle: document.getElementById('warm-toggle'),
   aimTime: document.getElementById('aim-time'),
@@ -7524,16 +7529,23 @@ el.dareStrip.addEventListener('click', () => openSlot());
 
 /* ---------- the course ----------
 
-   A road with stops on it. The road is drawn through the stops rather than
-   beside them, so a stop cannot end up somewhere the road does not go, and the
-   part you have finished is drawn in over the part you have not. */
+   Seven steps, a road beside them, and a cube on the road that shows where you
+   are. F2L and full OLL are deliberately not here: those are things you look up
+   in the case book once you can already solve, and putting them in a beginner's
+   course is what turns it into a thing people close again.
+
+   A step is shut until the one before it is ticked. Which would be unkind to
+   somebody who can already solve, so every step also has a way straight past
+   it -- "I can do this" ticks it off without reading a word. */
 
 let openStep = null;
+let courseCube = null;      // the cube on the map, once it has been built
+let slowly = null;          // { moves, at, label } while you are stepping through
 
 /** Turn the little bit of emphasis the lessons use into real elements. */
 function saidAs(text, tag = 'p') {
   const said = document.createElement(tag);
-  for (const part of text.split(/(\*\*[^*]+\*\*)/)) {
+  for (const part of t(text).split(/(\*\*[^*]+\*\*)/)) {
     if (!part) continue;
     if (part.startsWith('**')) {
       const strong = document.createElement('strong');
@@ -7546,11 +7558,123 @@ function saidAs(text, tag = 'p') {
   return said;
 }
 
+/* --- the cube on the map --- */
+
+async function courseCubeReady() {
+  if (courseCube !== null) return courseCube;
+  courseCube = await makeCube({ size: 118, drag: true, angle: [-26, -34] });
+  return courseCube;
+}
+
+/** Put the cube in the state your progress has reached. */
+function showProgress() {
+  const done = play().course || [];
+  courseCube?.show(cubeAfter(done));
+}
+
+/**
+ * Play one demonstration. The state is set first and then the moves run, so
+ * pressing it twice does the same thing twice rather than carrying on from
+ * wherever the last one stopped.
+ */
+function demonstrate(entry) {
+  if (!courseCube) return;
+  slowly = null;
+  courseCube.play(entry.alg, { pace: coursePace(), from: entry.from ?? '' });
+  renderCourseTools();
+}
+
+/** How fast the cube turns, kept between visits. */
+const PACES = [900, 560, 340];
+function coursePace() {
+  return PACES[Math.min(settings.coursePace ?? 1, PACES.length - 1)];
+}
+
+/** The slow mode: the cube waits, and you hand it one move at a time. */
+async function stepThrough(entry) {
+  if (!courseCube) return;
+  await courseCube.show(entry.from ?? '');
+  slowly = { moves: entry.alg.trim().split(/\s+/).filter(Boolean), at: 0 };
+  renderCourseTools();
+}
+
+function nextSlowMove() {
+  if (!slowly || slowly.at >= slowly.moves.length) return;
+  const move = slowly.moves[slowly.at++];
+  courseCube?.step(move, 300);
+  renderCourseTools();
+}
+
+/** The strip under the cube: what it is doing, and how fast. */
+function renderCourseTools() {
+  if (!el.courseTools) return;
+  el.courseTools.replaceChildren();
+
+  if (slowly) {
+    const left = slowly.moves.length - slowly.at;
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'text-button';
+    go.textContent = left ? t('Next move: {move}', { move: slowly.moves[slowly.at] }) : t('Done');
+    go.disabled = !left;
+    go.addEventListener('click', nextSlowMove);
+
+    const stop = document.createElement('button');
+    stop.type = 'button';
+    stop.className = 'link';
+    stop.textContent = t('back to the map');
+    stop.addEventListener('click', () => {
+      slowly = null;
+      showProgress();
+      renderCourseTools();
+    });
+    el.courseTools.append(go, stop);
+    return;
+  }
+
+  const speed = document.createElement('div');
+  speed.className = 'segmented tiny';
+  [t('slow'), t('normal'), t('quick')].forEach((label, at) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.dataset.active = String((settings.coursePace ?? 1) === at);
+    button.addEventListener('click', () => {
+      settings.coursePace = at;
+      storeSettings();
+      renderCourseTools();
+    });
+    speed.append(button);
+  });
+
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'link';
+  back.textContent = t('show my progress');
+  back.addEventListener('click', showProgress);
+
+  el.courseTools.append(speed, back);
+}
+
+/* --- the road --- */
+
+/**
+ * The road. Upright beside the words when there is a column to spare, and laid
+ * on its side above them when there is not -- the same stops, the same path,
+ * with x and y swapped, because a 120-wide road on a 360-wide phone is a
+ * squiggle nobody can read.
+ */
+const FLAT_ROAD = matchMedia('(max-width: 720px)');
+
 function renderRoad() {
   const done = play().course || [];
+  const flat = FLAT_ROAD.matches;
   const road = el.courseRoad;
   road.replaceChildren();
-  road.setAttribute('viewBox', `0 0 ${MAP.width} ${MAP.height + 20}`);
+  road.setAttribute('viewBox', flat
+    ? `0 0 ${MAP.height + 20} ${MAP.width}`
+    : `0 0 ${MAP.width} ${MAP.height + 20}`);
+  road.dataset.flat = String(flat);
 
   const ns = 'http://www.w3.org/2000/svg';
   const make = (name, attrs) => {
@@ -7559,38 +7683,40 @@ function renderRoad() {
     return node;
   };
 
-  const d = roadPath();
+  const turn = ([x, y]) => (flat ? [y, x] : [x, y]);
+  const d = roadPath(STEPS.map((step) => ({ at: turn(step.at) })));
   road.append(make('path', { d, class: 'road-back' }));
 
-  // How much of the road is behind you: the drawn-in line is cut off at the
-  // last stop you ticked, so the road fills as you go.
   const at = STEPS.reduce((last, step, index) => (done.includes(step.id) ? index : last), -1);
   const ahead = make('path', { d, class: 'road-done' });
-  ahead.dataset.at = String(at);
   road.append(ahead);
 
   STEPS.forEach((step, index) => {
-    const [x, y] = step.at;
+    const [x, y] = turn(step.at);
     const had = done.includes(step.id);
-    const here = !had && index === done.length ? true : false;
+    const open = isOpen(step, done);
+    const here = open && !had;
     const stop = make('g', { class: 'road-stop', transform: `translate(${x} ${y})` });
     stop.dataset.done = String(had);
     stop.dataset.here = String(here);
+    stop.dataset.shut = String(!open);
     stop.append(make('circle', { r: 15, class: 'road-halo' }));
     stop.append(make('circle', { r: 11, class: 'road-dot' }));
     const number = make('text', { y: 4.6, 'text-anchor': 'middle', class: 'road-number' });
-    number.textContent = had ? '✓' : String(index + 1);
+    number.textContent = had ? '✓' : open ? String(index + 1) : '·';
     stop.append(number);
-    stop.addEventListener('click', () => {
-      openStep = step.id;
-      renderCourse();
-      el.courseBody.querySelector(`[data-step="${step.id}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    });
+    if (open) {
+      stop.addEventListener('click', () => {
+        openStep = step.id;
+        renderCourse();
+        el.courseBody.querySelector(`[data-step="${step.id}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      });
+    }
     road.append(stop);
   });
 
-  // Drawing the finished part is an animation rather than a jump, so ticking a
-  // stop off visibly moves the road forward.
+  // The finished part is drawn in rather than jumping, so ticking a step off
+  // visibly moves the road forward.
   requestAnimationFrame(() => {
     const total = ahead.getTotalLength ? ahead.getTotalLength() : 1000;
     const part = at < 0 ? 0 : (at + 1) / STEPS.length;
@@ -7599,77 +7725,112 @@ function renderRoad() {
   });
 }
 
+FLAT_ROAD.addEventListener('change', () => {
+  if (el.courseSheet.open) renderRoad();
+});
+
+/* --- one step --- */
+
 function stepCard(step, index) {
   const done = play().course || [];
   const had = done.includes(step.id);
+  const open = isOpen(step, done);
+
   const card = document.createElement('article');
   card.className = 'step-card';
   card.dataset.step = step.id;
-  card.dataset.open = String(openStep === step.id);
+  card.dataset.open = String(openStep === step.id && open);
   card.dataset.done = String(had);
+  card.dataset.shut = String(!open);
 
   const head = document.createElement('button');
   head.type = 'button';
   head.className = 'step-head';
   const number = document.createElement('span');
   number.className = 'step-number';
-  number.textContent = had ? '✓' : String(index + 1);
+  number.textContent = had ? '✓' : open ? String(index + 1) : '🔒';
+  if (!open) number.textContent = '·';
   const label = document.createElement('span');
   label.className = 'step-label';
   const name = document.createElement('b');
-  name.textContent = step.name;
+  name.textContent = t(step.name);
   const about = document.createElement('small');
-  about.textContent = step.subtitle;
+  about.textContent = open
+    ? t(step.subtitle)
+    : t('Finish {name} first', { name: t(STEPS[index - 1].name) });
   label.append(name, about);
   const long = document.createElement('span');
   long.className = 'step-long';
-  long.textContent = step.minutes >= 60 ? `${Math.round(step.minutes / 60)} u` : `${step.minutes} min`;
+  long.textContent = step.minutes >= 60
+    ? t('{n} h', { n: Math.round(step.minutes / 60) })
+    : t('{n} min', { n: step.minutes });
   head.append(number, label, long);
+  head.disabled = !open;
   head.addEventListener('click', () => {
     openStep = openStep === step.id ? null : step.id;
     renderCourse();
   });
   card.append(head);
 
-  if (openStep !== step.id) return card;
+  if (!open || openStep !== step.id) return card;
 
   const body = document.createElement('div');
   body.className = 'step-body';
 
-  const why = document.createElement('p');
-  why.className = 'step-why';
-  why.textContent = step.why;
-  body.append(why);
+  const goal = document.createElement('p');
+  goal.className = 'step-goal';
+  goal.textContent = t(step.goal);
+  body.append(goal);
 
-  for (const text of step.what) body.append(saidAs(text));
+  for (const text of step.see) body.append(saidAs(text));
 
-  if (step.moves?.length) {
-    const block = document.createElement('div');
-    block.className = 'step-moves';
-    for (const move of step.moves) {
-      const one = document.createElement('div');
-      one.className = 'step-move';
-      const name = document.createElement('b');
-      name.textContent = move.label;
-      const moves = spellAlg(move.alg);
-      const why = document.createElement('small');
-      why.textContent = move.why;
-      one.append(name, moves, why);
-      block.append(one);
+  if (step.does?.length) {
+    const list = document.createElement('ol');
+    list.className = 'step-does';
+    for (const entry of step.does) {
+      const item = document.createElement('li');
+      item.append(saidAs(entry.say, 'div'));
+
+      if (entry.alg) {
+        const row = document.createElement('div');
+        row.className = 'step-alg';
+        row.append(spellAlg(entry.alg));
+
+        const play = document.createElement('button');
+        play.type = 'button';
+        play.className = 'text-button';
+        play.textContent = t('Show me');
+        play.addEventListener('click', () => demonstrate(entry));
+
+        const slow = document.createElement('button');
+        slow.type = 'button';
+        slow.className = 'link';
+        slow.textContent = t('one move at a time');
+        slow.addEventListener('click', () => stepThrough(entry));
+
+        row.append(play, slow);
+        item.append(row);
+
+        const why = document.createElement('small');
+        why.className = 'step-why-line';
+        why.textContent = t(entry.why);
+        item.append(why);
+      }
+      list.append(item);
     }
-    body.append(block);
+    body.append(list);
   }
 
-  if (step.tips?.length) {
-    const list = document.createElement('ul');
-    list.className = 'step-tips';
-    for (const tip of step.tips) list.append(saidAs(tip, 'li'));
-    body.append(list);
+  if (step.wrong) {
+    const wrong = document.createElement('p');
+    wrong.className = 'step-wrong';
+    wrong.textContent = `${t('The mistake everybody makes:')} ${t(step.wrong)}`;
+    body.append(wrong);
   }
 
   const check = document.createElement('p');
   check.className = 'step-check';
-  check.textContent = t('You are done here when: {what}', { what: step.check });
+  check.textContent = t('You are done here when: {what}', { what: t(step.check) });
   body.append(check);
 
   const actions = document.createElement('div');
@@ -7678,7 +7839,7 @@ function stepCard(step, index) {
   if (step.drill?.group) {
     const go = document.createElement('button');
     go.type = 'button';
-    go.textContent = `Train ${caseSet?.GROUPS?.[step.drill.group]?.name || step.drill.group}`;
+    go.textContent = t('Drill {group}', { group: caseSet?.GROUPS?.[step.drill.group]?.name || step.drill.group });
     go.addEventListener('click', () => {
       el.courseSheet.close();
       openDrill({ group: step.drill.group, focus: 'spread' });
@@ -7706,8 +7867,11 @@ function stepCard(step, index) {
     persist();
     if (!had) {
       confetti();
+      cue('win');
       const after = nextStep(play().course || []);
       openStep = after ? after.id : null;
+      // The cube plays the stage you just finished, and stays there.
+      showProgress();
     }
     renderCourse();
   });
@@ -7729,7 +7893,8 @@ function renderCourse() {
   said.className = 'course-said';
   const after = nextStep(done);
   said.textContent = after
-    ? t('{had} of {all} steps. Up now: {name}. About {hours} hours of practice to go.', { had: far.had, all: far.all, name: after.name, hours: hoursLeft(done) })
+    ? t('{had} of {all} steps. Up now: {name}. About {hours} hours of practice to go.',
+      { had: far.had, all: far.all, name: t(after.name), hours: hoursLeft(done) })
     : t('Every step ticked off. From here it is only mileage.');
   const track = document.createElement('div');
   track.className = 'course-track';
@@ -7742,18 +7907,31 @@ function renderCourse() {
   STEPS.forEach((step, index) => parts.push(stepCard(step, index)));
   el.courseBody.replaceChildren(...parts);
   renderRoad();
+  renderCourseTools();
 }
 
 async function openCourse() {
-  // The case names on the buttons come from the case database, so it is warmed
-  // up quietly; the course still opens if it fails.
   loadCases().catch(() => {});
   if (openStep === null) openStep = nextStep(play().course || [])?.id || STEPS[0].id;
   renderCourse();
   openSheet(el.courseSheet);
+
+  // The cube is built the first time the course is opened, not on page load:
+  // twenty-six little boxes are not worth making for somebody who never comes
+  // in here.
+  const cube = await courseCubeReady();
+  if (cube && !el.courseCube.contains(cube.el)) {
+    el.courseCube.replaceChildren(cube.el);
+    showProgress();
+  }
+  renderCourseTools();
 }
 
 el.courseClose.addEventListener('click', () => el.courseSheet.close());
+el.courseSheet.addEventListener('close', () => {
+  slowly = null;
+  courseCube?.stop();
+});
 
 /* ---------- everything the app can do, in one list ----------
 

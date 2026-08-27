@@ -1,226 +1,278 @@
-// Leren oplossen, van "ik heb een kubus gekregen" tot "ik zit onder de twintig".
+// Learning to solve, in seven steps.
 //
-// Not a wall of algorithms. Every step says what you are actually trying to do
-// and why the moves do it, because the thing that makes people give up on the
-// cube is being handed twenty letters to memorise with no idea what they are
-// for. Algorithms come last in each step, after you know what you are looking
-// at -- and where the app already has the case in its own book, the step points
-// at it rather than reprinting it.
+// Not a wall of algorithms, and not a course about F2L or full OLL either.
+// Those are things you go and look up in the case book once you can already
+// solve the cube; putting them here is what turns a beginner's course into a
+// thing people close again. This stops at "I can solve a Rubik's cube", and
+// hands you over to the rest of the app.
 //
-// The algorithms here are the ones the case database already verifies on a real
-// cube, or the standard beginner moves, which are checked by the same machinery
-// the moment they are drilled.
+// Every step is built the same way, because a shape you recognise is one you
+// can read quickly: what you are trying to do, what you are looking at, the
+// moves numbered one by one, the mistake everybody makes, and how you know you
+// are done. The words are English here; lang-nl.js has the Dutch beside them,
+// and app.js puts everything through t() when it draws it.
+//
+// The moves in "does" can be played on the cube: `alg` is what turns, and
+// `from` is the state to set up first so that the move has something to do.
+
+/** The map is drawn in this box, and the road is stitched through the stops. */
+export const MAP = { width: 120, height: 560 };
 
 /**
- * Where each stop sits on the map. A serpentine, drawn in a 120 by 620 box:
- * the numbers are the stations and the path is stitched between them, so
- * moving a stop moves the road with it and the two cannot drift apart.
+ * One solve, taken apart.
+ *
+ * The scramble is not chosen and the stages are not written by hand: the four
+ * stages were written first, and the scramble is their inverse. That means the
+ * cross moves really do make the cross on this scramble, the F2L moves really
+ * do fill the slots, and so on -- not because somebody checked, but because
+ * there is no way for it to be otherwise. The test still checks it.
  */
-export const MAP = { width: 120, height: 640 };
+export const DEMO = {
+  cross: "D2 R F' D' L2 F2",
+  f2l: "R U R' U' F' U F U2 R U R' U' R U R' U' L' U L",
+  oll: "R U R' U R U2 R'",
+  pll: "R U R' U' R' F R2 U' R' U' R U R' F'"
+};
+
+/** The whole solution, and the scramble that needs it. */
+export const DEMO_SOLUTION = [DEMO.cross, DEMO.f2l, DEMO.oll, DEMO.pll].join(' ');
+
+/** Turning an algorithm back to front, which is how the scramble is made. */
+export function invert(moves) {
+  return moves.trim().split(/\s+/).filter(Boolean).reverse()
+    .map((move) => (move.endsWith("'") ? move.slice(0, -1) : move.endsWith('2') ? move : `${move}'`))
+    .join(' ');
+}
+
+export const DEMO_SCRAMBLE = invert(DEMO_SOLUTION);
+
+/** Which stage of the demo solve each step has reached. */
+const UPTO = {
+  language: '',
+  cross: DEMO.cross,
+  layers: [DEMO.cross, DEMO.f2l].join(' '),
+  yellowcross: [DEMO.cross, DEMO.f2l].join(' '),
+  yellowcorners: [DEMO.cross, DEMO.f2l, DEMO.oll].join(' '),
+  corners: [DEMO.cross, DEMO.f2l, DEMO.oll].join(' '),
+  edges: DEMO_SOLUTION
+};
+
+/** The state the map's cube should be in once you have done this many steps. */
+export function cubeAfter(doneIds) {
+  const last = STEPS.filter((step) => doneIds.includes(step.id)).pop();
+  return `${DEMO_SCRAMBLE} ${last ? UPTO[last.id] : ''}`.trim();
+}
 
 export const STEPS = [
   {
-    id: 'taal',
-    name: 'De taal',
-    subtitle: 'Notatie, en wat een kubus eigenlijk is',
-    at: [26, 40],
+    id: 'language',
+    name: 'The language',
+    subtitle: 'What a cube is, and how a move is written',
+    at: [26, 34],
     minutes: 15,
-    why: 'Zonder dit is elke uitleg hierna een rij willekeurige letters.',
-    what: [
-      'Een kubus heeft zes kanten en drie soorten stukken. Zes **centra** — die zitten vast aan elkaar en draaien nooit weg: het witte centrum blijft altijd tegenover het gele. Twaalf **randen**, met twee kleuren. Acht **hoeken**, met drie kleuren.',
-      'Dat is de belangrijkste zin van de hele cursus: **de centra bepalen welke kleur een kant is.** Je zoekt dus nooit "waar moet wit heen", je zoekt "waar zit het witte centrum".',
-      'Een draai wordt geschreven met één letter, en die letter is de kant die je draait terwijl je met je neus naar de kubus kijkt: **R** rechts, **L** links, **U** boven, **D** onder, **F** voor, **B** achter.',
-      'Een kale letter is een kwartslag met de klok mee, alsof je recht naar die kant kijkt. Een **apostrof** (R’) is tegen de klok in. Een **2** (R2) is een halve slag, en die heeft geen richting.',
-      'Kleine letters en **r, u, f** zijn twee lagen tegelijk, en **M** is de plak tussen L en R. Die kom je pas later tegen, bij OLL.'
+    goal: 'Be able to read a move and do it without thinking twice.',
+    see: [
+      'A cube has six sides and three kinds of piece. Six **centres**, which are fixed to each other and never move: the white centre stays opposite the yellow one, whatever you do. Twelve **edges**, with two colours. Eight **corners**, with three.',
+      'That gives you the most important sentence of the whole course: **the centres decide what colour a side is.** So you never look for "where does white go", you look for "where is the white centre".'
     ],
-    moves: [
-      { label: 'De sexy move', alg: "R U R' U'", why: 'Doe deze zes keer achter elkaar op een opgeloste kubus. Hij komt precies terug waar hij begon. Dat is geen truc: elke reeks komt ooit terug, en deze na zes. Voel hoe je vingers het overnemen.' },
-      { label: 'De sledgehammer', alg: "R' F R F'", why: 'De tweede beweging die je in je vingers wil hebben. Samen met de sexy move zit hier de helft van alles wat later komt in.' }
+    does: [
+      {
+        say: 'A move is one letter, and the letter is the side you turn while your nose points at the cube: **R** right, **L** left, **U** up, **D** down, **F** front, **B** back.',
+        alg: 'R', why: 'The right-hand side, a quarter turn clockwise as if you were looking straight at it.'
+      },
+      {
+        say: 'An **apostrophe** means the other way round.',
+        alg: "R'", why: 'The same side, anticlockwise. R then R’ puts everything back.'
+      },
+      {
+        say: 'A **2** is a half turn, and it has no direction.',
+        alg: 'R2', why: 'Half a turn. R2 and R2’ are the same thing, so nobody writes the second one.'
+      },
+      {
+        say: 'Now the first thing your fingers should learn. Do this six times on a solved cube and it comes back exactly where it started. That is not a trick: every sequence returns eventually, and this one after six.',
+        alg: "R U R' U' R U R' U' R U R' U' R U R' U' R U R' U' R U R' U'",
+        why: 'The sexy move, six times over. Watch the top layer wander off and come home.'
+      }
     ],
-    tips: [
-      'Leg de kubus neer met wit onder en groen naar je toe. Doe R. Kijk welke stukken bewogen zijn. Doe R’. Alles staat terug.',
-      'Draai nooit de hele kubus in je hand tijdens het oefenen van notatie. Later mag dat wel, nu verwart het je.'
-    ],
-    check: 'Je kunt R U R’ U’ zes keer doen zonder na te denken, en de kubus is weer opgelost.'
+    wrong: 'Turning the whole cube in your hands while you practise notation. Keep it still: R is only R while the same side is on the right.',
+    check: 'You can do R U R’ U’ six times without looking, and the cube is solved again.'
   },
   {
-    id: 'kruis',
-    name: 'Het kruis',
-    subtitle: 'De eerste vier randen, op één kant',
-    at: [94, 130],
+    id: 'cross',
+    name: 'The cross',
+    subtitle: 'Four edges, on the bottom',
+    at: [94, 122],
     minutes: 60,
-    why: 'Dit is de enige stap zonder algoritmes, en de enige stap waar je echt zelf moet nadenken. Daarom is het ook de stap waar de meeste tijd te winnen valt.',
-    what: [
-      'Kies een kleur om op te solven. Wit is gewoonte; deze app werkt op elke kleur en je stelt hem in bij de instellingen. Houd die kleur **onderaan**, niet bovenaan — je moet er onderdoor kunnen kijken, en anders moet je de hele kubus omdraaien voor de volgende stap.',
-      'Het doel: de vier randen met jouw kleur staan rond het onderste centrum, **en** hun tweede kleur klopt met het centrum van de zijkant. Een kruis waarbij de zijkleuren niet kloppen is geen kruis, dat is vier stukken die toevallig onder liggen.',
-      'De methode is er geen. Je zoekt een rand, je brengt hem naar de bovenkant, je draait de bovenkant tot hij recht boven zijn plek staat, en je draait die zijkant twee keer (bijvoorbeeld **F2**). Klaar, één op vier.',
-      'Zit de rand al onderaan maar verkeerd? Draai hem eerst met **F2** naar boven en doe het opnieuw. Zit hij in de middelste laag? Eén draai brengt hem naar boven.',
-      'Zit de rand goed boven zijn plek maar staat hij omgekeerd (de verkeerde kleur naar beneden)? Dan is F2 fout. Gebruik **U R U’** vanuit de goede stand, of draai hem eerst een plek verder.'
+    goal: 'Four edges of one colour around the bottom centre, with their side colours matching the centres beside them.',
+    see: [
+      'Pick a colour to solve on. White is the habit; this app works on any of them and you set it in the settings. Hold that colour **underneath**, not on top — you want to be able to look under the cube, and otherwise you have to turn the whole thing over for the next step.',
+      'A cross where the side colours do not match is not a cross. It is four pieces that happen to be at the bottom.',
+      'This is the only step without algorithms, and the only one where you really have to think. It is also where most of your time is hiding.'
     ],
-    moves: [
-      { label: 'Rand van boven naar onder', alg: 'F2', why: 'Als de rand recht boven zijn plek staat en de goede kleur naar boven wijst.' },
-      { label: 'Rand die omgekeerd staat', alg: "U R U'", why: 'Brengt hem via de zijkant naar beneden zonder hem om te draaien.' },
-      { label: 'Rand uit de middelste laag', alg: "R U R'", why: 'Naar boven, en dan het gewone verhaal.' }
+    does: [
+      {
+        say: 'Find an edge of your colour, bring it to the top layer, and turn the top until it sits directly above where it belongs. Then turn that side twice and it drops in.',
+        alg: 'F2', from: "F2 U'", why: 'The edge was above its place with the right colour upwards. Two turns and it is home.'
+      },
+      {
+        say: 'If the edge is above its place but the **wrong way round**, two turns would put it in upside down. Take it round the side instead.',
+        alg: "U R U'", from: "U R' U'", why: 'It goes down the side rather than straight down, which flips it on the way.'
+      },
+      {
+        say: 'An edge stuck in the middle layer comes up first.',
+        alg: "R U R'", from: "R U' R'", why: 'Out of the slot, onto the top, and now it is the ordinary story again.'
+      },
+      {
+        say: 'Here is the whole cross for the scramble on the map — six moves.',
+        alg: DEMO.cross, from: DEMO_SCRAMBLE, why: 'Watch the four white edges arrive underneath, one by one.'
+      }
     ],
-    drill: { mode: 'cross' },
-    tips: [
-      'Doe het kruis **onderaan** vanaf dag één. Bovenaan leren en later omdraaien kost je maanden.',
-      'Zet de app op "Alleen het kruis". Hij rekent na elke poging uit in hoeveel zetten het gekund had. Acht zetten is normaal in het begin, en de rekenmachine haalt er meestal zes of zeven.',
-      'De volgende stap: het hele kruis **bedenken** tijdens de vijftien seconden inspectie, en dan blind uitvoeren. Dat is de eerste echte snelheidssprong die je maakt.'
-    ],
-    check: 'Vier randen onder, alle zijkleuren kloppen, en je hebt geen algoritme gebruikt.'
+    wrong: 'Building the cross on top because you can see it better, and then turning the cube over. Learn it underneath from day one — turning it over later costs people months.',
+    check: 'Four edges underneath, every side colour matching, and you used no algorithm.',
+    drill: { mode: 'cross' }
   },
   {
-    id: 'f2l-begin',
-    name: 'F2L, de makkelijke manier',
-    subtitle: 'Eerst de hoek, dan de rand',
-    at: [26, 220],
+    id: 'layers',
+    name: 'The first two layers',
+    subtitle: 'A corner, then the edge beside it — four times',
+    at: [26, 210],
     minutes: 120,
-    why: 'De eerste twee lagen in twee halve stappen. Trager dan echte F2L, maar je hebt er precies één beweging voor nodig en je snapt hem meteen.',
-    what: [
-      'De eerste twee lagen bestaan uit vier **sleuven**: vier hoeken van je kruiskleur, elk met de rand die ernaast hoort. Je vult ze één voor één. Houd het kruis onder en werk in de sleuf rechtsvoor — dan is het altijd dezelfde beweging.',
-      '**De hoek.** Zoek de hoek met jouw kruiskleur die in de sleuf rechtsvoor hoort. Draai hem met U naar rechtsboven, recht boven zijn sleuf. Doe nu de sexy move **R U R’ U’** en kijk. Nog niet goed? Doe hem opnieuw. Na hoogstens vijf keer valt de hoek erin. Dat is geen toeval en geen truc: de sexy move haalt de hoek eruit, draait hem een klein beetje, en zet hem terug.',
-      '**De rand.** Zoek de rand die naast die hoek hoort. Breng hem naar boven. Draai de bovenlaag tot de rand **weg van** zijn sleuf wijst, en doe dan **U R U’ R’** (of de spiegel **U’ F’ U F**) om hem erin te duwen.',
-      'Vier keer hetzelfde, met de kubus telkens een kwartslag gedraaid, en je eerste twee lagen staan. Dit is traag — je doet vaak twintig zetten voor iets wat in zeven kan — maar je hoeft niets te onthouden.'
+    goal: 'The bottom two layers finished, leaving only the top layer to sort out.',
+    see: [
+      'The first two layers are four **slots**: four corners of your cross colour, each with the edge that belongs next to it. You fill them one at a time. Keep the cross underneath and work in the slot at the front right, so it is always the same movement.',
+      'You need exactly two things, and you already know one of them.'
     ],
-    moves: [
-      { label: 'De hoek erin (herhalen tot hij valt)', alg: "R U R' U'", why: 'De sexy move. Werkt vanuit elke stand van die hoek, je moet hem alleen vaak genoeg doen.' },
-      { label: 'De rand erin', alg: "U R U' R'", why: 'Als de rand van zijn sleuf weg wijst.' },
-      { label: 'De rand erin, andere kant', alg: "U' F' U F", why: 'De spiegel, voor als de rand aan de andere kant staat.' }
+    does: [
+      {
+        say: '**The corner.** Find the corner with your cross colour that belongs at the front right. Turn the top until it sits above that slot. Now do the sexy move and look. Not right? Do it again. After five goes at most, the corner drops in — the sexy move takes it out, twists it a little, and puts it back.',
+        alg: "R U R' U'", from: "R U R' U'", why: 'Once. Repeat until the corner is in with the cross colour underneath.'
+      },
+      {
+        say: '**The edge.** Find the edge that belongs beside that corner and bring it to the top. Turn the top until the edge points **away** from its slot, then push it in.',
+        alg: "U R U' R'", from: "R U R' U'", why: 'Up and over, and it settles into the slot beside its corner.'
+      },
+      {
+        say: 'The same thing mirrored, for when the edge is on the other side.',
+        alg: "U' F' U F", from: "F' U' F U", why: 'Left hand instead of right. Everything on a cube has a mirror.'
+      },
+      {
+        say: 'And here are all four slots on the map’s scramble, after the cross.',
+        alg: DEMO.f2l, from: `${DEMO_SCRAMBLE} ${DEMO.cross}`, why: 'Four pairs, one after another. The bottom two layers close up.'
+      }
     ],
-    tips: [
-      'Zit een hoek al beneden maar verkeerd? Doe de sexy move één keer: hij komt naar boven en je begint opnieuw.',
-      'Blijf niet te lang hangen bij deze manier. Zodra je hem kunt, ga naar de volgende stap — daar zit de echte tijdwinst.'
-    ],
-    check: 'Twee lagen staan, en de derde laag is een puinhoop. Dat hoort.'
+    wrong: 'Trying to put the edge in while its corner is not in yet. Corner first, always — the edge has nothing to sit against otherwise.',
+    check: 'Two layers finished, and the third is a mess. That is exactly right.'
   },
   {
-    id: 'f2l-echt',
-    name: 'Echte F2L',
-    subtitle: 'Hoek en rand als paar, 41 gevallen',
-    at: [94, 310],
-    minutes: 600,
-    why: 'Van dertig zetten naar acht. Dit is de grootste tijdwinst van de hele methode, en het enige stuk dat je niet uit je hoofd hoeft te leren.',
-    what: [
-      'Het idee: je zet de hoek en de rand **eerst boven aan elkaar** als een paar, en duwt dat paar dan in één beweging in de sleuf. Wat er dus eigenlijk maar drie zijn:',
-      '**1. Het paar staat samen boven.** Duw het erin: **R U R’** of **F’ U’ F**, afhankelijk van welke kant het paar op kijkt.',
-      '**2. Het paar staat niet samen.** Breng ze bij elkaar met één U-draai en hoogstens één uithaal, en dan geval 1.',
-      '**3. Er zit al iets in de sleuf** — verkeerd gedraaid, of het verkeerde stuk. Haal het eruit met **R U R’** of **R U’ R’**, en je bent bij geval 1 of 2.',
-      'Dat is de gouden regel van F2L: **alles wat je doet, moet je kunnen terugdraaien.** Je trekt het paar uit de sleuf, zet het boven goed, en duwt het terug. Er zijn 41 gevallen, maar dat zijn 41 **uitkomsten** van dat ene idee, geen 41 dingen om te memoriseren.',
-      'Leer ze in het gevallenboek van deze app. Bij elk geval staan meerdere manieren en je zet een ster bij die van jou; het trainen zet het geval dan precies zo klaar als jouw manier het verwacht.'
+    id: 'yellowcross',
+    name: 'The yellow cross',
+    subtitle: 'The top edges, the right way up — three cases',
+    at: [94, 298],
+    minutes: 45,
+    goal: 'A cross of your top colour on the top face. The corners can be anything at all.',
+    see: [
+      'From here the top layer is done in two halves: first everything the right way **up**, then everything in the right **place**. And the first half splits in two again.',
+      'Look only at the **edges** on top. There are exactly three possibilities: a **dot** (no edge right), a **line** (two opposite each other) or a **hook** (two next to each other).',
+      'All three are solved with the same movement, only more often.'
     ],
-    drill: { group: 'f2l' },
-    tips: [
-      'Leer eerst de zes gevallen waar het paar al boven samen staat. Dat is een derde van alles wat je in een solve tegenkomt.',
-      'Rotaties zijn de vijand. Als je de kubus moet ronddraaien om bij een sleuf te komen, ben je een halve seconde kwijt. Leer de linkerhandvarianten.',
-      'Kijk tijdens het uitvoeren van het ene paar al naar het volgende. Dat heet look-ahead en het is het enige dat je van 25 naar 18 seconden brengt.'
+    does: [
+      {
+        say: '**Line.** Lay it flat, left to right, in front of you.',
+        alg: "F R U R' U' F'", from: "F U R U' R' F'", why: 'One go and the cross is there.'
+      },
+      {
+        say: '**Hook.** Turn the top so the two good edges point up and left, then do the two-layer version.',
+        alg: "f R U R' U' f'", from: "f U R U' R' f'", why: 'The same moves with two layers instead of one.'
+      },
+      {
+        say: '**Dot.** Do the line one, look again, and you will have a hook or a line. Then do that one.',
+        alg: "F R U R' U' F' f R U R' U' f'", from: "f U R U' R' f' F U R U' R' F'", why: 'Both of them, back to back.'
+      }
     ],
-    check: 'Je vult een sleuf zonder na te denken over welk algoritme het is — je ziet gewoon waar de twee stukken heen moeten.'
+    wrong: 'Doing it from the wrong angle. A line must be horizontal and a hook must sit up and to the left, or you get a different case out than the one you wanted.',
+    check: 'A cross of your top colour on top. The corners are still all over the place, and that is fine.',
+    drill: { group: 'eo' }
   },
   {
-    id: 'oll2',
-    name: 'OLL in twee kijkbeurten',
-    subtitle: 'Eerst het kruis, dan de hoeken — 10 gevallen',
-    at: [26, 400],
-    minutes: 180,
-    why: 'De hele bovenkant in één kleur, met tien algoritmes in plaats van zevenenvijftig.',
-    what: [
-      'De laatste laag doe je in twee stappen: eerst alles de goede kant **op** (OLL), dan alles op de goede **plaats** (PLL). En OLL zelf splits je nog eens in twee.',
-      '**Kijkbeurt 1: het kruis.** Kijk alleen naar de randen bovenaan. Er zijn precies drie mogelijkheden: een **punt** (geen enkele rand goed), een **streep** (twee tegenover elkaar) of een **haakje** (twee naast elkaar).',
-      'Alle drie worden opgelost met dezelfde beweging, alleen vaker: **F R U R’ U’ F’**. Bij een streep één keer. Bij een haakje de variant met twee lagen: **f R U R’ U’ f’**. Bij een punt eerst de ene, dan de andere.',
-      'Let op de stand: een streep leg je **horizontaal** voor je, een haakje leg je met de twee goede randen **linksboven**.',
-      '**Kijkbeurt 2: de hoeken.** Nu zijn de randen goed en kijk je alleen naar de vier hoeken. Zeven gevallen, en ze hebben namen: Sune, Antisune, Pi, Koplampen, Dubbele Sune, Strik en T-hoeken.',
-      'De belangrijkste is de **Sune**: **R U R’ U R U2 R’**. Leer die eerst, want vier van de zeven anderen zijn niets anders dan een Sune met een aanloopje.'
+    id: 'yellowcorners',
+    name: 'The yellow corners',
+    subtitle: 'The whole top face, one colour — seven cases',
+    at: [26, 386],
+    minutes: 120,
+    goal: 'The top face entirely one colour.',
+    see: [
+      'The edges are right now, so look only at the four **corners**. There are seven possibilities, and they have names people actually use: Sune, Antisune, Pi, Headlights, Double Sune, Bowtie and T-corners.',
+      'Learn the **Sune** first. Four of the other six are a Sune with a small run-up, so it is by far the best value for the effort.'
     ],
-    drill: { group: 'eo', then: 'ocll' },
-    moves: [
-      { label: 'Streep', alg: "F R U R' U' F'", why: 'Horizontaal voor je leggen.' },
-      { label: 'Haakje', alg: "f R U R' U' f'", why: 'De twee goede randen linksboven.' },
-      { label: 'Punt', alg: "F R U R' U' F' f R U R' U' f'", why: 'De twee andere achter elkaar.' },
-      { label: 'Sune', alg: "R U R' U R U2 R'", why: 'Eén hoek goed, linksboven houden.' },
-      { label: 'Antisune', alg: "R U2 R' U' R U' R'", why: 'De spiegel van de Sune.' }
+    does: [
+      {
+        say: '**Sune.** One corner is already right. Hold it at the back left and go.',
+        alg: "R U R' U R U2 R'", from: "R U2 R' U' R U' R'", why: 'Seven moves and the top is one colour.'
+      },
+      {
+        say: '**Antisune.** The mirror, for when the one good corner is at the front left.',
+        alg: "R U2 R' U' R U' R'", from: "R U R' U R U2 R'", why: 'The same idea the other way round.'
+      },
+      {
+        say: 'And the map’s cube, which happens to land on a Sune.',
+        alg: DEMO.oll, from: `${DEMO_SCRAMBLE} ${DEMO.cross} ${DEMO.f2l}`, why: 'From two layers to a whole yellow face.'
+      }
     ],
-    tips: [
-      'Herken het kruis vóór je de kubus optilt. Dat zijn drie mogelijkheden — dat kan je in een halve seconde.',
-      'De zeven hoekgevallen zitten in deze app als eigen groep ("Hoeken draaien"). Maak er een reeks van en train ze tot je ze niet meer hoeft te tellen.'
-    ],
-    check: 'De hele bovenkant is één kleur, en je hebt hoogstens twee algoritmes nodig gehad.'
+    wrong: 'Counting the good corners wrong. Look at the top face only: a corner counts as good when its top sticker is the top colour, not when it is in the right place.',
+    check: 'The top face is one colour all over. The sides still do not match — that is the next two steps.',
+    drill: { group: 'ocll' }
   },
   {
-    id: 'pll2',
-    name: 'PLL in twee kijkbeurten',
-    subtitle: 'Eerst de hoeken, dan de randen — 6 gevallen',
-    at: [94, 490],
-    minutes: 180,
-    why: 'De laatste stap. Hierna is de kubus opgelost, en je hebt er zes algoritmes voor nodig.',
-    what: [
-      '**Kijkbeurt 1: de hoeken op hun plaats.** Kijk naar de zijkanten van de bovenste laag en zoek **koplampen**: twee hoeken op dezelfde zijkant met dezelfde kleur. Zitten er twee hoeken naast elkaar goed, dan houd je die kant **achter** en doe je de A-perm. Zijn er geen koplampen, dan zitten ze diagonaal en doe je de A-perm één keer, kijk je opnieuw, en doe je hem nog eens.',
-      'De A-perm: **R’ F R’ B2 R F’ R’ B2 R2**. Hij verwisselt drie hoeken en laat de randen met rust.',
-      '**Kijkbeurt 2: de randen.** Nu staan de hoeken goed en kijk je alleen naar de vier randen. Vier gevallen: **Ua** en **Ub** (drie randen draaien rond), **H** (twee paren wisselen tegenover elkaar) en **Z** (twee paren wisselen naast elkaar).',
-      'Alle vier gaan met de M-plak, de laag tussen L en R. **M2 U M U2 M’ U M2** is de Ua, en de andere drie zijn variaties daarop.',
-      'En dan nog de laatste draai: soms staat alles goed maar is de hele bovenlaag een kwartslag verdraaid. Eén U en klaar. Dat heet de AUF en die vergeten mensen constant.'
+    id: 'corners',
+    name: 'Putting the corners in place',
+    subtitle: 'Look for headlights — two cases',
+    at: [94, 474],
+    minutes: 60,
+    goal: 'The four top corners in the right places, even if the edges are not.',
+    see: [
+      'Now everything on top is the right way up, and all that is left is moving pieces to where they belong. Corners first.',
+      'Look at the **sides** of the top layer and hunt for **headlights**: two corners on the same side showing the same colour. That side is finished, corner-wise.',
+      'Headlights on one side? Hold that side at the **back** and do the A-perm once. No headlights anywhere? Do the A-perm once from any angle, look again, and now there will be.'
     ],
-    drill: { group: 'pll', only: ['Aa', 'Ab', 'Ua', 'Ub', 'H', 'Z'] },
-    moves: [
-      { label: 'A-perm (hoeken)', alg: "R' F R' B2 R F' R' B2 R2", why: 'Koplampen achter houden.' },
-      { label: 'Ua (randen)', alg: "M2 U M U2 M' U M2", why: 'De rand die al goed staat achter houden.' },
-      { label: 'Ub (randen)', alg: "M2 U' M U2 M' U' M2", why: 'De andere draairichting.' },
-      { label: 'H (randen)', alg: "M2 U M2 U2 M2 U M2", why: 'Alle vier de randen wisselen paarsgewijs.' },
-      { label: 'Z (randen)', alg: "M' U M2 U M2 U M' U2 M2 U'", why: 'Twee paren naast elkaar.' }
+    does: [
+      {
+        say: '**A-perm.** It cycles three corners and leaves the edges completely alone.',
+        alg: "R' F R' B2 R F' R' B2 R2", from: "R2 B2 R F R' B2 R F' R", why: 'Three corners move round; the edges do not budge.'
+      }
     ],
-    tips: [
-      'Koplampen zoeken is de hele kunst van PLL herkennen. Train het in "Herkennen" — zonder kubus, alleen kijken.',
-      'De M-plak draai je met je linker wijsvinger, niet met je hele hand. Dat scheelt een halve seconde per PLL.'
-    ],
-    check: 'De kubus is opgelost. Gefeliciteerd — je bent een cuber.'
+    wrong: 'Holding the headlights at the front. They go at the back — from the front you will send the wrong three corners round.',
+    check: 'Every top corner is between the right two centres. The edges may still be wrong.',
+    drill: { group: 'pll', only: ['Aa', 'Ab'] }
   },
   {
-    id: 'vlot',
-    name: 'Vlot worden',
-    subtitle: 'Van "ik kan het" naar onder de dertig',
-    at: [26, 580],
-    minutes: 1200,
-    why: 'Je kent de methode nu. Alles wat je hierna wint, win je met kijken en niet met leren.',
-    what: [
-      'De volgorde waarin je nu tijd wint, van meeste naar minste:',
-      '**1. Look-ahead.** Terwijl je handen het ene paar doen, kijken je ogen al naar het volgende. Dat voelt in het begin alsof je twee dingen tegelijk moet — dat klopt, en het went. Oefen het door **expres langzaam te draaien**: zo traag dat je tijd hebt om te kijken. Je tijden gaan er eerst op achteruit en daarna hard vooruit.',
-      '**2. Geen pauzes.** Meet je splits in deze app (aanzetten bij de instellingen, dan tik je tijdens je solve tussen de fases). De pauze tussen F2L en OLL is bij bijna iedereen de grootste, en die pauze is herkennen, niet draaien.',
-      '**3. De inspectie gebruiken.** Vijftien seconden is lang. Bedenk het hele kruis, en als dat lukt, kijk waar het eerste paar staat. De app kan je na afloop laten zien in hoeveel zetten je kruis had gekund.',
-      '**4. Minder rotaties.** Elke keer dat je de kubus omdraait in je handen ben je een halve seconde kwijt en zie je even niets. Leer de linkerhandvarianten van je F2L-gevallen.',
-      '**5. Vingertrucs.** Draai R met je rechter wijsvinger, U met je rechter wijsvinger van bovenaf, niet met je pols. Zet de metronoom in deze app aan op een tempo dat je nét kunt volgen en probeer gelijkmatig te blijven.'
+    id: 'edges',
+    name: 'Putting the edges in place',
+    subtitle: 'The last four pieces — four cases',
+    at: [26, 546],
+    minutes: 60,
+    goal: 'A solved cube.',
+    see: [
+      'The corners are home, so only the four top edges are left. Four cases: **Ua** and **Ub** (three edges going round), **H** (two pairs swapping across) and **Z** (two pairs swapping next to each other).',
+      'All four go with the **M slice** — the layer between L and R. Turn it with your left index finger, not your whole hand.'
     ],
-    tips: [
-      'Doel per fase, als je onder de 30 wilt: kruis onder 4 seconden, F2L onder 16, OLL onder 4, PLL onder 4.',
-      'Doe elke dag een handvol solves in plaats van één keer per week honderd. De app houdt je reeks bij.',
-      'Kijk in "Records en terugblik" naar je zwakste fase. Die vertelt je waar je moet oefenen, en het is bijna nooit wat je dacht.'
+    does: [
+      { say: '**Ua.** Hold the edge that is already right at the back.', alg: "M2 U M U2 M' U M2", from: "M2 U' M U2 M' U' M2", why: 'Three edges go round one way.' },
+      { say: '**Ub.** The same, the other way round.', alg: "M2 U' M U2 M' U' M2", from: "M2 U M U2 M' U M2", why: 'Three edges the other way.' },
+      { say: '**H.** All four edges swap in pairs, across the cube.', alg: 'M2 U M2 U2 M2 U M2', from: 'M2 U M2 U2 M2 U M2', why: 'Beautifully symmetric, and it is its own inverse.' },
+      { say: '**Z.** Two pairs swap side by side.', alg: "M' U M2 U M2 U M' U2 M2 U'", from: "U M2 U2 M U' M2 U' M2 U' M", why: 'The one that takes a moment to recognise.' },
+      { say: 'And the last piece of the map’s solve.', alg: DEMO.pll, from: `${DEMO_SCRAMBLE} ${DEMO.cross} ${DEMO.f2l} ${DEMO.oll}`, why: 'Corners and edges at once, this time — a T-perm. The cube is solved.' }
     ],
-    check: 'Je gemiddelde staat onder de dertig seconden en je hebt geen enkel algoritme extra geleerd.'
-  },
-  {
-    id: 'vol',
-    name: 'Volledig OLL en PLL',
-    subtitle: '57 plus 21, en de weg erheen',
-    at: [94, 620],
-    minutes: 3000,
-    why: 'Twee kijkbeurten worden er één. Dit is werk van maanden en het is de laatste grote stap van CFOP.',
-    what: [
-      '**Doe PLL eerst.** Eenentwintig gevallen tegenover zevenenvijftig, en je gebruikt ze vaker: elke solve heeft precies één PLL. Volledig PLL haalt er meteen twee tot drie seconden af.',
-      'Een verstandige volgorde: je hebt Ua, Ub, H, Z en de A-perms al. Leer dan **T**, **Jb**, **Ja**, **Y**, **F**, **Ra**, **Rb** — dat zijn de veelvoorkomende en de mooiste om te draaien. Daarna de vier **G-perms**, die iedereen haat en die je gewoon moet doorbijten. Als laatste **V**, **Na**, **Nb** en **E**.',
-      '**Dan OLL.** Zevenenvijftig gevallen, maar ze zitten in families: de vier "dot"-gevallen, de vier vormen met een kruis (die ken je al), de T-, C-, P- en W-vormen, de L-vormen, de vier "square" gevallen. Leer per familie, niet op nummer.',
-      'Twee tot drie nieuwe per week is een tempo dat blijft plakken. Tien per week is een tempo waarbij je er over een maand nul kent.',
-      'Gebruik het **gevallenboek** van deze app: elk geval, elke manier, een ster bij die van jou en een notitie erbij als een geval een addertje heeft. Stel dan een **reeks** samen van precies de gevallen die je aan het leren bent, en zet het trainen op **opfrissen** — dan komt een geval terug net voor je het kwijtraakt in plaats van willekeurig.'
-    ],
-    drill: { group: 'pll' },
-    tips: [
-      'Een nieuw geval leer je in vier stappen: lezen, twintig keer traag draaien met de tekst erbij, twintig keer zonder tekst, en dan pas in een echte solve.',
-      'Herkennen is de helft. Train het apart in "Herkennen" — dat gaat zonder kubus en kan overal.',
-      'Als een geval na een week nog steeds haperen is: zoek een andere manier in het boek en zet de ster daar. Niet elk algoritme past bij elke hand.'
-    ],
-    check: 'Eén blik, één algoritme, geen tellen meer.'
+    wrong: 'Forgetting the last turn. Sometimes everything is right and the whole top layer is a quarter turn out. One U and you are done — people forget this constantly.',
+    check: 'The cube is solved. Congratulations, you are a cuber.',
+    drill: { group: 'pll', only: ['Ua', 'Ub', 'H', 'Z'] }
   }
 ];
 
-/** The road, stitched through the stations so the two can never disagree. */
+/**
+ * The road, stitched through the stops so the two can never disagree. It takes
+ * the stops rather than reading them, so the same function draws the upright
+ * road and the one laid on its side.
+ */
 export function roadPath(steps = STEPS) {
   if (!steps.length) return '';
   const points = steps.map((step) => step.at);
@@ -229,8 +281,6 @@ export function roadPath(steps = STEPS) {
     const [x, y] = points[at];
     const [px, py] = points[at - 1];
     const mid = (py + y) / 2;
-    // A soft S between one stop and the next, so the road bends instead of
-    // zig-zagging with corners in it.
     d += ` C ${px} ${mid}, ${x} ${mid}, ${x} ${y}`;
   }
   return d;
@@ -238,7 +288,7 @@ export function roadPath(steps = STEPS) {
 
 export const stepAt = (id) => STEPS.findIndex((step) => step.id === id);
 
-/** How far along the road you are, as a fraction. */
+/** How far along the road you are. */
 export function howFar(done) {
   const had = STEPS.filter((step) => done.includes(step.id)).length;
   return { had, all: STEPS.length, part: STEPS.length ? had / STEPS.length : 0 };
@@ -247,6 +297,18 @@ export function howFar(done) {
 /** The step you are on: the first one you have not ticked off. */
 export const nextStep = (done) => STEPS.find((step) => !done.includes(step.id)) || null;
 
-/** Roughly how long the whole thing takes, for the person deciding to start. */
+/**
+ * Whether a step can be opened at all.
+ *
+ * You cannot skip ahead: step four is shut until step three is ticked. Which
+ * would be cruel to somebody who can already solve, so every step also has a
+ * way past it -- "I can do this" ticks it off without reading a word.
+ */
+export const isOpen = (step, done) => {
+  const at = stepAt(step.id);
+  return at === 0 || done.includes(step.id) || done.includes(STEPS[at - 1].id);
+};
+
+/** Roughly how long the rest takes, for the person deciding to start. */
 export const hoursLeft = (done) =>
   Math.round(STEPS.filter((step) => !done.includes(step.id)).reduce((sum, step) => sum + step.minutes, 0) / 60);
