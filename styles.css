@@ -3398,12 +3398,7 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
     var(--sunken) 70%);
 }
 
-.slot-window {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: .4rem;
-}
+.slot-window { position: relative; }
 
 /* The pay line, as two ticks at the edges rather than a stripe across the
    middle: the window shows exactly one face, so a line through it would be a
@@ -3412,7 +3407,7 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
 .slot-window::after {
   content: '';
   position: absolute;
-  top: calc(50% + .5rem);
+  top: 50%;
   width: 0;
   height: 0;
   transform: translateY(-50%);
@@ -3421,8 +3416,8 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
   pointer-events: none;
 }
 
-.slot-window::before { left: -.5rem; border-left: 8px solid var(--record); }
-.slot-window::after { right: -.5rem; border-right: 8px solid var(--record); }
+.slot-window::before { left: -.45rem; border-left: 9px solid var(--record); }
+.slot-window::after { right: -.45rem; border-right: 9px solid var(--record); }
 
 .slot-reel { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
 
@@ -3436,7 +3431,7 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
 
 .slot-port {
   position: relative;
-  height: 88px;
+  height: 84px;
   overflow: hidden;
   border-radius: 10px;
   background: var(--card-solid, #fff);
@@ -3448,13 +3443,13 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
 .slot-face {
   display: grid;
   place-items: center;
-  height: 88px;
+  height: 84px;
   padding: .2rem .35rem;
   text-align: center;
 }
 
 .slot-face b {
-  font-size: .74rem;
+  font-size: 1.05rem;
   font-weight: 600;
   line-height: 1.2;
   color: var(--ink);
@@ -3463,7 +3458,7 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
 
 /* The clunk when a reel drops in: it overshoots and settles, the way a real
    one does when the brake bites. */
-.slot-reel[data-landed='true'] .slot-port { animation: slot-clunk .42s cubic-bezier(.2, 1.6, .4, 1); }
+.slot-window[data-landed='true'] .slot-port { animation: slot-clunk .46s cubic-bezier(.2, 1.6, .4, 1); }
 
 @keyframes slot-clunk {
   0% { transform: translateY(-3px); }
@@ -3510,6 +3505,8 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
 .dare-card h3 { margin: 0; font-size: 1.1rem; font-weight: 700; }
 .dare-rule { margin: 0; font-size: .92rem; color: var(--ink); }
 .dare-stake { margin: 0; font-size: .8rem; color: var(--muted); font-style: italic; }
+
+.dare-card .segmented { flex-wrap: wrap; }
 
 .dare-bit { display: flex; flex-direction: column; padding: .25rem 0; }
 .dare-bit + .dare-bit { border-top: 1px solid var(--edge, rgba(0, 0, 0, .1)); }
@@ -3900,4 +3897,53 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
 
 @media (prefers-reduced-motion: reduce) {
   .cube3d-box { transition: none; }
+}
+
+
+/* ---------- whose alg is this? ----------
+
+   The second wheel: a case, four algorithms, and only one of them is the one
+   you starred for it. Knowing an algorithm and knowing which case it belongs to
+   are two different skills, and drilling only ever practises the first. */
+
+.alg-quiz {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  padding: .6rem;
+  border-radius: 12px;
+  background: var(--sunken);
+}
+
+.alg-quiz .case-face { width: 4.6rem; height: 4.6rem; }
+.alg-quiz .case-face .case-thumb { width: 4rem; height: 4rem; }
+.alg-quiz-ask { display: flex; flex-direction: column; min-width: 0; }
+.alg-quiz-ask b { font-size: 1.25rem; font-weight: 700; }
+.alg-quiz-ask small { font-size: .78rem; color: var(--muted); line-height: 1.3; }
+
+.alg-choices { display: flex; flex-direction: column; gap: .35rem; }
+
+.alg-choice {
+  padding: .45rem .55rem;
+  border-radius: 10px;
+  background: var(--card-solid, #fff);
+  border: 1px solid var(--edge, rgba(0, 0, 0, .1));
+  text-align: left;
+  transition: background .15s, border-color .15s, transform .12s cubic-bezier(.2, 1.7, .5, 1);
+}
+
+.alg-choice:hover { background: var(--hover); }
+.alg-choice:active { transform: scale(.985); }
+.alg-choice[data-said='true'] { pointer-events: none; }
+.alg-choice[data-right='true'] {
+  border-color: var(--ready);
+  background: color-mix(in srgb, var(--ready) 14%, var(--card-solid, #fff));
+}
+.alg-choice[data-wrong='true'] {
+  border-color: var(--hold);
+  background: color-mix(in srgb, var(--hold) 12%, var(--card-solid, #fff));
+}
+
+@media (max-width: 460px) {
+  .alg-quiz { flex-direction: column; align-items: flex-start; }
 }

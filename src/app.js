@@ -21,7 +21,7 @@ import {
   recordCase, recordDaily, recordDuel, recordRun, runsOf, scoreOf, spellScore
 } from './play.js';
 import { recallStanding, whenDue } from './recall.js';
-import { REELS, countText, faceOf, idsOf, progressOf, rebuild, spin } from './slot.js';
+import { COUNTS, RULES, countOf, countText, darePart, readDareLink, ruleOf, spin } from './slot.js';
 import {
   DEMO_SCRAMBLE, MAP, STEPS, cubeAfter, hoursLeft, howFar, isOpen, nextStep, roadPath, stepAt
 } from './course.js';
@@ -221,6 +221,8 @@ const el = {
   slotSheet: document.getElementById('slot-sheet'),
   slotClose: document.getElementById('slot-close'),
   slotReels: document.getElementById('slot-reels'),
+  slotTabs: document.getElementById('slot-tabs'),
+  slotMachine: document.getElementById('slot-machine'),
   slotGo: document.getElementById('slot-go'),
   slotBody: document.getElementById('slot-body'),
   courseSheet: document.getElementById('course-sheet'),
@@ -3049,7 +3051,7 @@ function answerSpot(choice, button) {
   persist();
   spotRound.asked++;
   spotRound.times.push(took);
-  if (right) { spotRound.right++; bumpDare('spot'); }
+  if (right) spotRound.right++;
 
   // The answer stays on screen for a moment: getting it wrong and being shown
   // which one it was is the only part of this that teaches you anything.
@@ -5261,7 +5263,7 @@ function addSolve(ms, marks = []) {
   pendingPenalty = 'none';
   lastInspection = null;
 
-  if (drilling) { finishDrill(solve); bumpDare('drill'); return; }
+  if (drilling) { finishDrill(solve); return; }
   if (dailyRun) { finishDaily(solve); return; }
   if (duel) { finishDuelSolve(solve); return; }
   if (ownsSolves(run)) { finishGameSolve(solve); return; }
@@ -5269,11 +5271,9 @@ function addSolve(ms, marks = []) {
   const previousBest = best(counting(solves));
   // What "onder je gemiddelde" means for the wheel: your last dozen, before
   // this one landed. Too few to say anything and the challenge waits.
-  const recent = counting(solves);
-  const par = recent.length >= 5 ? meanOf(recent, Math.min(12, recent.length)) : null;
   solves.push(solve);
   persist();
-  countTowardsDare(solve, par, previousBest);
+  countTowardsDare();
   if (keepScramble) keepScramble = false;
   else newScramble();
   render();
@@ -7231,63 +7231,60 @@ el.paperCopy.addEventListener('click', async () => {
 
 /* ---------- the wheel ----------
 
-   Three reels, and a challenge you would never have set yourself. The app can
-   count solves, drilled cases and recognitions, so the first reel keeps itself;
-   whether you really stood on one leg is between you and the leg. */
+   One reel and a lever. The reel is the rule -- the daft half, the half that is
+   actually the challenge -- and how long you keep it up is a row of buttons
+   rather than a second spin, because that was never a surprise worth having.
 
-let dare = null;      // { what, how, stake } once you have taken one on
+   A challenge you take on gets a session of its own, named after the rule. Your
+   ordinary averages stay clean, the counting has somewhere to happen that is
+   not "whatever was open", and afterwards the whole thing is still there to
+   look back at instead of being gone. */
+
+let dare = null;        // { rule, count, done, at, session, back } while one is running
 let spinning = false;
+let shown = null;       // the rule on the reel, before you take it on
+let wheelTab = 'wheel'; // wheel | algs
 
 /** The challenge you are in the middle of, back from storage. */
 function loadDare() {
   const kept = settings.dare;
   if (!kept) return null;
-  const built = rebuild(kept.reels);
-  if (!built) return null;
-  return { ...built, tally: kept.tally || {}, at: kept.at || Date.now() };
+  const rule = ruleOf(kept.rule);
+  if (!rule) return null;
+  return {
+    rule,
+    count: countOf(kept.count).id,
+    done: Number(kept.done) || 0,
+    at: kept.at || Date.now(),
+    session: typeof kept.session === 'string' ? kept.session : null,
+    back: Number.isInteger(kept.back) ? kept.back : null
+  };
 }
 
 function keepDare() {
   settings.dare = dare
-    ? { reels: idsOf(dare), tally: dare.tally, at: dare.at }
+    ? { rule: dare.rule.id, count: dare.count, done: dare.done, at: dare.at, session: dare.session, back: dare.back }
     : null;
   storeSettings();
 }
 
-/** One more of something the challenge is counting. */
-function bumpDare(kind, by = 1) {
+/** One more solve towards the challenge, if one is running in its own session. */
+function countTowardsDare() {
   if (!dare) return;
-  dare.tally[kind] = (dare.tally[kind] || 0) + by;
+  // Only solves done in the challenge's own session count. Wander off to
+  // another session and the counter waits for you.
+  if (dare.session && currentSession().name !== dare.session) return;
+  dare.done++;
   keepDare();
-  if (progressOf(dare, dare.tally).done) daresDone();
+  if (countText(dare).done) daresDone();
   renderDareStrip();
-  if (el.slotSheet.open) renderSlot();
-}
-
-/** What the ordinary solve loop feeds the wheel. */
-function countTowardsDare(solve, par, previousBest) {
-  if (!dare) return;
-  const value = effective(solve);
-  const kind = dare.what.watch.kind;
-  bumpDare('solves');
-  if (!Number.isFinite(value)) {
-    if (kind === 'streak') { dare.tally.streak = 0; keepDare(); }
-    return;
-  }
-  if (kind === 'under' && par && value < par) bumpDare('under');
-  if (kind === 'streak') {
-    if (par && value < par) bumpDare('streak');
-    else if (dare.tally.streak) { dare.tally.streak = 0; keepDare(); renderDareStrip(); }
-  }
-  if (kind === 'best' && Number.isFinite(previousBest) && value < previousBest) bumpDare('best');
+  if (el.slotSheet.open) renderWheel();
 }
 
 function daresDone() {
   cue('win');
-  // A solve that finishes a challenge is often also a record, and the record
-  // says so first. This waits for that to have been read.
   setTimeout(() => {
-    toast(t('Task done. The rule is between you and you.'), { label: 'Afvinken', run: () => openSlot() });
+    toast(t('Task done. The rule is between you and you.'), { label: t('Tick it off'), run: () => openSlot() });
   }, 1400);
 }
 
@@ -7298,100 +7295,114 @@ function renderDareStrip() {
     el.dareStrip.hidden = true;
     return;
   }
+  const { have, need } = countText(dare);
   el.dareStrip.hidden = false;
-  el.dareStrip.textContent = `${dare.what.label} · ${dare.how.label} — ${countText(dare, dare.tally)}`;
+  el.dareStrip.textContent = need
+    ? `${t(dare.rule.label)} — ${t('{have} of {need}', { have, need })}`
+    : `${t(dare.rule.label)} — ${t('{n} solves', { n: have })}`;
 }
 
-/* --- the reels themselves --- */
+/* --- taking one on, and putting it down --- */
 
-/** One reel: a strip of every face, so it can be scrolled past all of them. */
-function buildReel(reel) {
-  const column = document.createElement('div');
-  column.className = 'slot-reel';
-  column.dataset.reel = reel.id;
+/** The session a challenge runs in: its own, named after the rule. */
+function startDare(rule, countId) {
+  // The short name, not the whole rule: the session picker puts the puzzle
+  // after it, and a forty-character rule leaves no room for either.
+  const name = `${t('Dare')}: ${t(rule.short)}`.slice(0, 32);
+  const back = saveFile.active;
 
-  const name = document.createElement('span');
-  name.className = 'slot-name';
-  name.textContent = reel.name;
+  saveFile.sessions.push({ name, puzzle: currentSession().puzzle, solves: [] });
+  persist();
+  useSession(saveFile.sessions.length - 1);
 
+  dare = { rule, count: countId, done: 0, at: Date.now(), session: name, back };
+  shown = null;
+  keepDare();
+  renderDareStrip();
+  toast(t('Taken on. Your times go in their own session while it runs.'));
+}
+
+/** Put it down, won or not, and go back to where you were solving. */
+function endDare(won) {
+  if (!dare) return;
+  recordSpin(play(), [dare.rule.id, dare.count, won ? 'won' : 'gave'], { won, gave: !won });
+  persist();
+
+  const back = dare.back;
+  dare = null;
+  keepDare();
+  if (Number.isInteger(back) && saveFile.sessions[back]) useSession(back);
+  renderDareStrip();
+  renderWheel();
+}
+
+/* --- the reel --- */
+
+const FACE_HEIGHT = 84;
+
+function buildReel() {
   const port = document.createElement('div');
   port.className = 'slot-port';
   const strip = document.createElement('div');
   strip.className = 'slot-strip';
   // Three times round, so there is something to spin past before it lands.
   for (let round = 0; round < 3; round++) {
-    for (const item of reel.items) {
+    for (const rule of RULES) {
       const face = document.createElement('div');
       face.className = 'slot-face';
       const label = document.createElement('b');
-      label.textContent = faceOf(item);
+      label.textContent = t(rule.short);
       face.append(label);
       strip.append(face);
     }
   }
   port.append(strip);
-  column.append(name, port);
-  return column;
+  el.slotReels.replaceChildren(port);
 }
 
-function buildMachine() {
-  el.slotReels.replaceChildren(...REELS.map(buildReel));
-}
-
-/** Where a face sits on the strip, in pixels. */
-const FACE_HEIGHT = 88;
-
-/**
- * Spin, and let the three reels arrive one after another. The last one takes
- * the longest, because the whole pleasure of a slot machine is the reel that
- * has not stopped yet.
- */
-async function spinReels(challenge) {
-  spinning = true;
-  el.slotGo.disabled = true;
-  const columns = [...el.slotReels.querySelectorAll('.slot-reel')];
-
-  await Promise.all(REELS.map((reel, at) => new Promise((done) => {
-    const strip = columns[at]?.querySelector('.slot-strip');
+function spinReel(rule) {
+  return new Promise((done) => {
+    const strip = el.slotReels.querySelector('.slot-strip');
     if (!strip) { done(); return; }
-    const landing = reel.items.findIndex((item) => item.id === challenge[reel.id].id);
-    // Two full turns and then down to the face that won.
-    const stop = (reel.items.length * 2 + Math.max(landing, 0)) * FACE_HEIGHT;
-    const seconds = 1.1 + at * 0.55;
+    const landing = Math.max(0, RULES.findIndex((one) => one.id === rule.id));
+    const stop = (RULES.length * 2 + landing) * FACE_HEIGHT;
 
     strip.style.transition = 'none';
     strip.style.transform = 'translate3d(0, 0, 0)';
     // Reading the layout back forces the browser to accept the jump to nought
     // before the transition to the landing place is set.
     void strip.offsetHeight;
-    strip.style.transition = `transform ${seconds}s cubic-bezier(.15,.85,.25,1.03)`;
+    strip.style.transition = 'transform 2.1s cubic-bezier(.12,.86,.2,1.02)';
     strip.style.transform = `translate3d(0, ${-stop}px, 0)`;
 
     setTimeout(() => {
       cue('clunk');
-      columns[at].dataset.landed = 'true';
-      setTimeout(() => delete columns[at].dataset.landed, 420);
+      el.slotReels.dataset.landed = 'true';
+      setTimeout(() => delete el.slotReels.dataset.landed, 460);
       done();
-    }, seconds * 1000);
-  })));
-
-  spinning = false;
-  el.slotGo.disabled = false;
+    }, 2140);
+  });
 }
-
-let shown = null;   // the challenge on screen, taken on or not
 
 async function pullTheArm() {
-  if (spinning) return;
+  if (spinning || dare) return;
+  spinning = true;
+  el.slotGo.disabled = true;
   shown = spin();
-  el.slotBody.replaceChildren(line('Draait…', 'import-note'));
+  el.slotBody.replaceChildren(line(t('Spinning…'), 'import-note'));
   cue('start');
-  await spinReels(shown);
+  await spinReel(shown);
+  spinning = false;
+  el.slotGo.disabled = false;
   cue('target');
-  renderSlot();
+  renderWheel();
 }
 
-function renderSlot() {
+/* --- what the sheet shows --- */
+
+let wantCount = '10';
+
+function renderWheel() {
   const parts = [];
   const tally = spinTally(play());
 
@@ -7401,25 +7412,27 @@ function renderSlot() {
     card.dataset.on = 'true';
 
     const head = document.createElement('h3');
-    head.textContent = dare.what.label;
-    const rule = document.createElement('p');
-    rule.className = 'dare-rule';
-    rule.textContent = dare.how.label;
-    const stake = document.createElement('p');
-    stake.className = 'dare-stake';
-    stake.textContent = dare.stake.label;
-    card.append(head, rule, stake);
+    head.textContent = t(dare.rule.label);
+    const small = document.createElement('p');
+    small.className = 'dare-stake';
+    small.textContent = t(dare.rule.small);
+    card.append(head, small);
 
-    const { have, need, done } = progressOf(dare, dare.tally);
-    const track = document.createElement('div');
-    track.className = 'dare-track';
-    const fill = document.createElement('span');
-    fill.style.width = `${Math.round((need ? have / need : 0) * 100)}%`;
-    track.append(fill);
+    const { have, need, done } = countText(dare);
+    if (need) {
+      const track = document.createElement('div');
+      track.className = 'dare-track';
+      const fill = document.createElement('span');
+      fill.style.width = `${Math.round((have / need) * 100)}%`;
+      track.append(fill);
+      card.append(track);
+    }
     const count = document.createElement('p');
     count.className = 'dare-count';
-    count.textContent = countText(dare, dare.tally);
-    card.append(track, count);
+    count.textContent = need
+      ? t('{have} of {need} solves in this session', { have, need })
+      : t('{n} solves so far. It runs until you stop it.', { n: have });
+    card.append(count);
 
     const actions = document.createElement('div');
     actions.className = 'detail-actions';
@@ -7427,14 +7440,9 @@ function renderSlot() {
     const won = document.createElement('button');
     won.type = 'button';
     won.className = 'primary';
-    won.textContent = done ? 'Gehaald' : 'Toch gehaald';
+    won.textContent = done ? t('Managed it') : t('Managed it anyway');
     won.addEventListener('click', () => {
-      recordSpin(play(), idsOf(dare), { won: true });
-      persist();
-      dare = null;
-      keepDare();
-      renderDareStrip();
-      renderSlot();
+      endDare(true);
       confetti();
       toast(t('Noted. Spin again if you dare.'));
     });
@@ -7444,12 +7452,7 @@ function renderSlot() {
     gave.className = 'danger';
     gave.textContent = t('Gave up');
     gave.addEventListener('click', () => {
-      recordSpin(play(), idsOf(dare), { gave: true });
-      persist();
-      dare = null;
-      keepDare();
-      renderDareStrip();
-      renderSlot();
+      endDare(false);
       toast(t('Fair enough. The wheel forgets nothing.'));
     });
 
@@ -7460,16 +7463,24 @@ function renderSlot() {
     const card = document.createElement('section');
     card.className = 'dare-card';
 
-    for (const reel of REELS) {
-      const bit = document.createElement('div');
-      bit.className = 'dare-bit';
-      const what = document.createElement('b');
-      what.textContent = shown[reel.id].label;
-      const why = document.createElement('small');
-      why.textContent = shown[reel.id].small;
-      bit.append(what, why);
-      card.append(bit);
+    const head = document.createElement('h3');
+    head.textContent = t(shown.label);
+    const small = document.createElement('p');
+    small.className = 'dare-stake';
+    small.textContent = t(shown.small);
+    card.append(head, small);
+
+    const howLong = document.createElement('div');
+    howLong.className = 'segmented';
+    for (const count of COUNTS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = t(count.label);
+      button.dataset.active = String(count.id === wantCount);
+      button.addEventListener('click', () => { wantCount = count.id; renderWheel(); });
+      howLong.append(button);
     }
+    card.append(howLong);
 
     const actions = document.createElement('div');
     actions.className = 'detail-actions';
@@ -7478,22 +7489,32 @@ function renderSlot() {
     take.className = 'primary';
     take.textContent = t('I will do it');
     take.addEventListener('click', () => {
-      dare = { ...shown, tally: {}, at: Date.now() };
-      shown = null;
-      keepDare();
-      renderDareStrip();
-      renderSlot();
-      toast(t('Taken on. The counter is running.'));
+      startDare(shown, wantCount);
+      renderWheel();
     });
     const again = document.createElement('button');
     again.type = 'button';
     again.textContent = t('Spin again');
     again.addEventListener('click', pullTheArm);
-    actions.append(take, again);
+
+    const send = document.createElement('button');
+    send.type = 'button';
+    send.textContent = t('Dare someone');
+    send.addEventListener('click', async () => {
+      const link = `${location.origin}${location.pathname}#${darePart(shown.id, wantCount)}`;
+      try {
+        await navigator.clipboard.writeText(link);
+        toast(t('Link copied. They get the rule, not your times.'));
+      } catch {
+        toast(t('Copying did not work in this browser.'));
+      }
+    });
+
+    actions.append(take, again, send);
     card.append(actions);
     parts.push(card);
   } else {
-    parts.push(line(t('Pull the lever. Three reels, one task, and not one of the 2640 outcomes is one you would set yourself.'), 'import-note'));
+    parts.push(line(t('Pull the lever. Twenty-two rules, and not one of them is a rule you would set yourself.'), 'import-note'));
   }
 
   if (tally.played) {
@@ -7505,9 +7526,9 @@ function renderSlot() {
     said.className = 'round-lines';
     const row = document.createElement('div');
     const name = document.createElement('b');
-    name.textContent = `${tally.won} gehaald`;
+    name.textContent = t('{n} managed', { n: tally.won });
     const figure = document.createElement('span');
-    figure.textContent = `${tally.gave} opgegeven · ${tally.played} in totaal`;
+    figure.textContent = t('{gave} given up · {all} in all', { gave: tally.gave, all: tally.played });
     row.append(name, figure);
     said.append(row);
     block.append(heading, said);
@@ -7517,8 +7538,161 @@ function renderSlot() {
   el.slotBody.replaceChildren(...parts);
 }
 
+/* ---------- the second wheel: whose algorithm is this? ----------
+
+   It picks a case and shows four algorithms, one of which is the one you
+   starred for it. Knowing an algorithm and knowing which case it belongs to are
+   two different things, and only the first one gets practised by drilling. */
+
+let algWheel = null;    // { entry, choices, at }
+let algGroup = 'pll';
+let algRound = { asked: 0, right: 0 };
+
+function nextAlgRound() {
+  const pool = groupCases(algGroup).filter((entry) => entry.algs.length);
+  if (pool.length < 4) { algWheel = null; return; }
+  const entry = pool[Math.floor(Math.random() * pool.length)];
+
+  const others = pool.filter((one) => one.id !== entry.id);
+  const wrong = [];
+  while (wrong.length < 3 && others.length) {
+    const [taken] = others.splice(Math.floor(Math.random() * others.length), 1);
+    wrong.push(taken);
+  }
+  const choices = [entry, ...wrong]
+    .map((one) => ({ id: one.id, moves: chosenAlg(one).moves }))
+    .sort(() => Math.random() - 0.5);
+
+  algWheel = { entry, choices, at: performance.now() };
+}
+
+function answerAlg(choice, button) {
+  if (!algWheel || button.dataset.said) return;
+  const right = choice.id === algWheel.entry.id;
+  algRound.asked++;
+  if (right) algRound.right++;
+
+  for (const other of el.slotBody.querySelectorAll('.alg-choice')) {
+    other.dataset.said = 'true';
+    if (other.dataset.case === algWheel.entry.id) other.dataset.right = 'true';
+  }
+  if (!right) button.dataset.wrong = 'true';
+  cue(right ? 'target' : 'miss');
+
+  setTimeout(() => { nextAlgRound(); renderWheel(); }, right ? 420 : 1200);
+}
+
+function renderAlgWheel() {
+  const parts = [];
+
+  const picker = document.createElement('div');
+  picker.className = 'chip-row';
+  for (const [group, shape] of Object.entries(caseSet.GROUPS)) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.dataset.active = String(group === algGroup);
+    chip.textContent = shape.name;
+    chip.addEventListener('click', () => {
+      algGroup = group;
+      algRound = { asked: 0, right: 0 };
+      nextAlgRound();
+      renderWheel();
+    });
+    picker.append(chip);
+  }
+  parts.push(picker);
+
+  if (!algWheel) {
+    parts.push(line(t('Too few cases in this group to choose from.'), 'import-note'));
+    el.slotBody.replaceChildren(...parts);
+    return;
+  }
+
+  const card = document.createElement('div');
+  card.className = 'alg-quiz';
+  const face = document.createElement('div');
+  face.className = 'case-face';
+  face.append(caseThumb(algWheel.entry));
+  const ask = document.createElement('div');
+  ask.className = 'alg-quiz-ask';
+  const name = document.createElement('b');
+  name.textContent = algWheel.entry.id;
+  const said = document.createElement('small');
+  said.textContent = t('Which of these is your way through it?');
+  ask.append(name, said);
+  card.append(face, ask);
+  parts.push(card);
+
+  const list = document.createElement('div');
+  list.className = 'alg-choices';
+  for (const choice of algWheel.choices) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'alg-choice';
+    button.dataset.case = choice.id;
+    button.append(spellAlg(choice.moves));
+    button.addEventListener('click', () => answerAlg(choice, button));
+    list.append(button);
+  }
+  parts.push(list);
+
+  if (algRound.asked) {
+    parts.push(line(t('{right} of {asked} right', { right: algRound.right, asked: algRound.asked }), 'import-note'));
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'detail-actions';
+  const go = document.createElement('button');
+  go.type = 'button';
+  go.textContent = t('Drill this case now');
+  go.addEventListener('click', () => {
+    const entry = algWheel.entry;
+    el.slotSheet.close();
+    startCase(entry);
+    toast(t('{id} — turn the setup, then solve the case.', { id: entry.id }));
+  });
+  actions.append(go);
+  parts.push(actions);
+
+  el.slotBody.replaceChildren(...parts);
+}
+
+/* --- the sheet --- */
+
+function renderSlot() {
+  el.slotTabs.replaceChildren(...[
+    ['wheel', t('The wheel')], ['algs', t('Whose alg?')]
+  ].map(([id, label]) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.dataset.active = String(id === wheelTab);
+    chip.textContent = label;
+    chip.addEventListener('click', async () => {
+      wheelTab = id;
+      if (id === 'algs') {
+        try {
+          await loadCases();
+        } catch {
+          toast(t('The cases could not be loaded.'));
+          wheelTab = 'wheel';
+        }
+        if (!algWheel && caseSet) nextAlgRound();
+      }
+      renderSlot();
+    });
+    return chip;
+  }));
+
+  el.slotMachine.hidden = wheelTab !== 'wheel';
+  if (wheelTab === 'algs' && caseSet) renderAlgWheel();
+  else renderWheel();
+}
+
 function openSlot() {
-  if (!el.slotReels.children.length) buildMachine();
+  if (!el.slotReels.children.length) buildReel();
+  el.slotGo.disabled = Boolean(dare);
   renderSlot();
   openSheet(el.slotSheet);
 }
@@ -7526,6 +7700,18 @@ function openSlot() {
 el.slotClose.addEventListener('click', () => el.slotSheet.close());
 el.slotGo.addEventListener('click', pullTheArm);
 el.dareStrip.addEventListener('click', () => openSlot());
+
+/** A challenge somebody sent you. Shown, never taken on for you. */
+function showDareLink() {
+  const sent = readDareLink();
+  if (!sent || dare) return;
+  shown = sent.rule;
+  wantCount = sent.count;
+  toast(t('Somebody dares you: {rule}', { rule: t(sent.rule.label) }), {
+    label: t('Look'),
+    run: () => openSlot()
+  });
+}
 
 /* ---------- the course ----------
 
@@ -8078,6 +8264,7 @@ renderCubes();
 renderAim();
 dare = loadDare();
 renderDareStrip();
+showDareLink();
 renderCrossFace();
 renderTastePick();
 renderSkins();
