@@ -1656,7 +1656,7 @@ function statTable(heads, rows, kinds, extraClass = '') {
 }
 
 /** One row per average, with its record right beside it rather than below. */
-const averageTable = (rows) => statTable(['nu', 'record'], rows, ['', 'stats-row-record']);
+const averageTable = (rows) => statTable([t('now'), t('record')], rows, ['', 'stats-row-record']);
 
 /** Side by side, every measure gets a column per session instead. */
 const comparisonTable = (rows, names) =>
@@ -2522,7 +2522,7 @@ function focusCases(group, focus = drillFocus) {
 function focusName(group, focus = drillFocus) {
   if (focus === 'spread') return t('everything mixed together');
   if (focus === 'weak') return t('your weakest third');
-  if (focus === 'recall') return 'opfrissen';
+  if (focus === 'recall') return t('refreshing');
   return setsOf(play(), group).find((entry) => entry.id === focus)?.name || t('everything mixed together');
 }
 
@@ -2966,7 +2966,7 @@ function caseCard(entry, row) {
     facts.append(one);
   };
   fact(t('Your way'), t('{n} moves', { n: chosenAlg(entry).turns }));
-  fact('Manieren', `${entry.algs.length}`);
+  fact(t('Ways'), `${entry.algs.length}`);
   if (row) {
     fact('Gemiddeld', formatTime(row.mean));
     fact(t('Best'), formatTime(row.best));
@@ -3006,8 +3006,8 @@ function renderCaseBook() {
   }));
 
   el.casesFilter.replaceChildren(...[
-    ['all', 'alles'], ['drilled', 'geoefend'], ['untried', t('never yet')],
-    ['due', 'opfrissen'], ['own', 'eigen alg']
+    ['all', t('all')], ['drilled', t('drilled')], ['untried', t('never yet')],
+    ['due', t('refreshing')], ['own', t('my own alg')]
   ].map(([id, label]) => {
     const chip = document.createElement('button');
     chip.type = 'button';
@@ -3384,7 +3384,7 @@ function renderDrill() {
   focus.append(choice('spread', t('Everything mixed together'),
     t('First what you have not had yet, then at random. {n} cases.', { n: groupCases(drillGroup).length })));
   const due = dueCases(drillGroup).length;
-  focus.append(choice('recall', 'Opfrissen', due
+  focus.append(choice('recall', t('Refreshing'), due
     ? t(due === 1 ? '{n} case is long enough ago to wobble. That one first.' : '{n} cases are long enough ago to wobble. Those first, the shakiest at the front.', { n: due })
     : t('Nothing due — everything you have drilled is still fresh. Come back tomorrow.'),
   { off: due === 0 }));
@@ -3499,7 +3499,7 @@ async function openDrill({ focus = null, group = null } = {}) {
     await loadCases();
   } catch (error) {
     toast(t('The cases could not be loaded.'));
-    console.error('Trainen:', error);
+    console.error('Drilling:', error);
     return;
   }
   renderDrill();
@@ -3733,7 +3733,7 @@ function crossBlock(kit) {
   list.className = 'round-lines';
   for (const [label, value] of [
     [t('Your colour'), `${face?.name || settings.crossFace} · ` + t('{n} moves', { n: shape.mine.toFixed(1) })],
-    ['Kortste kleur', t('{n} moves', { n: shape.shortest.toFixed(1) })],
+    [t('Shortest colour'), t('{n} moves', { n: shape.shortest.toFixed(1) })],
     [t('You leave behind'), t('{n} moves per solve', { n: shape.lost.toFixed(1) })],
     [t('3 or more shorter'), t('{a} of {b}', { a: shape.muchBetter, b: shape.counted })]
   ]) {
@@ -4099,7 +4099,7 @@ function renderClosing() {
     [t('Time on the cube'), formatDuration(spent)],
     [t('Started at'), new Date(run[0].at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })]
   ];
-  if (record) rows.splice(2, 0, ['Persoonlijk record', 'vandaag gezet']);
+  if (record) rows.splice(2, 0, [t('Personal record'), t('set today')]);
 
   const word = closingWord(run, { record });
   el.closingBody.replaceChildren(figures(rows), line(word, 'records-aside'));
@@ -4855,7 +4855,7 @@ function thenNowBlock() {
 
   const list = document.createElement('div');
   list.className = 'round-lines';
-  for (const [when, side] of [['Toen', shape.then], ['Nu', shape.now]]) {
+  for (const [when, side] of [[t('Then'), shape.then], [t('Now'), shape.now]]) {
     const row = document.createElement('div');
     const label = document.createElement('b');
     label.textContent = `${when} · ${describeMoment(side.at)}`;
@@ -4871,7 +4871,7 @@ function thenNowBlock() {
       ? t('Your best five back then were {gap} faster. Something was there that day that is not there now.', { gap: formatTime(-shape.gap) })
       : t('Your best days are as good as they were. That is not nothing — holding a peak is harder than reaching one.');
 
-  return recordBlock('Jij tegen jou', [list, line(note, 'records-aside')]);
+  return recordBlock(t('You against you'), [list, line(note, 'records-aside')]);
 }
 
 /**
@@ -4916,7 +4916,7 @@ function aimBlock() {
 
   const rows = [
     ['Doel', formatTime(shape.target) + (settings.aimBy ? t(' before {date}', { date: new Date(deadline).toLocaleDateString(locale()) }) : '')],
-    ['Nu', formatTime(shape.now)],
+    [t('Now'), formatTime(shape.now)],
     [t('Still to go'), shape.needed <= 0 ? 'gehaald' : formatTime(shape.needed)],
     [t('You gain per week'), shape.rate > 0 ? formatTime(shape.rate * 7) : t('nothing at the moment')]
   ];
@@ -5104,7 +5104,7 @@ function renderSelection() {
     button.disabled = none;
     button.style.opacity = none ? '.4' : '1';
   }
-  el.selectAll.textContent = selected.size === solves.length && solves.length ? 'geen' : 'alles';
+  el.selectAll.textContent = selected.size === solves.length && solves.length ? t('none') : t('all');
 }
 
 function toggleSelected(solve) {
@@ -6767,7 +6767,7 @@ function sessionAsText() {
 const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
 function sessionAsCsv() {
-  const rows = [['nummer', 'tijd', 'milliseconden', 'straf', 'datum', 'scramble', 'notitie']];
+  const rows = [['number', 'time', 'milliseconds', 'penalty', 'date', 'scramble', 'note']];
   solves.forEach((solve, index) => rows.push([
     index + 1,
     formatSolve(solve),

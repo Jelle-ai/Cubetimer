@@ -184,7 +184,7 @@ async function build() {
 
 export function cubeModel() {
   model ??= build().catch((error) => {
-    console.warn('De kubus:', error.message);
+    console.warn('The cube:', error.message);
     return null;
   });
   return model;
@@ -314,13 +314,32 @@ export async function makeCube({ size = 200, drag = true, angle = [-24, -32] } =
   }
   paint();
 
-  /* --- turning --- */
+  /* --- turning ---
+
+     One move used to be an ease-in-out of its own with a little slack after it,
+     which meant every quarter turn came to a full stop and the next one started
+     again from nothing. Twelve of those in a row is not an algorithm being
+     shown, it is twelve separate jolts.
+
+     So a run of moves is treated as one movement: the first turn accelerates,
+     the ones in the middle run at a constant speed, and only the last one slows
+     down. And a turn lands exactly when its transition ends rather than a few
+     milliseconds after it, so there is no dead air between one and the next. */
 
   const AXES = ['X', 'Y', 'Z'];
+
+  /** Where in the run a turn sits, and therefore how it should feel. */
+  const EASE = {
+    only: 'cubic-bezier(.32,.72,.32,1)',
+    first: 'cubic-bezier(.42,0,.86,.72)',
+    middle: 'linear',
+    last: 'cubic-bezier(.14,.28,.32,1)'
+  };
+
   let busy = false;
   let running = null;
 
-  function turn(move, ms) {
+  function turn(move, ms, where = 'only') {
     const read = readMove(move);
     if (!read) return Promise.resolve(false);
 
@@ -337,25 +356,52 @@ export async function makeCube({ size = 200, drag = true, angle = [-24, -32] } =
       const flip = read.axis === 1 ? 1 : -1;
       const degrees = read.quarters * 90 * read.side * flip;
 
-      group.style.transition = `transform ${ms}ms cubic-bezier(.34,.9,.36,1)`;
-      requestAnimationFrame(() => {
-        group.style.transform = `rotate${AXES[read.axis]}(${degrees}deg)`;
-      });
+      const spin = `rotate${AXES[read.axis]}`;
 
+      // The reflow in the middle is the whole thing. A element that has just
+      // been made has no resolved style yet, so setting a transform on it --
+      // even a frame later -- is its *first* value rather than a change to an
+      // old one, and a browser does not transition from nothing. Every turn was
+      // jumping straight to its finished angle and then sitting there until the
+      // timer went off, which is exactly what a stutter looks like.
+      //
+      // Reading offsetHeight forces the start to be resolved, so the second
+      // assignment is a change and does animate. It also saves the frame that
+      // requestAnimationFrame cost, which was a stutter of its own.
+      group.style.transform = `${spin}(0deg)`;
+      group.style.transition = 'none';
+      void group.offsetHeight;
+      group.style.transition = `transform ${ms}ms ${EASE[where] || EASE.only}`;
+      group.style.transform = `${spin}(${degrees}deg)`;
+
+      let landed = false;
       const land = () => {
+        if (landed) return;
+        landed = true;
+        clearTimeout(guard);
         try {
           pattern = pattern.applyAlg(new Alg(move));
         } catch {
           // A move the puzzle does not know: the picture goes back as it was.
         }
+        // Undoing the rotation and repainting happen in the same task, so the
+        // browser never gets a frame showing the layer straight with the old
+        // colours on it. That frame was the flicker at the end of every turn.
         for (const cell of moving) box.append(cell.el);
         group.remove();
         paint();
         done(true);
       };
-      setTimeout(land, ms + 20);
+
+      // transitionend is the exact moment; the timer is only there for the
+      // browsers and tabs where it never arrives at all.
+      group.addEventListener('transitionend', land, { once: true });
+      const guard = setTimeout(land, ms + 90);
     });
   }
+
+  /** A pause that can be cut short when something else wants the cube. */
+  const wait = (ms) => new Promise((done) => setTimeout(done, ms));
 
   /* --- what the outside world does with it --- */
 
@@ -377,7 +423,7 @@ export async function makeCube({ size = 200, drag = true, angle = [-24, -32] } =
      * Play an algorithm. Returns a handle so it can be stopped, and so the
      * course can hand the next move over one at a time.
      */
-    play(alg, { pace = 420, from = null, onMove = null } = {}) {
+    play(alg, { pace = 420, from = null, onMove = null, hold = 1100, back = true } = {}) {
       // Only one thing turning at a time: a second play while the first is
       // still going would interleave two sets of moves on one cube.
       running?.stop();
@@ -390,7 +436,20 @@ export async function makeCube({ size = 200, drag = true, angle = [-24, -32] } =
         for (let at = 0; at < moves.length; at++) {
           if (stopped) break;
           onMove?.(at, moves[at]);
-          await turn(moves[at], pace);
+          const where = moves.length === 1 ? 'only'
+            : at === 0 ? 'first'
+              : at === moves.length - 1 ? 'last'
+                : 'middle';
+          await turn(moves[at], pace, where);
+        }
+
+        // The end of the run is worth looking at, so it is held there before
+        // anything else happens. Then the cube goes quietly back to where it
+        // started, which is what makes pressing the button again do the same
+        // thing rather than carry on from wherever the last one stopped.
+        if (!stopped && back && from !== null) {
+          await wait(hold);
+          if (!stopped) await api.rewind(from);
         }
         busy = false;
         return !stopped;
@@ -406,7 +465,20 @@ export async function makeCube({ size = 200, drag = true, angle = [-24, -32] } =
 
     /** One move, now. For the slow mode: the cube waits for you. */
     step(move, ms = 320) {
-      return turn(move, ms);
+      return turn(move, ms, 'only');
+    },
+
+    /**
+     * Back to a state, without it looking like a glitch. A cube that jumps has
+     * gone wrong; a cube that dims for a moment and comes back has been reset,
+     * and you can see the difference without being told.
+     */
+    async rewind(alg) {
+      scene.dataset.resetting = 'true';
+      await wait(240);
+      await api.show(alg);
+      await wait(30);
+      delete scene.dataset.resetting;
     },
 
     get busy() { return busy; },

@@ -210,7 +210,7 @@ export async function faceMap() {
 /** Built once, and never again -- the answer cannot change. */
 export function lastLayerMap() {
   mapping ??= build().catch((error) => {
-    console.warn('Plaatjes van de laatste laag:', error.message);
+    console.warn('Last-layer pictures:', error.message);
     return null;
   });
   return mapping;

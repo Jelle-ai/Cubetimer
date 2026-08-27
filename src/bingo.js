@@ -131,7 +131,7 @@ const SQUARES = [
   },
   {
     id: 'cases',
-    make: () => ({ text: 'Tien gevallen oefenen', bar: 10 }),
+    make: () => ({ text: t('Drill ten cases'), bar: 10 }),
     done: ({ play: game, start }) => {
       let seen = 0;
       for (const cases of Object.values(game.cases || {})) {
@@ -150,7 +150,7 @@ const SQUARES = [
   },
   {
     id: 'spot',
-    make: () => ({ text: 'Twintig gevallen herkennen', bar: 20 }),
+    make: () => ({ text: t('Recognise twenty cases'), bar: 20 }),
     done: ({ play: game, start }) => {
       let seen = 0;
       for (const cases of Object.values(game.spot || {})) {

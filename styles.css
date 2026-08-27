@@ -3834,6 +3834,12 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
   touch-action: none;
 }
 
+/* Going back to the start. A cube that jumps has gone wrong; one that dims for
+   a moment and comes back has been reset, and you can tell which is which
+   without being told. */
+.cube3d { transition: opacity .24s ease, filter .24s ease; }
+.cube3d[data-resetting='true'] { opacity: .18; filter: blur(1px); }
+
 .cube3d[data-drag='true'] { cursor: grab; }
 .cube3d[data-drag='true']:active { cursor: grabbing; }
 
@@ -3897,6 +3903,7 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
 
 @media (prefers-reduced-motion: reduce) {
   .cube3d-box { transition: none; }
+  .cube3d { transition: none; }
 }
 
 
