@@ -29,7 +29,7 @@ const KEEP_IN_SET = 60;
 export function emptyPlay() {
   return {
     runs: [], daily: {}, cases: {}, duels: [], sets: [], spot: {},
-    algs: {}, notes: {}, course: [], spins: []
+    algs: {}, notes: {}, course: [], spins: [], graduated: 0
   };
 }
 
@@ -139,6 +139,8 @@ export function cleanPlay(play) {
       if (tidy) safe.notes[where] = tidy;
     }
   }
+
+  if (Number.isFinite(play.graduated) && play.graduated > 0) safe.graduated = play.graduated;
 
   if (Array.isArray(play.course)) {
     safe.course = [...new Set(play.course.filter((id) => typeof id === 'string').map((id) => id.slice(0, 24)))].slice(0, 40);
@@ -470,6 +472,10 @@ export function mergePlay(mine, theirs) {
     if (!merged.notes[where]) merged.notes[where] = note;
   }
   merged.course = [...new Set(merged.course.concat(arriving.course || []))].slice(0, 40);
+  // The day you first solved one is the earlier of the two, not the later.
+  if (arriving.graduated && (!merged.graduated || arriving.graduated < merged.graduated)) {
+    merged.graduated = arriving.graduated;
+  }
 
   const spun = new Set(merged.spins.map((spin) => spin.at));
   for (const spin of arriving.spins || []) {
@@ -528,6 +534,16 @@ export function keepNote(play, where, note) {
 export const noteOf = (play, where) => play.notes?.[where] || '';
 
 /* ---------- the course ---------- */
+
+/**
+ * The day you finished the course, stamped once and never moved.
+ * It is the anchor for "your first solve": the first time you put on the clock
+ * after you could actually solve one.
+ */
+export function markGraduated(play, at = Date.now()) {
+  if (!play.graduated) play.graduated = at;
+  return play.graduated;
+}
 
 export const stepDone = (play, id) => (play.course || []).includes(id);
 

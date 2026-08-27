@@ -4001,3 +4001,81 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
 .after-attempt input[type='number'] { width: 4rem; }
 .after-attempt .import-note { flex: 1 0 100%; margin: 0; font-size: .74rem; }
 .after-attempt .import-note[data-bad='true'] { color: var(--hold); }
+
+
+/* ---------- the cube in the case book ---------- */
+
+.case-cube {
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  padding: .4rem 0 .1rem;
+}
+
+/* ---------- the piece of paper ----------
+
+   Learning to solve one happens once. This is deliberately over the top: a
+   certificate that looked tasteful would not be funny, and it is meant to be
+   both a joke and a thing you actually pin up. */
+
+.cert {
+  padding: 1.6rem 1.2rem;
+  border: 3px double var(--led);
+  border-radius: 10px;
+  background: var(--card-solid, #fff);
+  text-align: center;
+}
+
+.cert-head {
+  margin: 0;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cert-who {
+  margin: .6rem 0 .2rem;
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.cert-said { margin: .2rem 0; font-size: .84rem; color: var(--ink-soft, var(--ink)); }
+
+.cert-time {
+  margin: .7rem 0 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--record);
+}
+
+.cert-mark {
+  margin: 1rem 0 0;
+  font-size: .66rem;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+@media print {
+  body[data-printing='cert'] > *:not(#cert-sheet) { display: none !important; }
+  body[data-printing='cert'] #cert-sheet {
+    position: static;
+    display: block;
+    max-width: none;
+    max-height: none;
+    border: 0;
+    background: #fff;
+    color: #000;
+  }
+  body[data-printing='cert'] #cert-sheet::backdrop { display: none; }
+  body[data-printing='cert'] .sheet-inner { height: auto; overflow: visible; padding: 0; }
+  body[data-printing='cert'] .sheet-head,
+  body[data-printing='cert'] .field,
+  body[data-printing='cert'] .detail-actions { display: none !important; }
+  body[data-printing='cert'] .cert { border-color: #333; }
+}

@@ -150,6 +150,7 @@
       <button type="button" data-go="cases-times"><svg viewBox="0 0 24 24"><use href="#mark-times"/></svg>Case book</button>
       <button type="button" data-go="paper-open"><svg viewBox="0 0 24 24"><use href="#mark-sheet"/></svg>Alg sheet</button>
       <button type="button" data-go="spot-open"><svg viewBox="0 0 24 24"><use href="#mark-eye"/></svg>Recognition</button>
+      <button type="button" data-go="away-open"><svg viewBox="0 0 24 24"><use href="#mark-recall"/></svg>Without a cube</button>
       <button type="button" data-go="slot-open"><svg viewBox="0 0 24 24"><use href="#mark-wheel"/></svg>The wheel</button>
       <button type="button" data-go="mode-open"><svg viewBox="0 0 24 24"><use href="#mark-play"/></svg>Games and modes</button>
       <button type="button" data-go="metro-open"><svg viewBox="0 0 24 24"><use href="#mark-metro"/></svg>Metronome</button>
@@ -864,6 +865,37 @@
       </div>
       <div id="course-body" class="course-body sheet-scroll"></div>
     </div>
+  </div>
+</dialog>
+
+<!-- Learning to solve happens once. This is the piece of paper. -->
+<dialog id="cert-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Certificate</h2>
+      <button type="button" id="cert-close" class="icon-button" aria-label="Close">&#10005;</button>
+    </header>
+    <div id="cert-paper" class="cert"></div>
+    <label class="field">
+      <span>Your name</span>
+      <input id="cert-name" type="text" maxlength="40" autocomplete="off" placeholder="Your name">
+    </label>
+    <div class="detail-actions">
+      <button type="button" id="cert-print" class="primary">Print</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Everything you can practise on a train. -->
+<dialog id="away-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Without a cube</h2>
+      <button type="button" id="away-close" class="icon-button" aria-label="Close">&#10005;</button>
+    </header>
+    <p class="detail-meta">Three things that need nothing but a screen. Recognising a case,
+      knowing which algorithm belongs to it, and reading the course.</p>
+    <div id="away-body" class="mode-list"></div>
   </div>
 </dialog>
 

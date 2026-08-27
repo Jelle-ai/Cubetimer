@@ -17,7 +17,7 @@ import { card as bingoCard, lines as bingoLines } from './bingo.js';
 import { cardFor, drawCard, readShared, shareLink } from './share.js';
 import { MODES, absorb, begin, describe, expired, hushed, ownsSolves, result, runSolves } from './modes.js';
 import {
-  bestOf, caseStanding, cleanPlay, dailyHistory, dailyStreak, dayStamp, dropMyAlg, dropSet,
+  bestOf, caseStanding, cleanPlay, dailyHistory, dailyStreak, dayStamp, dropMyAlg, dropSet, markGraduated,
   duelTally, keepMyAlg, keepNote, keepSet, markStep, myAlgs, noteOf, recordSpin, recordSpot,
   setsOf, spinTally, spotStanding, stepDone,
   recordCase, recordDaily, recordDuel, recordRun, runsOf, scoreOf, spellScore
@@ -233,6 +233,14 @@ const el = {
   courseRoad: document.getElementById('course-road'),
   courseCube: document.getElementById('course-cube'),
   courseTools: document.getElementById('course-tools'),
+  certSheet: document.getElementById('cert-sheet'),
+  certClose: document.getElementById('cert-close'),
+  certPaper: document.getElementById('cert-paper'),
+  certName: document.getElementById('cert-name'),
+  certPrint: document.getElementById('cert-print'),
+  awaySheet: document.getElementById('away-sheet'),
+  awayClose: document.getElementById('away-close'),
+  awayBody: document.getElementById('away-body'),
   courseBody: document.getElementById('course-body'),
   warmToggle: document.getElementById('warm-toggle'),
   aimTime: document.getElementById('aim-time'),
@@ -2735,14 +2743,21 @@ function algRow(entry, alg) {
   count.textContent = t('{n} moves', { n: alg.turns }) + (alg.mine ? t(' · your own') : '');
   under.append(count);
 
+  const show = document.createElement('button');
+  show.type = 'button';
+  show.className = 'link';
+  show.textContent = t('show me');
+  show.addEventListener('click', () => showAlgOnCube(entry, alg));
+  under.append(show);
+
   const copy = document.createElement('button');
   copy.type = 'button';
   copy.className = 'link';
-  copy.textContent = 'kopieer';
+  copy.textContent = t('copy');
   copy.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(alg.moves);
-      toast('Gekopieerd.');
+      toast(t('Copied.'));
     } catch {
       toast(t('Copying did not work in this browser.'));
     }
@@ -2753,7 +2768,7 @@ function algRow(entry, alg) {
     const drop = document.createElement('button');
     drop.type = 'button';
     drop.className = 'link danger';
-    drop.textContent = 'weg';
+    drop.textContent = t('remove');
     drop.addEventListener('click', () => {
       dropMyAlg(play(), algKey(entry), alg.moves);
       persist();
@@ -2765,7 +2780,7 @@ function algRow(entry, alg) {
         storeSettings();
       }
       renderCaseBook();
-      toast('Weg.');
+      toast(t('Removed.'));
     });
     under.append(drop);
   }
@@ -2870,6 +2885,23 @@ function noteField(entry) {
    the algorithms under it. Which is the order you use it in: you look at a case
    to find out what it is, and only then at what to do about it. */
 
+/**
+ * One cube for the whole case book, built the first time you ask to be shown
+ * something. It lives beside the picture rather than instead of it: the flat
+ * diagram is what you recognise a case by, and the cube is what shows you what
+ * the algorithm does to it.
+ */
+let bookCube = null;
+
+async function showAlgOnCube(entry, alg) {
+  bookCube ??= await makeCube({ size: 132, drag: true, angle: [-24, -32] });
+  if (!bookCube) return;
+  const slot = el.casesBody.querySelector('.case-row[data-open="true"] .case-cube');
+  if (slot && !slot.contains(bookCube.el)) slot.replaceChildren(bookCube.el);
+  slot?.removeAttribute('hidden');
+  bookCube.play(alg.moves, { pace: 420, from: alg.setup });
+}
+
 function caseCard(entry, row) {
   const card = document.createElement('div');
   card.className = 'case-card';
@@ -2915,7 +2947,11 @@ function caseCard(entry, row) {
   }
   about.append(facts);
 
-  card.append(face, about);
+  const cube = document.createElement('div');
+  cube.className = 'case-cube';
+  cube.hidden = true;
+
+  card.append(face, about, cube);
   return card;
 }
 
@@ -4186,6 +4222,40 @@ const line = (text, className = 'records-line') => {
   return p;
 };
 
+/** The day you learned to solve one, and the first time you put on the clock. */
+function firstEverBlock() {
+  const when = play().graduated;
+  if (!when) return null;
+  const first = firstSolveEver();
+
+  const rows = [
+    [new Date(when).toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' }), t('learned to solve')]
+  ];
+  if (first) rows.push([formatSolve(first), t('first solve')]);
+
+  const strip = document.createElement('div');
+  strip.className = 'counter-strip';
+  for (const [value, label] of rows) {
+    const cell = document.createElement('div');
+    const big = document.createElement('b');
+    big.textContent = value;
+    const small = document.createElement('small');
+    small.textContent = label;
+    cell.append(big, small);
+    strip.append(cell);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'detail-actions';
+  const go = document.createElement('button');
+  go.type = 'button';
+  go.textContent = t('Certificate');
+  go.addEventListener('click', () => { el.recordsSheet.close(); openCertificate(); });
+  actions.append(go);
+
+  return recordBlock(t('Where it started'), [strip, actions]);
+}
+
 function podiumBlock() {
   const top = fastest(solves, 3);
   if (!top.length) return null;
@@ -4717,7 +4787,7 @@ function worstBlock() {
  * page is worse than no tab.
  */
 const RECORD_TABS = [
-  { id: 'now', get name() { return t('Now'); }, blocks: (kit) => [bingoBlock(), todayBlock(), podiumBlock(), counterBlock()] },
+  { id: 'now', get name() { return t('Now'); }, blocks: (kit) => [bingoBlock(), todayBlock(), podiumBlock(), firstEverBlock(), counterBlock()] },
   {
     id: 'better',
     get name() { return t('Progress'); },
@@ -8242,6 +8312,10 @@ function stepCard(step, index) {
   tick.textContent = had ? t('Not yet after all') : t('I can do this');
   tick.addEventListener('click', () => {
     markStep(play(), step.id, !had);
+    // Finishing the last step is the day you learned to solve a cube. It gets
+    // stamped once, and nothing ever moves it again.
+    const finished = !had && !nextStep(play().course || []);
+    if (finished) markGraduated(play());
     persist();
     if (!had) {
       confetti();
@@ -8252,6 +8326,9 @@ function stepCard(step, index) {
       showProgress();
     }
     renderCourse();
+    if (finished) {
+      toast(t('You can solve a Rubik’s cube.'), { label: t('Certificate'), run: () => openCertificate() });
+    }
   });
   actions.append(tick);
   body.append(actions);
@@ -8311,6 +8388,131 @@ el.courseSheet.addEventListener('close', () => {
   courseCube?.stop();
 });
 
+/* ---------- your first solve, and the piece of paper ----------
+
+   Learning to solve a cube happens once. Nothing in the app noticed, because
+   everything in it is about getting faster -- so the day the last step of the
+   course is ticked is stamped, and the first solve you put on the clock after
+   that is kept by name. Over a year that is the nicest number in here. */
+
+/** The earliest solve at or after the day you finished the course. */
+function firstSolveEver() {
+  const when = play().graduated;
+  if (!when) return null;
+  let first = null;
+  for (const session of saveFile.sessions) {
+    for (const solve of session.solves) {
+      if (!Number.isFinite(solve.at) || solve.at < when) continue;
+      if (!first || solve.at < first.at) first = solve;
+    }
+  }
+  return first;
+}
+
+function renderCertificate() {
+  const when = play().graduated;
+  const first = firstSolveEver();
+  el.certPaper.replaceChildren();
+
+  const head = document.createElement('p');
+  head.className = 'cert-head';
+  head.textContent = t('Can solve a Rubik’s cube');
+
+  const who = document.createElement('p');
+  who.className = 'cert-who';
+  who.textContent = settings.shareName || t('(your name)');
+
+  const said = document.createElement('p');
+  said.className = 'cert-said';
+  said.textContent = when
+    ? t('Finished the course on {date}.', { date: new Date(when).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' }) })
+    : t('Finish the course and this fills itself in.');
+
+  el.certPaper.append(head, who, said);
+
+  if (first) {
+    const time = document.createElement('p');
+    time.className = 'cert-time';
+    time.textContent = t('First solve: {time}', { time: formatSolve(first) });
+    el.certPaper.append(time);
+  }
+
+  const mark = document.createElement('p');
+  mark.className = 'cert-mark';
+  mark.textContent = 'cubetimer';
+  el.certPaper.append(mark);
+}
+
+function openCertificate() {
+  el.certName.value = settings.shareName || '';
+  renderCertificate();
+  openSheet(el.certSheet);
+}
+
+el.certClose.addEventListener('click', () => el.certSheet.close());
+el.certName.addEventListener('input', () => {
+  settings.shareName = el.certName.value.trim().slice(0, 40);
+  storeSettings();
+  renderCertificate();
+});
+el.certPrint.addEventListener('click', () => {
+  el.body.dataset.printing = 'cert';
+  const done = () => {
+    delete el.body.dataset.printing;
+    removeEventListener('afterprint', done);
+  };
+  addEventListener('afterprint', done);
+  setTimeout(() => {
+    window.print();
+    setTimeout(done, 2000);
+  }, 60);
+});
+
+/* ---------- without a cube ----------
+
+   Three of the things in here need nothing but a screen, and they are the ones
+   worth having on a train. They are scattered across the side list among the
+   things that do need a cube, so this is one door with the three of them
+   behind it. */
+
+const AWAY = [
+  {
+    name: 'Recognition',
+    about: 'A picture and four names. How long it takes you to say what you are looking at.',
+    go: () => openSpot()
+  },
+  {
+    name: 'Whose alg?',
+    about: 'An algorithm and four cases. Knowing one is not knowing where it belongs.',
+    go: () => { wheelTab = 'algs'; openSlot(); }
+  },
+  {
+    name: 'Read the course',
+    about: 'Seven steps you can read anywhere. The cube on the map does the turning.',
+    go: () => openCourse()
+  }
+];
+
+function openAway() {
+  el.awayBody.replaceChildren(...AWAY.map((one) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    const name = document.createElement('b');
+    name.textContent = t(one.name);
+    const about = document.createElement('small');
+    about.textContent = t(one.about);
+    button.append(name, about);
+    button.addEventListener('click', () => {
+      el.awaySheet.close();
+      one.go();
+    });
+    return button;
+  }));
+  openSheet(el.awaySheet);
+}
+
+el.awayClose.addEventListener('click', () => el.awaySheet.close());
+
 /* ---------- everything the app can do, in one list ----------
 
    Most of this was behind "openen" inside the settings, which is where a
@@ -8340,6 +8542,7 @@ const RAIL = {
   'paper-open': () => openPaper(),
   'slot-open': () => openSlot(),
   'course-open': () => openCourse(),
+  'away-open': () => openAway(),
   'transfer-open': () => openTransfer(),
   'paste-open': () => openPaste(),
   'settings-open': () => el.settingsOpen.click()
