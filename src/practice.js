@@ -1,3 +1,4 @@
+import { locale, t } from './lang.js';
 // How much cubing actually happened, per day.
 //
 // Time here is time spent solving -- the recorded times added up -- and never
@@ -119,17 +120,20 @@ export function formatDuration(ms) {
   return `${seconds}s`;
 }
 
-const MONTHS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
-const WEEKDAYS = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
-
+/**
+ * The day, written the way the language writes days. Month and weekday names
+ * come from the device rather than from a list here: a list would have to be
+ * kept in step with every language the app ever speaks, and the browser already
+ * knows them all.
+ */
 export function dayName(day) {
   const now = today();
-  if (day === now) return 'vandaag';
-  if (day === dayBefore(now)) return 'gisteren';
+  if (day === now) return t('today');
+  if (day === dayBefore(now)) return t('yesterday');
 
   const date = new Date(day);
-  const stamp = `${date.getDate()} ${MONTHS[date.getMonth()]}`;
+  const stamp = date.toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
   // Within the past week the weekday says more than the date does.
-  if (now - day < 7 * 86400000) return `${WEEKDAYS[date.getDay()]} ${stamp}`;
+  if (now - day < 7 * 86400000) return `${date.toLocaleDateString(locale(), { weekday: 'long' })} ${stamp}`;
   return date.getFullYear() === new Date(now).getFullYear() ? stamp : `${stamp} ${date.getFullYear()}`;
 }

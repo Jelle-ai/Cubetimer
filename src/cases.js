@@ -1,3 +1,5 @@
+import { t } from './lang.js';
+
 // Last-layer cases to drill, and the machinery that refuses to serve a broken
 // one.
 //
@@ -12,11 +14,26 @@ const TOP_EDGES = [0, 1, 2, 3];
 const TOP_CORNERS = [0, 1, 2, 3];
 
 export const GROUPS = {
-  f2l: { name: 'F2L', about: 'Het paar in de sleuf rechtsvoor. Alle 41 gevallen.' },
-  oll: { name: 'OLL', about: 'De laatste laag in één keer geel maken. Alle 57 gevallen.' },
-  pll: { name: 'PLL', about: 'De laatste laag rondzetten, alles ligt al goed gedraaid. 21 gevallen.' },
-  eo: { name: 'Kruis maken', about: 'De eerste stap van OLL in twee kijkbeurten: het gele kruis.' },
-  ocll: { name: 'Hoeken draaien', about: 'De tweede stap van OLL in twee kijkbeurten, met het kruis al gemaakt.' }
+  f2l: {
+    name: 'F2L',
+    get about() { return t('The pair in the front right slot. All 41 cases.'); }
+  },
+  oll: {
+    name: 'OLL',
+    get about() { return t('The last layer made yellow in one go. All 57 cases.'); }
+  },
+  pll: {
+    name: 'PLL',
+    get about() { return t('Putting the last layer round, everything already the right way up. 21 cases.'); }
+  },
+  eo: {
+    get name() { return t('Making the cross'); },
+    get about() { return t('The first step of OLL in two looks: the yellow cross.'); }
+  },
+  ocll: {
+    get name() { return t('Turning the corners'); },
+    get about() { return t('The second step of OLL in two looks, with the cross already made.'); }
+  }
 };
 
 /**
@@ -49,47 +66,47 @@ const F2L_KEEP = { corners: [5, 6, 7], edges: [4, 5, 6, 7, 9, 10, 11] };
  * under it are the next shortest that are genuinely different.
  */
 const F2L_SHAPES = [
-  [1, 'Paar boven', ["F' U F", "F' U2 F", "R U' R' F' U F"]],
-  [2, 'Paar boven', ["R U R'", "R U' R' U' R U' R'", "F' U2 F U R U' R'"]],
-  [3, 'Paar boven', ["R U' R'", "R U2 R'", "F' U' F R U' R'"]],
-  [4, 'Paar boven', ["F' U' F", "R U2 R' U' F' U F", "F' U F U F' U F"]],
-  [5, 'Paar boven', ["R U R' F' U' F", "F' U F U2 F' U' F", "F' U' F U' F' U F"]],
-  [6, 'Paar boven', ["F' U' F R U R'", "R U R' U R U' R'", "R U' R' U2 R U R'"]],
-  [7, 'Hoek boven, rand in de sleuf · rand omgekeerd', ["R U2 R' F' U' F", "R U' R' F' U2 F", "F' U2 F R U R'"]],
-  [8, 'Hoek in de sleuf, rand boven · hoek gedraaid', ["F' U2 F R U2 R'", "F' U2 F U' R U' R'", "R U' R' U R U' R'"]],
-  [9, 'Hoek in de sleuf, rand boven · hoek gedraaid', ["R U' R' F' U' F", "F' U' F U F' U' F", "F' U2 F U2 F' U' F"]],
-  [10, 'Hoek in de sleuf, rand boven · hoek gedraaid', ["F' U F R U R'", "R U R' U' R U R'", "R U2 R' U2 R U R'"]],
-  [11, 'Hoek in de sleuf, rand boven · hoek gedraaid', ["R U2 R' F' U2 F", "F' U F U' F' U F", "R U2 R' U F' U F"]],
-  [12, 'Paar boven', ["F' U2 F U F' U' F", "F' U' F U2 R U' R' F' U' F", "R U' R' U2 R U' R' F' U' F"]],
-  [13, 'Paar boven', ["R U2 R' U' R U R'", "F' U F R U' R' U' F' U' F", "F' U F R U R' U' F' U F"]],
-  [14, 'Paar boven', ["R U2 R' U R U' R'", "R U2 R' U2 R U2 R'", "F' U F R U2 R' F' U' F"]],
-  [15, 'Paar boven', ["F' U2 F U' F' U F", "F' U2 F U2 F' U2 F", "F' U' F R U R' F' U' F"]],
-  [16, 'Paar boven', ["F' U2 F U' R U R'", "F' U2 F U' F' U' F R U R'", "F' U' F U F' U F R U R'"]],
-  [17, 'Paar boven', ["R U' R' U R U R'", "F' U F U' R U2 R' F' U' F", "F' U F U2 R U' R' F' U2 F"]],
-  [18, 'Paar boven', ["R U' R' U2 F' U' F", "F' U2 F U' R U R' F' U' F", "R U R' U2 R U R' F' U' F"]],
-  [19, 'Paar boven', ["F' U2 F U2 F' U F", "F' U2 F U F' U2 F", "F' U2 F R U R' F' U2 F"]],
-  [20, 'Paar boven', ["F' U F U' R U R'", "R U' R' U' R U R'", "R U R' U R U R'"]],
-  [21, 'Paar boven', ["F' U' F U2 F' U F", "F' U' F U F' U2 F", "F' U' F R U R' F' U2 F"]],
-  [22, 'Hoek boven, rand in de sleuf', ["F' U F U2 F' U F", "F' U F U F' U2 F", "R U2 R' U R U R'"]],
-  [23, 'Hoek boven, rand in de sleuf · rand omgekeerd', ["F' U' F U R U' R'", "F' U' F U' R U R'", "F' U F U R U R'"]],
-  [24, 'Paar boven', ["F' U F U2 R U R'", "R U2 R' U F' U' F R U R'", "F' U' F U2 F' U' F R U R'"]],
-  [25, 'Paar boven', ["F' U F U' F' U' F", "R U R' U R U' R' F' U' F", "R U' R' U' R U2 R' F' U' F"]],
-  [26, 'Paar boven', ["R U2 R' U F' U' F", "F' U F U' R U' R' F' U' F", "F' U2 F U' R U' R' F' U' F"]],
-  [27, 'Paar boven', ["R U R' U2 R U' R'", "R U R' U' R U2 R'", "R U R' F' U' F R U2 R'"]],
-  [28, 'Paar boven', ["F' U' F U' F' U' F", "F' U F U F' U' F", "R U' R' U F' U' F"]],
-  [29, 'Paar boven', ["R U2 R' U2 R U' R'", "R U2 R' U' R U2 R'", "R U2 R' F' U' F R U2 R'"]],
-  [30, 'Hoek boven, rand in de sleuf', ["F' U2 F U' F' U' F", "F' U' F U2 F' U' F", "R U' R' U2 R U' R'"]],
-  [31, 'Hoek boven, rand in de sleuf · rand omgekeerd', ["R U' R' U' F' U' F", "R U R' U F' U' F", "R U R' U' F' U F"]],
-  [32, 'Hoek in de sleuf, rand boven', ["F' U F U R U' R'", "F' U' F U R U R'", "F' U2 F U2 R U R'"]],
-  [33, 'Hoek in de sleuf, rand boven', ["R U R' U' F' U' F", "R U2 R' U2 F' U' F", "R U' R' U' F' U F"]],
-  [34, 'Paar boven', ["F' U' F R U2 R' F' U' F", "R U R' F' U F R U R'", "F' U' F U' R U' R' F' U2 F"]],
-  [35, 'Paar boven', ["F' U' F R U' R' F' U' F", "R U R' F' U2 F R U R'", "R U' R' U' R U R' F' U' F"]],
-  [36, 'Hoek boven, rand in de sleuf', ["F' U' F U' R U' R' F' U' F", "F' U F U' R U R' F' U' F", "F' U' F U R U R' F' U' F"]],
-  [37, 'Allebei in de sleuf · hoek gedraaid en rand omgekeerd', ["F' U F U2 F' U' F R U R'", "F' U F R U' R' U2 R U R'", "R U' R' U F' U' F U' F' U' F"]],
-  [38, 'Allebei in de sleuf · hoek gedraaid en rand omgekeerd', ["R U' R' U2 R U R' F' U' F", "R U' R' F' U F U2 F' U' F", "R U R' U' R U' R' U2 F' U' F"]],
-  [39, 'Allebei in de sleuf · rand omgekeerd', ["R U2 R' U R U2 R' U F' U' F", "R U R' U2 R U2 R' U F' U' F", "R U' R' U F' U2 F U2 F' U F"]],
-  [40, 'Allebei in de sleuf · hoek gedraaid', ["F' U2 F U' F' U F U' F' U' F", "F' U' F U2 F' U F U' F' U' F", "F' U F U' F' U2 F U' F' U F"]],
-  [41, 'Allebei in de sleuf · hoek gedraaid', ["F' U' F U F' U2 F U F' U' F", "F' U2 F U2 F' U2 F U F' U' F", "F' U F U F' U' F U2 F' U F"]],
+  [1, 'Pair on top', ["F' U F", "F' U2 F", "R U' R' F' U F"]],
+  [2, 'Pair on top', ["R U R'", "R U' R' U' R U' R'", "F' U2 F U R U' R'"]],
+  [3, 'Pair on top', ["R U' R'", "R U2 R'", "F' U' F R U' R'"]],
+  [4, 'Pair on top', ["F' U' F", "R U2 R' U' F' U F", "F' U F U F' U F"]],
+  [5, 'Pair on top', ["R U R' F' U' F", "F' U F U2 F' U' F", "F' U' F U' F' U F"]],
+  [6, 'Pair on top', ["F' U' F R U R'", "R U R' U R U' R'", "R U' R' U2 R U R'"]],
+  [7, 'Corner on top, edge in the slot · edge flipped', ["R U2 R' F' U' F", "R U' R' F' U2 F", "F' U2 F R U R'"]],
+  [8, 'Corner in the slot, edge on top · corner twisted', ["F' U2 F R U2 R'", "F' U2 F U' R U' R'", "R U' R' U R U' R'"]],
+  [9, 'Corner in the slot, edge on top · corner twisted', ["R U' R' F' U' F", "F' U' F U F' U' F", "F' U2 F U2 F' U' F"]],
+  [10, 'Corner in the slot, edge on top · corner twisted', ["F' U F R U R'", "R U R' U' R U R'", "R U2 R' U2 R U R'"]],
+  [11, 'Corner in the slot, edge on top · corner twisted', ["R U2 R' F' U2 F", "F' U F U' F' U F", "R U2 R' U F' U F"]],
+  [12, 'Pair on top', ["F' U2 F U F' U' F", "F' U' F U2 R U' R' F' U' F", "R U' R' U2 R U' R' F' U' F"]],
+  [13, 'Pair on top', ["R U2 R' U' R U R'", "F' U F R U' R' U' F' U' F", "F' U F R U R' U' F' U F"]],
+  [14, 'Pair on top', ["R U2 R' U R U' R'", "R U2 R' U2 R U2 R'", "F' U F R U2 R' F' U' F"]],
+  [15, 'Pair on top', ["F' U2 F U' F' U F", "F' U2 F U2 F' U2 F", "F' U' F R U R' F' U' F"]],
+  [16, 'Pair on top', ["F' U2 F U' R U R'", "F' U2 F U' F' U' F R U R'", "F' U' F U F' U F R U R'"]],
+  [17, 'Pair on top', ["R U' R' U R U R'", "F' U F U' R U2 R' F' U' F", "F' U F U2 R U' R' F' U2 F"]],
+  [18, 'Pair on top', ["R U' R' U2 F' U' F", "F' U2 F U' R U R' F' U' F", "R U R' U2 R U R' F' U' F"]],
+  [19, 'Pair on top', ["F' U2 F U2 F' U F", "F' U2 F U F' U2 F", "F' U2 F R U R' F' U2 F"]],
+  [20, 'Pair on top', ["F' U F U' R U R'", "R U' R' U' R U R'", "R U R' U R U R'"]],
+  [21, 'Pair on top', ["F' U' F U2 F' U F", "F' U' F U F' U2 F", "F' U' F R U R' F' U2 F"]],
+  [22, 'Corner on top, edge in the slot', ["F' U F U2 F' U F", "F' U F U F' U2 F", "R U2 R' U R U R'"]],
+  [23, 'Corner on top, edge in the slot · edge flipped', ["F' U' F U R U' R'", "F' U' F U' R U R'", "F' U F U R U R'"]],
+  [24, 'Pair on top', ["F' U F U2 R U R'", "R U2 R' U F' U' F R U R'", "F' U' F U2 F' U' F R U R'"]],
+  [25, 'Pair on top', ["F' U F U' F' U' F", "R U R' U R U' R' F' U' F", "R U' R' U' R U2 R' F' U' F"]],
+  [26, 'Pair on top', ["R U2 R' U F' U' F", "F' U F U' R U' R' F' U' F", "F' U2 F U' R U' R' F' U' F"]],
+  [27, 'Pair on top', ["R U R' U2 R U' R'", "R U R' U' R U2 R'", "R U R' F' U' F R U2 R'"]],
+  [28, 'Pair on top', ["F' U' F U' F' U' F", "F' U F U F' U' F", "R U' R' U F' U' F"]],
+  [29, 'Pair on top', ["R U2 R' U2 R U' R'", "R U2 R' U' R U2 R'", "R U2 R' F' U' F R U2 R'"]],
+  [30, 'Corner on top, edge in the slot', ["F' U2 F U' F' U' F", "F' U' F U2 F' U' F", "R U' R' U2 R U' R'"]],
+  [31, 'Corner on top, edge in the slot · edge flipped', ["R U' R' U' F' U' F", "R U R' U F' U' F", "R U R' U' F' U F"]],
+  [32, 'Corner in the slot, edge on top', ["F' U F U R U' R'", "F' U' F U R U R'", "F' U2 F U2 R U R'"]],
+  [33, 'Corner in the slot, edge on top', ["R U R' U' F' U' F", "R U2 R' U2 F' U' F", "R U' R' U' F' U F"]],
+  [34, 'Pair on top', ["F' U' F R U2 R' F' U' F", "R U R' F' U F R U R'", "F' U' F U' R U' R' F' U2 F"]],
+  [35, 'Pair on top', ["F' U' F R U' R' F' U' F", "R U R' F' U2 F R U R'", "R U' R' U' R U R' F' U' F"]],
+  [36, 'Corner on top, edge in the slot', ["F' U' F U' R U' R' F' U' F", "F' U F U' R U R' F' U' F", "F' U' F U R U R' F' U' F"]],
+  [37, 'Both in the slot · corner twisted and edge flipped', ["F' U F U2 F' U' F R U R'", "F' U F R U' R' U2 R U R'", "R U' R' U F' U' F U' F' U' F"]],
+  [38, 'Both in the slot · corner twisted and edge flipped', ["R U' R' U2 R U R' F' U' F", "R U' R' F' U F U2 F' U' F", "R U R' U' R U' R' U2 F' U' F"]],
+  [39, 'Both in the slot · edge flipped', ["R U2 R' U R U2 R' U F' U' F", "R U R' U2 R U2 R' U F' U' F", "R U' R' U F' U2 F U2 F' U F"]],
+  [40, 'Both in the slot · corner twisted', ["F' U2 F U' F' U F U' F' U' F", "F' U' F U2 F' U F U' F' U' F", "F' U F U' F' U2 F U' F' U F"]],
+  [41, 'Both in the slot · corner twisted', ["F' U' F U F' U2 F U F' U' F", "F' U2 F U2 F' U2 F U F' U' F", "F' U F U F' U' F U2 F' U F"]],
 ];
 
 const F2L = F2L_SHAPES.map(([number, name, algs]) => ({
@@ -101,63 +118,63 @@ const F2L = F2L_SHAPES.map(([number, name, algs]) => ({
  * looks like on the top face.
  */
 const OLL_SHAPES = [
-  [1, 'Punt · dubbele bocht', "R U2 R2 F R F' U2 R' F R F'"],
-  [2, 'Punt · rugzak', "F R U R' U' F' f R U R' U' f'"],
-  [3, 'Punt · anti-schild', "f R U R' U' f' U' F R U R' U' F'"],
-  [4, 'Punt · schild', "f R U R' U' f' U F R U R' U' F'"],
-  [5, 'Vierkant · links', "r' U2 R U R' U r"],
-  [6, 'Vierkant · rechts', "r U2 R' U' R U' r'"],
-  [7, 'Lus · rechts', "r U R' U R U2 r'"],
-  [8, 'Lus · links', "r' U' R U' R' U2 r"],
-  [9, 'Vis · koplampen achter', "R U R' U' R' F R2 U R' U' F'"],
-  [10, 'Vis · koplampen voor', "R U R' U R' F R F' R U2 R'"],
-  [11, 'Kleine hobbel · rechts', "r U R' U R' F R F' R U2 r'"],
-  [12, 'Kleine hobbel · links', "M' R' U' R U' R' U2 R U' R r'"],
-  [13, 'Knie · voor', "F U R U' R2 F' R U R U' R'"],
-  [14, 'Knie · achter', "R' F R U R' F' R F U' F'"],
-  [15, 'Knie · links', "l' U' l L' U' L U l' U l"],
-  [16, 'Knie · rechts', "r U r' R U R' U' r U' r'"],
-  [17, 'Punt · met koplampen', "F R' F' R2 r' U R U' R' U' M'"],
-  [18, 'Punt · kruisje', "r U R' U R U2 r2 U' R U' R' U2 r"],
-  [19, 'Punt · muis', "r' R U R U R' U' M' R' F R F'"],
-  [20, 'Punt · alles los', "r U R' U' M2 U R U' R' U' M'"],
-  [21, 'Kruis · dubbele Sune', ["R U2 R' U' R U R' U' R U' R'", "F R U R' U' R U R' U' R U R' U' F'"]],
-  [22, 'Kruis · Pi', "R U2 R2 U' R2 U' R2 U2 R"],
-  [23, 'Kruis · koplampen', ["R2 D R' U2 R D' R' U2 R'", "R2 D' R U2 R' D R U2 R"]],
-  [24, 'Kruis · T', ["r U R' U' r' F R F'", "x' R U R' D R U' R' D' x"]],
-  [25, 'Kruis · strik', ["F' r U R' U' r' F R", "x' R U' R' D R U R' D' x"]],
-  [26, 'Kruis · Antisune', "R U2 R' U' R U' R'"],
-  [27, 'Kruis · Sune', ["R U R' U R U2 R'", "L U L' U L U2 L'"]],
-  [28, 'Streep · stealth', "r U R' U' r' R U R U' R'"],
-  [29, 'Streep · aap', "R U R' U' R U' R' F' U' F R U R'"],
-  [30, 'Streep · kraan', "F R' F R2 U' R' U' R U R' F2"],
-  [31, 'Streep · P links', "R' U' F U R U' R' F' R"],
-  [32, 'Streep · P rechts', "L U F' U' L' U L F L'"],
-  [33, 'Streep · sleutel', ["R U R' U' R' F R F'", "L' U' L U L F' L' F"]],
-  [34, 'Streep · gat', "R U R2 U' R' F R U R U' F'"],
-  [35, 'Streep · vis', "R U2 R2 F R F' R U2 R'"],
-  [36, 'Streep · worm', "L' U' L U' L' U L U L F' L' F"],
-  [37, 'Streep · vissenkop', "F R' F' R U R U' R'"],
-  [38, 'Streep · muur', "R U R' U R U' R' U' R' F R F'"],
-  [39, 'Streep · balk links', "L F' L' U' L U F U' L'"],
-  [40, 'Streep · balk rechts', "R' F R U R' U' F' U R"],
-  [41, 'Streep · bewaker', "R U R' U R U2 R' F R U R' U' F'"],
-  [42, 'Streep · adelaar', "R' U' R U' R' U2 R F R U R' U' F'"],
-  [43, 'Streep · vlieger links', "F' U' L' U L F"],
-  [44, 'Streep · vlieger rechts', "F U R U' R' F'"],
-  [45, 'Kruis · T-vorm', "F R U R' U' F'"],
-  [46, 'Kruis · C-vorm', "R' U' R' F R F' U R"],
-  [47, 'Streep · bril links', "F' L' U' L U L' U' L U F"],
-  [48, 'Streep · bril rechts', "F R U R' U' R U R' U' F'"],
-  [49, 'Streep · plank rechts', "r U' r2 U r2 U r2 U' r"],
-  [50, 'Streep · plank links', "r' U r2 U' r2 U' r2 U r'"],
-  [51, 'Streep · brug', "F U R U' R' U R U' R' F'"],
-  [52, 'Streep · bank', "R U R' U R U' B U' B' R'"],
-  [53, 'Vierkant · lang links', "l' U2 L U L' U' L U L' U l"],
-  [54, 'Vierkant · lang rechts', "r U2 R' U' R U R' U' R U' r'"],
-  [55, 'Streep · hoge trap', "R' F R U R U' R2 F' R2 U' R' U R U R'"],
-  [56, 'Punt · vrijstaand', "r U r' U R U' R' U R U' R' r U' r'"],
-  [57, 'Kruis · H', ["R U R' U' M' U R U' r'", "M' U M' U M' U2 M U M U M U2"]]
+  [1, 'Dot · double bend', "R U2 R2 F R F' U2 R' F R F'"],
+  [2, 'Dot · rucksack', "F R U R' U' F' f R U R' U' f'"],
+  [3, 'Dot · anti shield', "f R U R' U' f' U' F R U R' U' F'"],
+  [4, 'Dot · shield', "f R U R' U' f' U F R U R' U' F'"],
+  [5, 'Square · left', "r' U2 R U R' U r"],
+  [6, 'Square · right', "r U2 R' U' R U' r'"],
+  [7, 'Loop · right', "r U R' U R U2 r'"],
+  [8, 'Loop · left', "r' U' R U' R' U2 r"],
+  [9, 'Fish · headlights at the back', "R U R' U' R' F R2 U R' U' F'"],
+  [10, 'Fish · headlights at the front', "R U R' U R' F R F' R U2 R'"],
+  [11, 'Small bump · right', "r U R' U R' F R F' R U2 r'"],
+  [12, 'Small bump · left', "M' R' U' R U' R' U2 R U' R r'"],
+  [13, 'Knee · front', "F U R U' R2 F' R U R U' R'"],
+  [14, 'Knee · back', "R' F R U R' F' R F U' F'"],
+  [15, 'Knee · left', "l' U' l L' U' L U l' U l"],
+  [16, 'Knee · right', "r U r' R U R' U' r U' r'"],
+  [17, 'Dot · with headlights', "F R' F' R2 r' U R U' R' U' M'"],
+  [18, 'Dot · little cross', "r U R' U R U2 r2 U' R U' R' U2 r"],
+  [19, 'Dot · mouse', "r' R U R U R' U' M' R' F R F'"],
+  [20, 'Dot · all loose', "r U R' U' M2 U R U' R' U' M'"],
+  [21, 'Cross · double Sune', ["R U2 R' U' R U R' U' R U' R'", "F R U R' U' R U R' U' R U R' U' F'"]],
+  [22, 'Cross · Pi', "R U2 R2 U' R2 U' R2 U2 R"],
+  [23, 'Cross · headlights', ["R2 D R' U2 R D' R' U2 R'", "R2 D' R U2 R' D R U2 R"]],
+  [24, 'Cross · T', ["r U R' U' r' F R F'", "x' R U R' D R U' R' D' x"]],
+  [25, 'Cross · bowtie', ["F' r U R' U' r' F R", "x' R U' R' D R U R' D' x"]],
+  [26, 'Cross · Antisune', "R U2 R' U' R U' R'"],
+  [27, 'Cross · Sune', ["R U R' U R U2 R'", "L U L' U L U2 L'"]],
+  [28, 'Line · stealth', "r U R' U' r' R U R U' R'"],
+  [29, 'Line · monkey', "R U R' U' R U' R' F' U' F R U R'"],
+  [30, 'Line · crane', "F R' F R2 U' R' U' R U R' F2"],
+  [31, 'Line · P left', "R' U' F U R U' R' F' R"],
+  [32, 'Line · P right', "L U F' U' L' U L F L'"],
+  [33, 'Line · key', ["R U R' U' R' F R F'", "L' U' L U L F' L' F"]],
+  [34, 'Line · hole', "R U R2 U' R' F R U R U' F'"],
+  [35, 'Line · fish', "R U2 R2 F R F' R U2 R'"],
+  [36, 'Line · worm', "L' U' L U' L' U L U L F' L' F"],
+  [37, 'Line · fish head', "F R' F' R U R U' R'"],
+  [38, 'Line · wall', "R U R' U R U' R' U' R' F R F'"],
+  [39, 'Line · beam left', "L F' L' U' L U F U' L'"],
+  [40, 'Line · beam right', "R' F R U R' U' F' U R"],
+  [41, 'Line · guard', "R U R' U R U2 R' F R U R' U' F'"],
+  [42, 'Line · eagle', "R' U' R U' R' U2 R F R U R' U' F'"],
+  [43, 'Line · kite left', "F' U' L' U L F"],
+  [44, 'Line · kite right', "F U R U' R' F'"],
+  [45, 'Cross · T shape', "F R U R' U' F'"],
+  [46, 'Cross · C shape', "R' U' R' F R F' U R"],
+  [47, 'Line · glasses left', "F' L' U' L U L' U' L U F"],
+  [48, 'Line · glasses right', "F R U R' U' R U R' U' F'"],
+  [49, 'Line · plank right', "r U' r2 U r2 U r2 U' r"],
+  [50, 'Line · plank left', "r' U r2 U' r2 U' r2 U r'"],
+  [51, 'Line · bridge', "F U R U' R' U R U' R' F'"],
+  [52, 'Line · bench', "R U R' U R U' B U' B' R'"],
+  [53, 'Square · long left', "l' U2 L U L' U' L U L' U l"],
+  [54, 'Square · long right', "r U2 R' U' R U R' U' R U' r'"],
+  [55, 'Line · tall stairs', "R' F R U R U' R2 F' R2 U' R' U R U R'"],
+  [56, 'Dot · free standing', "r U r' U R U' R' U R U' R' r U' r'"],
+  [57, 'Cross · H', ["R U R' U' M' U R U' r'", "M' U M' U M' U2 M U M U M U2"]]
 ];
 
 const OLL = OLL_SHAPES.map(([number, name, algs]) => ({
@@ -201,18 +218,18 @@ export const CASES = [
   { id: 'Nb', group: 'pll', kind: 'both', algs: ["R' U R U' R' F' U' F R U R' F R' F' R U' R", "r' D' F r U' r' F' D r2 U r' U' r' F r F'"] },
 
   // --- two-look, first look: the cross
-  { id: 'Punt', group: 'eo', kind: 'edges', name: 'Punt', algs: ["F R U R' U' F' f R U R' U' f'"] },
-  { id: 'Streep', group: 'eo', kind: 'edges', name: 'Streep', algs: ["F R U R' U' F'"] },
-  { id: 'Haakje', group: 'eo', kind: 'edges', name: 'Haakje', algs: ["f R U R' U' f'"] },
+  { id: 'Dot', group: 'eo', kind: 'edges', name: 'Dot', algs: ["F R U R' U' F' f R U R' U' f'"] },
+  { id: 'Line', group: 'eo', kind: 'edges', name: 'Line', algs: ["F R U R' U' F'"] },
+  { id: 'Hook', group: 'eo', kind: 'edges', name: 'Hook', algs: ["f R U R' U' f'"] },
 
   // --- two-look, second look: the corners. These are OLL 21 to 27 under the
   // names people actually use for them while learning two-look.
   { id: 'Sune', group: 'ocll', kind: 'corners', name: 'Sune', algs: ["R U R' U R U2 R'"] },
   { id: 'Antisune', group: 'ocll', kind: 'corners', name: 'Antisune', algs: ["R U2 R' U' R U' R'"] },
   { id: 'Pi', group: 'ocll', kind: 'corners', name: 'Pi', algs: ["R U2 R2 U' R2 U' R2 U2 R"] },
-  { id: 'Kop', group: 'ocll', kind: 'corners', name: 'Koplampen', algs: ["R2 D R' U2 R D' R' U2 R'"] },
-  { id: 'Dubbele Sune', group: 'ocll', kind: 'corners', name: 'Dubbele Sune', algs: ["R U R' U R U' R' U R U2 R'"] },
-  { id: 'Strik', group: 'ocll', kind: 'corners', name: 'Strik', algs: ["F' r U R' U' r' F R"] },
+  { id: 'Kop', group: 'ocll', kind: 'corners', name: 'Headlights', algs: ["R2 D R' U2 R D' R' U2 R'"] },
+  { id: 'Double Sune', group: 'ocll', kind: 'corners', name: 'Double Sune', algs: ["R U R' U R U' R' U R U2 R'"] },
+  { id: 'Bowtie', group: 'ocll', kind: 'corners', name: 'Bowtie', algs: ["F' r U R' U' r' F R"] },
   { id: 'T-hoeken', group: 'ocll', kind: 'corners', name: 'T', algs: ["r U R' U' r' F R F'"] },
 
   // --- OLL, all fifty-seven.
@@ -333,7 +350,7 @@ export function checkCase(entry, kpuzzle, Alg, moves = null) {
     setup = tidyMoves(new Alg(moves ?? entry.algs[0]).invert().experimentalSimplify({ cancel: true }).toString());
     landed = kpuzzle.defaultPattern().applyAlg(new Alg(setup));
   } catch (error) {
-    return { ok: false, why: `niet te lezen (${error.message})` };
+    return { ok: false, why: `unreadable (${error.message})` };
   }
 
   const solved = kpuzzle.defaultPattern();
@@ -341,7 +358,7 @@ export function checkCase(entry, kpuzzle, Alg, moves = null) {
   const bottomCorners = everyIndex(solved, 'CORNERS').filter((i) => !TOP_CORNERS.includes(i));
 
   if (!same(landed, solved, 'CENTERS', everyIndex(solved, 'CENTERS'))) {
-    return { ok: false, why: 'draait de hele kubus' };
+    return { ok: false, why: 'it leaves the whole cube turned' };
   }
 
   // An F2L case is judged on a different promise: the cross and the other
@@ -350,7 +367,7 @@ export function checkCase(entry, kpuzzle, Alg, moves = null) {
   if (entry.group === 'f2l') {
     if (!same(landed, solved, 'CORNERS', F2L_KEEP.corners)
       || !same(landed, solved, 'EDGES', F2L_KEEP.edges)) {
-      return { ok: false, why: 'breekt het kruis of een andere sleuf' };
+      return { ok: false, why: 'it breaks the cross or another slot' };
     }
     const corners = landed.patternData.CORNERS;
     const edges = landed.patternData.EDGES;
@@ -358,17 +375,17 @@ export function checkCase(entry, kpuzzle, Alg, moves = null) {
       && (corners.orientation?.[F2L_PAIR.corner] ?? 0) === 0;
     const edgeHome = edges.pieces[F2L_PAIR.edge] === F2L_PAIR.edge
       && (edges.orientation?.[F2L_PAIR.edge] ?? 0) === 0;
-    if (cornerHome && edgeHome) return { ok: false, why: 'het paar staat al goed' };
+    if (cornerHome && edgeHome) return { ok: false, why: 'the pair is already home' };
     // Neither piece may have wandered out of the top layer or the slot.
     const cornerAt = corners.pieces.indexOf(F2L_PAIR.corner);
     const edgeAt = edges.pieces.indexOf(F2L_PAIR.edge);
-    if (![0, 1, 2, 3, F2L_PAIR.corner].includes(cornerAt)) return { ok: false, why: 'de hoek belandt elders' };
-    if (![0, 1, 2, 3, F2L_PAIR.edge].includes(edgeAt)) return { ok: false, why: 'de rand belandt elders' };
+    if (![0, 1, 2, 3, F2L_PAIR.corner].includes(cornerAt)) return { ok: false, why: 'the corner ends up somewhere else' };
+    if (![0, 1, 2, 3, F2L_PAIR.edge].includes(edgeAt)) return { ok: false, why: 'the edge ends up somewhere else' };
     return { ok: true, setup, pattern: landed };
   }
 
   if (!same(landed, solved, 'EDGES', bottomEdges) || !same(landed, solved, 'CORNERS', bottomCorners)) {
-    return { ok: false, why: 'breekt de eerste twee lagen' };
+    return { ok: false, why: 'it breaks the first two layers' };
   }
 
   const top = landed.patternData;
@@ -378,17 +395,17 @@ export function checkCase(entry, kpuzzle, Alg, moves = null) {
     || TOP_EDGES.some((i) => top.EDGES.pieces[i] !== i);
 
   if (entry.group === 'pll') {
-    if (twisted) return { ok: false, why: 'laat stukken verkeerd om liggen' };
-    if (!shuffled) return { ok: false, why: 'verandert niets' };
+    if (twisted) return { ok: false, why: 'it leaves pieces the wrong way up' };
+    if (!shuffled) return { ok: false, why: 'it changes nothing' };
     const cornersMoved = TOP_CORNERS.some((i) => top.CORNERS.pieces[i] !== i);
     const edgesMoved = TOP_EDGES.some((i) => top.EDGES.pieces[i] !== i);
-    if (entry.kind === 'corners' && edgesMoved) return { ok: false, why: 'verzet ook randen' };
-    if (entry.kind === 'edges' && cornersMoved) return { ok: false, why: 'verzet ook hoeken' };
+    if (entry.kind === 'corners' && edgesMoved) return { ok: false, why: 'it moves edges as well' };
+    if (entry.kind === 'edges' && cornersMoved) return { ok: false, why: 'it moves corners as well' };
     if (entry.kind === 'both' && (!cornersMoved || !edgesMoved)) {
-      return { ok: false, why: 'verzet er maar één soort' };
+      return { ok: false, why: 'it moves only one kind' };
     }
   } else if (!twisted) {
-    return { ok: false, why: 'draait niets om' };
+    return { ok: false, why: 'it turns nothing over' };
   }
 
   return { ok: true, setup, pattern: landed };
@@ -421,7 +438,7 @@ export function usableCases(kpuzzle, Alg, list = CASES) {
     const mark = `${entry.group}/${caseSignature(verdict.pattern, entry.group, Alg)}`;
     const claimed = seen.get(mark);
     if (claimed) {
-      dropped.push({ id: entry.id, why: `zelfde geval als ${claimed}` });
+      dropped.push({ id: entry.id, why: `the same case as ${claimed}` });
       continue;
     }
     seen.set(mark, entry.id);
@@ -437,7 +454,7 @@ export function usableCases(kpuzzle, Alg, list = CASES) {
         continue;
       }
       if (`${entry.group}/${caseSignature(tried.pattern, entry.group, Alg)}` !== mark) {
-        dropped.push({ id: `${entry.id} · ${moves}`, why: 'lost een ander geval op' });
+        dropped.push({ id: `${entry.id} · ${moves}`, why: 'it solves a different case' });
         continue;
       }
       // The same algorithm with a U at either end is not another way of doing
@@ -447,7 +464,7 @@ export function usableCases(kpuzzle, Alg, list = CASES) {
       algs.push({ moves, setup: tried.setup, turns: moves.split(/\s+/).filter(Boolean).length });
     }
     if (!algs.length) {
-      dropped.push({ id: entry.id, why: 'geen bruikbaar algoritme' });
+      dropped.push({ id: entry.id, why: 'no usable algorithm' });
       continue;
     }
 
@@ -514,7 +531,7 @@ const untouched = (end, solved, group) => (group === 'f2l'
  */
 export function solvesCase(entry, moves, kpuzzle, Alg) {
   const done = finished[entry.group];
-  if (!done) return { ok: false, why: 'onbekende groep' };
+  if (!done) return { ok: false, why: 'unknown group' };
 
   let alg;
   let start;
@@ -524,7 +541,7 @@ export function solvesCase(entry, moves, kpuzzle, Alg) {
     setup = tidyMoves(new Alg(moves).invert().experimentalSimplify({ cancel: true }).toString());
     start = kpuzzle.defaultPattern().applyAlg(new Alg(entry.setup));
   } catch (error) {
-    return { ok: false, why: `niet te lezen (${error.message})` };
+    return { ok: false, why: `unreadable (${error.message})` };
   }
 
   const solved = kpuzzle.defaultPattern();
@@ -535,7 +552,7 @@ export function solvesCase(entry, moves, kpuzzle, Alg) {
     try {
       end = start.applyAlg(new Alg(turn)).applyAlg(alg);
     } catch (error) {
-      return { ok: false, why: `niet te lezen (${error.message})` };
+      return { ok: false, why: `unreadable (${error.message})` };
     }
     if (!same(end, solved, 'CENTERS', everyIndex(solved, 'CENTERS'))) continue;
     sawTheCube = true;
@@ -545,6 +562,6 @@ export function solvesCase(entry, moves, kpuzzle, Alg) {
     }
   }
 
-  if (!sawTheCube) return { ok: false, why: 'draait de hele kubus' };
-  return { ok: false, why: 'lost dit geval niet op' };
+  if (!sawTheCube) return { ok: false, why: 'it leaves the whole cube turned' };
+  return { ok: false, why: 'it does not solve this case' };
 }

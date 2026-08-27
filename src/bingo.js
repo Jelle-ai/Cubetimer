@@ -11,6 +11,7 @@
 // badges work -- so a card cannot go wrong by having been written down wrong.
 
 import { counting, effective, formatTime } from './stats.js';
+import { locale, t } from './lang.js';
 
 /** Monday, as the day the week is keyed on. */
 export function weekOf(when = Date.now()) {
@@ -23,7 +24,7 @@ export function weekOf(when = Date.now()) {
 export function weekName(start) {
   const end = new Date(start);
   end.setDate(end.getDate() + 6);
-  const say = (date) => new Date(date).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' });
+  const say = (date) => new Date(date).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
   return `${say(start)} – ${say(end)}`;
 }
 
@@ -74,7 +75,7 @@ const SQUARES = [
       if (!Number.isFinite(known.best)) return null;
       // A hair under your record: near enough to chase, far enough to mean it.
       const bar = Math.round(known.best * 0.99);
-      return { text: `Een solve onder ${formatTime(bar)}`, bar };
+      return { text: t('A solve under {time}', { time: formatTime(bar) }), bar };
     },
     done: ({ week }, bar) => week.some((solve) => effective(solve) < bar)
   },
@@ -83,7 +84,7 @@ const SQUARES = [
     make: ({ known }) => {
       if (!Number.isFinite(known.five)) return null;
       const bar = Math.round(known.five * 0.98);
-      return { text: `Een ao5 onder ${formatTime(bar)}`, bar };
+      return { text: t('An ao5 under {time}', { time: formatTime(bar) }), bar };
     },
     done: ({ week }, bar) => bestFive(week) < bar
   },
@@ -92,7 +93,7 @@ const SQUARES = [
     make: ({ known }) => {
       if (!Number.isFinite(known.middle)) return null;
       const bar = Math.round(known.middle);
-      return { text: `Vijf op rij onder ${formatTime(bar)}`, bar };
+      return { text: t('Five in a row under {time}', { time: formatTime(bar) }), bar };
     },
     done: ({ week }, bar) => {
       let run = 0;
@@ -118,7 +119,7 @@ const SQUARES = [
   },
   {
     id: 'sitting',
-    make: () => ({ text: 'Een sessie van twintig achter elkaar', bar: 20 }),
+    make: () => ({ text: t('A session of twenty in a row'), bar: 20 }),
     done: ({ week }, bar) => {
       let run = 1;
       for (let at = 1; at < week.length; at++) {
@@ -143,7 +144,7 @@ const SQUARES = [
   },
   {
     id: 'fresh',
-    make: () => ({ text: 'Een geval dat je nog nooit gedaan had', bar: 1 }),
+    make: () => ({ text: t('A case you had never drilled'), bar: 1 }),
     done: ({ play: game, start }) => Object.values(game.cases || {}).some((cases) =>
       Object.values(cases).some((times) => times.length && times.every((one) => one.at >= start)))
   },
@@ -166,12 +167,12 @@ const SQUARES = [
   },
   {
     id: 'game',
-    make: () => ({ text: 'Een spelletje uitspelen', bar: 1 }),
+    make: () => ({ text: t('Play a game to the end'), bar: 1 }),
     done: ({ play: game, start }) => (game.runs || []).some((run) => run.at >= start)
   },
   {
     id: 'clean',
-    make: () => ({ text: 'Twintig op rij zonder DNF', bar: 20 }),
+    make: () => ({ text: t('Twenty in a row without a DNF'), bar: 20 }),
     done: ({ week }, bar) => {
       let run = 0;
       for (const solve of week) {

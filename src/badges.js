@@ -7,6 +7,7 @@
 // nothing has to be trusted to have been recorded correctly on the day.
 
 import { counting, effective, formatTime } from './stats.js';
+import { locale, t } from './lang.js';
 
 /** Sub-somethings worth having, coarse enough that they stay rare. */
 const WALLS = [60, 45, 30, 25, 20, 17, 15, 13, 12, 11, 10, 9, 8, 7, 6, 5];
@@ -107,10 +108,10 @@ export function badges(sessions, play) {
     const solve = nth(seen.solves, count);
     out.push({
       id: `solves-${count}`,
-      name: count === 1 ? 'De eerste' : `${count} solves`,
-      about: count === 1 ? 'Je allereerste tijd in de app.' : `${count} solves bij elkaar.`,
+      name: count === 1 ? t('The first one') : t('{n} solves', { n: count }),
+      about: count === 1 ? t('Your very first time in the app.') : t('{n} solves altogether.', { n: count }),
       at: at(solve),
-      detail: solve ? formatTime(effective(solve)) : `${seen.solves.length} van ${count}`
+      detail: solve ? formatTime(effective(solve)) : t('{had} of {n}', { had: seen.solves.length, n: count })
     });
   }
 
@@ -120,9 +121,9 @@ export function badges(sessions, play) {
     out.push({
       id: `sub-${wall}`,
       name: `Sub-${wall}`,
-      about: `Je eerste solve onder de ${wall} seconden.`,
+      about: t('Your first solve under {n} seconds.', { n: wall }),
       at: at(solve),
-      detail: solve ? formatTime(effective(solve)) : 'nog niet'
+      detail: solve ? formatTime(effective(solve)) : t('not yet')
     });
   }
 
@@ -130,46 +131,46 @@ export function badges(sessions, play) {
   for (const days of [3, 7, 30, 100]) {
     out.push({
       id: `days-${days}`,
-      name: `${days} dagen op rij`,
-      about: `Zoveel dagen achter elkaar minstens één solve.`,
+      name: t('{n} days in a row', { n: days }),
+      about: t('That many days running with at least one solve.'),
       at: run.days >= days ? run.at : null,
-      detail: `${run.days} gehaald`
+      detail: t('{n} managed', { n: run.days })
     });
   }
 
   const allSix = [...seen.puzzlesByDay.entries()].find(([, puzzles]) => puzzles.size >= 6);
   out.push({
     id: 'six-puzzles',
-    name: 'Alle zes op één dag',
-    about: 'Elke puzzel minstens één keer, binnen dezelfde dag.',
+    name: t('All six in one day'),
+    about: t('Every puzzle at least once, inside the same day.'),
     at: allSix ? new Date(allSix[0]).getTime() : null,
-    detail: allSix ? `${allSix[1].size} puzzels` : `hoogste tot nu: ${Math.max(0, ...[...seen.puzzlesByDay.values()].map((set) => set.size))}`
+    detail: allSix ? t('{n} puzzles', { n: allSix[1].size }) : t('most so far: {n}', { n: Math.max(0, ...[...seen.puzzlesByDay.values()].map((set) => set.size)) })
   });
 
   out.push({
     id: 'night',
-    name: 'Nachtbraker',
-    about: 'Een solve tussen middernacht en vijf uur.',
+    name: t('Night owl'),
+    about: t('A solve between midnight and five in the morning.'),
     at: seen.nightOwl,
-    detail: seen.nightOwl ? new Date(seen.nightOwl).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : 'nog niet'
+    detail: seen.nightOwl ? new Date(seen.nightOwl).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) : t('not yet')
   });
 
   out.push({
     id: 'early',
-    name: 'Vroege vogel',
-    about: 'Een solve voor zeven uur ’s ochtends.',
+    name: t('Early bird'),
+    about: t('A solve before seven in the morning.'),
     at: seen.earlyBird,
-    detail: seen.earlyBird ? new Date(seen.earlyBird).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : 'nog niet'
+    detail: seen.earlyBird ? new Date(seen.earlyBird).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }) : t('not yet')
   });
 
   const dailyDays = Object.keys(seen.play.daily || {}).length;
   for (const count of [1, 7, 30]) {
     out.push({
       id: `daily-${count}`,
-      name: count === 1 ? 'Dagscramble gedaan' : `${count} dagscrambles`,
-      about: 'De scramble van de dag, die voor iedereen dezelfde is.',
+      name: count === 1 ? t('Daily scramble done') : t('{n} daily scrambles', { n: count }),
+      about: t('The scramble of the day, the same one for everybody.'),
       at: dailyDays >= count ? Date.now() : null,
-      detail: `${dailyDays} gedaan`
+      detail: t('{n} done', { n: dailyDays })
     });
   }
 
@@ -178,10 +179,10 @@ export function badges(sessions, play) {
   for (const streak of [5, 10, 25]) {
     out.push({
       id: `marathon-${streak}`,
-      name: `Marathon van ${streak}`,
-      about: `${streak} achter elkaar onder je drempel.`,
+      name: t('Marathon of {n}', { n: streak }),
+      about: t('{n} in a row under your threshold.', { n: streak }),
       at: bestStreak >= streak ? (marathon.find((entry) => entry.score >= streak)?.at ?? null) : null,
-      detail: `${bestStreak} gehaald`
+      detail: t('{n} managed', { n: bestStreak })
     });
   }
 

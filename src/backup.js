@@ -1,3 +1,4 @@
+import { t } from './lang.js';
 // One file that carries everything, and a way to fold it back in.
 //
 // Moving to a new phone is the case this is for, so it merges rather than
@@ -129,17 +130,17 @@ export function readBackup(text) {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error('Dit is geen leesbaar cubetimer-bestand.');
+    throw new Error(t('This is not a readable cubetimer file.'));
   }
 
-  if (!data || typeof data !== 'object') throw new Error('Dit is geen leesbaar cubetimer-bestand.');
+  if (!data || typeof data !== 'object') throw new Error(t('This is not a readable cubetimer file.'));
   if (!(MARK in data)) {
     const fromCsTimer = readCsTimer(data);
     if (fromCsTimer) return fromCsTimer;
-    throw new Error('Dit bestand komt niet uit Cubetimer of csTimer.');
+    throw new Error(t('This file does not come from Cubetimer or csTimer.'));
   }
   if (Number(data[MARK]) > VERSION) {
-    throw new Error('Dit bestand komt uit een nieuwere versie van de app. Werk deze eerst bij.');
+    throw new Error(t('This file comes from a newer version of the app. Update it first.'));
   }
 
   const sessions = (Array.isArray(data.sessions) ? data.sessions : [])
@@ -151,7 +152,7 @@ export function readBackup(text) {
       solves: session.solves.filter(isSolve)
     }));
 
-  if (!sessions.length) throw new Error('Er staan geen tijden in dit bestand.');
+  if (!sessions.length) throw new Error(t('There are no times in this file.'));
 
   return {
     sessions,

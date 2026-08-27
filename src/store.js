@@ -1,3 +1,4 @@
+import { t } from './lang.js';
 // Session persistence in localStorage. A save file holds several named
 // sessions; version 1 stored a single flat list and is migrated on read.
 
@@ -11,7 +12,7 @@ const isSolve = (solve) => typeof solve?.ms === 'number';
 
 // Imported times used to carry a note saying where they came from; it added
 // nothing, so it is dropped on read.
-const IMPORT_NOTES = new Set(['van de timer', 'uit timergeheugen']);
+const IMPORT_NOTES = new Set([t('from the timer'), t('from the timer memory')]);
 
 function tidy(solve) {
   if (IMPORT_NOTES.has(solve.note)) {

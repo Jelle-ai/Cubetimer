@@ -4,19 +4,19 @@ const KEY = 'cubetimer.settings.v1';
 
 /** Everything the user can recolour, with the shade it starts at. */
 export const COLOR_SLOTS = [
-  { key: 'led', label: 'Ring en accenten', fallback: '#4fc3f7' },
-  { key: 'ready', label: 'Klaar om te starten', fallback: '#21c274' },
-  { key: 'hold', label: 'Vasthouden en te traag', fallback: '#f4515b' },
+  { key: 'led', label: 'Ring and accents', fallback: '#4fc3f7' },
+  { key: 'ready', label: 'Ready to start', fallback: '#21c274' },
+  { key: 'hold', label: 'Holding, and too slow', fallback: '#f4515b' },
   { key: 'record', label: 'Records', fallback: '#c8890a' }
 ];
 
 /** Quick picks for the ring, taken from the LED glow of the GAN Halo pads. */
 export const LED_COLORS = [
-  { id: 'ice', label: 'IJsblauw', color: '#4fc3f7' },
+  { id: 'ice', label: 'Ice blue', color: '#4fc3f7' },
   { id: 'aqua', label: 'Aqua', color: '#22d3ee' },
   { id: 'mint', label: 'Mint', color: '#34d399' },
   { id: 'violet', label: 'Violet', color: '#a78bfa' },
-  { id: 'coral', label: 'Koraal', color: '#fb7185' },
+  { id: 'coral', label: 'Coral', color: '#fb7185' },
   { id: 'amber', label: 'Amber', color: '#fbbf24' }
 ];
 
@@ -26,10 +26,10 @@ export const LED_COLORS = [
  * like the same app with a different highlight.
  */
 export const SKINS = [
-  { id: 'default', label: 'Standaard', font: null, vars: null },
+  { id: 'default', label: 'Standard', font: null, vars: null },
   {
     id: 'mat',
-    label: 'Blauw matje',
+    label: 'Blue mat',
     font: 'rounded',
     vars: {
       '--page': 'linear-gradient(160deg, #dceaf7, #f2f8fd 55%)',
@@ -40,7 +40,7 @@ export const SKINS = [
   },
   {
     id: 'hall',
-    label: 'Wedstrijdzaal',
+    label: 'Competition hall',
     font: 'system',
     vars: {
       '--page': 'linear-gradient(180deg, #fafaf8, #f0f0ec)',
@@ -63,7 +63,7 @@ export const SKINS = [
   },
   {
     id: 'paper',
-    label: 'Papier',
+    label: 'Paper',
     font: 'system',
     vars: {
       '--page': 'linear-gradient(180deg, #f8f3e8, #efe7d7)',
@@ -77,6 +77,9 @@ const DEFAULTS = {
   led: 'ice',
   colors: { led: '#4fc3f7', ready: '#21c274', hold: '#f4515b', record: '#c8890a' },
   theme: 'light',
+  // English is what the app is written in; Dutch is a choice. Empty means the
+  // browser has not been asked yet, and the first draw follows what it says.
+  lang: '',
   skin: 'default',
   inspection: true,
   hideTime: true,
@@ -161,6 +164,7 @@ export function loadSettings() {
     if (settings.decimals !== 2 && settings.decimals !== 3) settings.decimals = DEFAULTS.decimals;
     if (![250, 400, 550].includes(settings.holdMs)) settings.holdMs = DEFAULTS.holdMs;
     if (!['light', 'dark', 'auto'].includes(settings.theme)) settings.theme = DEFAULTS.theme;
+    if (!['', 'en', 'nl'].includes(settings.lang)) settings.lang = DEFAULTS.lang;
     if (!SKINS.some((skin) => skin.id === settings.skin)) settings.skin = DEFAULTS.skin;
     if (!FONTS.includes(settings.font)) settings.font = DEFAULTS.font;
     if (!['time', 'solves'].includes(settings.goalKind)) settings.goalKind = DEFAULTS.goalKind;

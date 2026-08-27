@@ -9,6 +9,7 @@
 // backup file so it survives a new phone.
 
 import { averageOf, best, effective, formatTime } from './stats.js';
+import { t } from './lang.js';
 
 /** Runs and rounds worth keeping. Beyond this the oldest fall off the end. */
 const KEEP_RUNS = 60;
@@ -255,8 +256,8 @@ export function bestOf(play, kind) {
 
 /** How a run's score reads to a person. */
 export function spellScore(kind, score) {
-  if (kind === 'marathon') return `${score} op rij`;
-  if (kind === 'sprint' || kind === 'blind') return `${score} ${score === 1 ? 'solve' : 'solves'}`;
+  if (kind === 'marathon') return t('{n} in a row', { n: score });
+  if (kind === 'sprint' || kind === 'blind') return t(score === 1 ? '{n} solve' : '{n} solves', { n: score });
   if (kind === 'round' || kind === 'cross') return formatTime(score);
   return String(score);
 }

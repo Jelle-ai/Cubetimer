@@ -10,36 +10,43 @@
 // that had nothing to do with how you are solving.
 
 import { averageOf, best, effective, formatTime } from './stats.js';
+import { t } from './lang.js';
 
+/**
+ * The modes, with their names read out at the moment they are shown rather than
+ * at the moment this file is loaded. That matters: the language is settled
+ * after the modules are imported, so a name fixed at import time would be stuck
+ * in whatever language the app started in and never change again.
+ */
 export const MODES = {
   normal: {
-    name: 'Gewoon',
-    about: 'Solve tot je stopt. Alles zichtbaar.'
+    get name() { return t('Plain'); },
+    get about() { return t('Solve until you stop. Everything in sight.'); }
   },
   marathon: {
-    name: 'Marathon',
-    about: 'Hoeveel achter elkaar onder je drempel? Eén erover en je begint opnieuw.',
-    number: { label: 'Drempel', unit: 'seconden', fallback: 15 }
+    get name() { return t('Marathon'); },
+    get about() { return t('How many in a row under your threshold? One over and you start again.'); },
+    number: { get label() { return t('Threshold'); }, get unit() { return t('seconds'); }, fallback: 15 }
   },
   sprint: {
-    name: 'Vijf minuten',
-    about: 'Zoveel mogelijk solves binnen de tijd. De klok loopt door tussen je solves.',
-    number: { label: 'Minuten', unit: 'minuten', fallback: 5 }
+    get name() { return t('Five minutes'); },
+    get about() { return t('As many solves as you can inside the time. The clock runs on between them.'); },
+    number: { get label() { return t('Minutes'); }, get unit() { return t('minutes'); }, fallback: 5 }
   },
   blind: {
-    name: 'Verrassing',
-    about: 'Je ziet niets tot je er zoveel gedaan hebt. Geen enkele solve verpest door de vorige.',
-    number: { label: 'Aantal solves', unit: 'solves', fallback: 12 }
+    get name() { return t('Surprise'); },
+    get about() { return t('You see nothing until you have done that many. No solve spoiled by the one before it.'); },
+    number: { get label() { return t('How many solves'); }, get unit() { return t('solves'); }, fallback: 12 }
   },
   round: {
-    name: 'Wedstrijdronde',
-    about: 'Vijf solves, beste en slechtste eraf. Aan het eind een resultaat.',
-    number: { label: 'Aantal solves', unit: 'solves', fallback: 5 }
+    get name() { return t('Competition round'); },
+    get about() { return t('Five solves, best and worst dropped. A result at the end.'); },
+    number: { get label() { return t('How many solves'); }, get unit() { return t('solves'); }, fallback: 5 }
   },
   cross: {
-    name: 'Alleen het kruis',
-    about: 'Leg alleen het kruis en stop. Achteraf zie je in hoeveel zetten het had gekund — de enige oefening waarbij de app je kan nakijken.',
-    number: { label: 'Aantal solves', unit: 'solves', fallback: 12 }
+    get name() { return t('The cross only'); },
+    get about() { return t('Lay the cross and stop. Afterwards you see in how many moves it could have gone — the one exercise the app can mark for you.'); },
+    number: { get label() { return t('How many solves'); }, get unit() { return t('solves'); }, fallback: 12 }
   }
 };
 
@@ -126,8 +133,8 @@ export function describe(run, now) {
 
   if (run.kind === 'marathon') {
     const bar = run.streak ? ' ' + '•'.repeat(Math.min(run.streak, 12)) : '';
-    return `Marathon onder ${run.number}s — ${run.streak} op rij${bar}`
-      + (run.bestStreak > run.streak ? ` · beste ${run.bestStreak}` : '');
+    return t('Marathon under {n}s — {streak} in a row{bar}', { n: run.number, streak: run.streak, bar })
+      + (run.bestStreak > run.streak ? t(' · best {n}', { n: run.bestStreak }) : '');
   }
 
   if (run.kind === 'sprint') {
@@ -135,30 +142,32 @@ export function describe(run, now) {
     const seconds = Math.ceil(left / 1000);
     const clock = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
     return run.over
-      ? `Vijf minuten voorbij — ${done} ${done === 1 ? 'solve' : 'solves'}`
-      : `Nog ${clock} — ${done} ${done === 1 ? 'solve' : 'solves'}`;
+      ? t('Time is up — {n} {word}', { n: done, word: t(done === 1 ? 'solve' : 'solves') })
+      : t('{clock} left — {n} {word}', { clock, n: done, word: t(done === 1 ? 'solve' : 'solves') });
   }
 
   if (run.kind === 'blind') {
     const left = Math.max(0, run.number - done);
     return run.over
-      ? `Verrassing voorbij — ${done} solves`
-      : `Verrassing — nog ${left} te gaan, je ziet ze straks allemaal`;
+      ? t('Surprise over — {n} solves', { n: done })
+      : t('Surprise — {n} to go, you see them all afterwards', { n: left });
   }
 
   if (run.kind === 'cross') {
     const left = Math.max(0, run.number - done);
     const known = run.moves.filter(Number.isFinite);
-    const spent = known.length ? ` · kruis kon in ${(known.reduce((sum, n) => sum + n, 0) / known.length).toFixed(1)} zetten` : '';
+    const spent = known.length
+      ? t(' · the cross could have gone in {n} moves', { n: (known.reduce((sum, n) => sum + n, 0) / known.length).toFixed(1) })
+      : '';
     return run.over
-      ? `Kruis-ronde voorbij — ${done} solves${spent}`
-      : `Alleen het kruis — nog ${left} te gaan${spent}`;
+      ? t('Cross round over — {n} solves', { n: done }) + spent
+      : t('The cross only — {n} to go', { n: left }) + spent;
   }
 
   if (run.kind === 'round') {
     return run.over
-      ? 'Ronde afgelopen'
-      : `Ronde — solve ${Math.min(done + 1, run.number)} van ${run.number}`;
+      ? t('Round finished')
+      : t('Round — solve {at} of {all}', { at: Math.min(done + 1, run.number), all: run.number });
   }
   return '';
 }
@@ -173,13 +182,13 @@ export function result(run) {
     const known = (run.moves || []).filter(Number.isFinite);
     const middle = times.slice().sort((a, b) => a - b)[times.length >> 1];
     return {
-      title: 'Alleen het kruis',
+      title: t('The cross only'),
       headline: Number.isFinite(middle) ? formatTime(middle) : '—',
       lines: [
-        ['Solves', String(times.length)],
-        ['Snelste', times.length ? formatTime(Math.min(...times)) : '—'],
-        ['Kruis kon in', known.length ? `${(known.reduce((sum, n) => sum + n, 0) / known.length).toFixed(1)} zetten` : '—'],
-        ['Langste kruis', known.length ? `${Math.max(...known)} zetten` : '—']
+        [t('Solves'), String(times.length)],
+        [t('Fastest'), times.length ? formatTime(Math.min(...times)) : '—'],
+        [t('Cross could have gone in'), known.length ? t('{n} moves', { n: (known.reduce((sum, n) => sum + n, 0) / known.length).toFixed(1) }) : '—'],
+        [t('Longest cross'), known.length ? t('{n} moves', { n: Math.max(...known) }) : '—']
       ],
       score: Number.isFinite(middle) ? middle : 0
     };
@@ -191,28 +200,28 @@ export function result(run) {
 
   if (run.kind === 'round') {
     const average = averageOf(mine, mine.length);
-    lines.push(['Gemiddelde', formatTime(average)]);
-    lines.push(['Beste', formatTime(best(mine))]);
-    lines.push(['Solves', String(mine.length)]);
+    lines.push([t('Average'), formatTime(average)]);
+    lines.push([t('Best'), formatTime(best(mine))]);
+    lines.push([t('Solves'), String(mine.length)]);
     return { headline: formatTime(average), lines };
   }
 
   if (run.kind === 'sprint') {
-    lines.push(['Solves', String(mine.length)]);
-    lines.push(['Beste', formatTime(best(mine))]);
-    if (mine.length >= 5) lines.push(['Beste ao5', formatTime(averageOf(mine, 5))]);
-    return { headline: `${mine.length} solves`, lines };
+    lines.push([t('Solves'), String(mine.length)]);
+    lines.push([t('Best'), formatTime(best(mine))]);
+    if (mine.length >= 5) lines.push([t('Best ao5'), formatTime(averageOf(mine, 5))]);
+    return { headline: t('{n} solves', { n: mine.length }), lines };
   }
 
   if (run.kind === 'blind') {
-    lines.push(['Solves', String(mine.length)]);
-    lines.push(['Beste', formatTime(best(mine))]);
+    lines.push([t('Solves'), String(mine.length)]);
+    lines.push([t('Best'), formatTime(best(mine))]);
     if (mine.length >= 5) lines.push(['ao5', formatTime(averageOf(mine, 5))]);
     if (mine.length >= 12) lines.push(['ao12', formatTime(averageOf(mine, 12))]);
-    return { headline: `${mine.length} solves`, lines };
+    return { headline: t('{n} solves', { n: mine.length }), lines };
   }
 
-  lines.push(['Langste reeks', String(run.bestStreak)]);
-  lines.push(['Solves', String(mine.length)]);
-  return { headline: `${run.bestStreak} op rij`, lines: lines.concat([['Modus', shape.name]]) };
+  lines.push([t('Longest streak'), String(run.bestStreak)]);
+  lines.push([t('Solves'), String(mine.length)]);
+  return { headline: t('{n} in a row', { n: run.bestStreak }), lines: lines.concat([[t('Mode'), shape.name]]) };
 }

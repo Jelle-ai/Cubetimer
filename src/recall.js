@@ -1,3 +1,4 @@
+import { t } from './lang.js';
 // When a case is about to slip away from you.
 //
 // A drill that serves cases at random spends most of its time on the ones you
@@ -106,9 +107,9 @@ export const dueNow = (cases, group, now = Date.now()) =>
 export function whenDue(row, now = Date.now()) {
   if (row.ratio >= 1) {
     const over = Math.floor((now - row.due) / DAY);
-    if (over >= 1) return `${over} ${over === 1 ? 'dag' : 'dagen'} over tijd`;
-    return 'nu aan de beurt';
+    if (over >= 1) return t(over === 1 ? '{n} day overdue' : '{n} days overdue', { n: over });
+    return t('due now');
   }
   const left = Math.max(1, Math.round((row.due - now) / DAY));
-  return `over ${left} ${left === 1 ? 'dag' : 'dagen'}`;
+  return t(left === 1 ? 'in {n} day' : 'in {n} days', { n: left });
 }

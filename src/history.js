@@ -1,3 +1,4 @@
+import { t } from './lang.js';
 // Looking back over what is already stored.
 //
 // Nothing here changes anything; it reads a list of solves and works out the
@@ -129,9 +130,9 @@ export function spellDuration(ms) {
   const minutes = Math.round(ms / 60000);
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
-  if (hours < 1) return `${minutes} ${minutes === 1 ? 'minuut' : 'minuten'}`;
-  if (!rest) return `${hours} ${hours === 1 ? 'uur' : 'uur'}`;
-  return `${hours} uur en ${rest} ${rest === 1 ? 'minuut' : 'minuten'}`;
+  if (hours < 1) return t(minutes === 1 ? '{n} minute' : '{n} minutes', { n: minutes });
+  if (!rest) return t(hours === 1 ? '{n} hour' : '{n} hours', { n: hours });
+  return t('{h} h and {m} min', { h: hours, m: rest });
 }
 
 const dayKey = (at) => {

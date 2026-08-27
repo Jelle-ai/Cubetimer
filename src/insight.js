@@ -1,3 +1,4 @@
+import { t } from './lang.js';
 // The questions a list of times cannot answer by looking at it.
 //
 // Every timer shows an average and a graph, and a graph of times is mostly
@@ -108,7 +109,7 @@ export function sittings(sessions) {
 
 /** Where in a sitting you are quick, measured against your own median that day. */
 const STRETCHES = [
-  { from: 0, to: 5, name: 'de eerste vijf' },
+  { from: 0, to: 5, name: t('the first five') },
   { from: 5, to: 10, name: 'solve 6 tot 10' },
   { from: 10, to: 20, name: 'solve 11 tot 20' },
   { from: 20, to: 40, name: 'solve 21 tot 40' },

@@ -30,6 +30,7 @@ import { drawF2L, drawLastLayer, f2lOf, lastLayerOf } from './diagram.js';
 import {
   dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
 } from './practice.js';
+import { bindStatic, currentLang, guessLang, locale, onLangChange, setLang, startLang, t } from './lang.js';
 import {
   aimAt, fairAverage, inspectionPays, learnedWhen, sessionShape, thenAndNow, trend,
   weakCase, weakStage, worstSolves
@@ -388,18 +389,18 @@ function currentHint() {
   if (device) {
     if (narrow.matches) {
       return settings.inspection
-        ? 'Aanraken voor inspectie · vasthouden om te starten'
-        : 'Vasthouden om te starten';
+        ? t('Touch for inspection · hold to start')
+        : t('Hold to start');
     }
     return settings.inspection
-      ? 'Kort aanraken: 1× inspectie · 2× de laatste tijd wissen · vasthouden om te starten'
-      : 'Kort aanraken: 2× de laatste tijd wissen · vasthouden om te starten';
+      ? t('Short touch: once for inspection · twice to delete the last time · hold to start')
+      : t('Short touch: twice to delete the last time · hold to start');
   }
-  const key = isTouch ? 'Tik' : 'Tik <kbd>spatie</kbd>';
-  if (!settings.inspection) return 'Vasthouden en loslaten om te starten';
+  const key = isTouch ? t('Tap') : t('Press <kbd>space</kbd>');
+  if (!settings.inspection) return t('Hold and let go to start');
   return narrow.matches
-    ? `${key} voor inspectie · vasthouden om te starten`
-    : `${key} voor inspectie · vasthouden en loslaten om te starten`;
+    ? t('{key} for inspection · hold to start', { key })
+    : t('{key} for inspection · hold and let go to start', { key });
 }
 
 /**
@@ -441,7 +442,7 @@ el.scrambleOpen.addEventListener('click', () => el.scrambleSheet.showModal());
 el.scrambleClose.addEventListener('click', () => el.scrambleSheet.close());
 
 el.solvesOpen.addEventListener('click', () => {
-  el.solvesSheetTitle.textContent = `Tijden - ${currentSession().name}`;
+  el.solvesSheetTitle.textContent = t('Times — {name}', { name: currentSession().name });
   el.solvesSheet.showModal();
 });
 
@@ -552,9 +553,6 @@ function renderStats() {
   el.stats.ao12Best.textContent = formatTime(bestAverageOf(scored, 12));
 }
 
-const MONTHS = ['januari', 'februari', 'maart', 'april', 'mei', 'juni',
-  'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
-
 /** Which day a solve belongs to, as a number that sorts and compares cleanly. */
 function dayOf(solve) {
   if (!Number.isFinite(solve.at)) return null;
@@ -563,15 +561,17 @@ function dayOf(solve) {
 }
 
 function dayLabel(day) {
-  if (day === null) return 'zonder datum';
+  if (day === null) return t('no date');
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const days = Math.round((today - day) / 86400000);
-  if (days === 0) return 'vandaag';
-  if (days === 1) return 'gisteren';
+  if (days === 0) return t('today');
+  if (days === 1) return t('yesterday');
 
+  // The month's name comes from the device rather than from a list here, so a
+  // second language costs nothing.
   const date = new Date(day);
-  const stamp = `${date.getDate()} ${MONTHS[date.getMonth()]}`;
+  const stamp = date.toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
   return date.getFullYear() === now.getFullYear() ? stamp : `${stamp} ${date.getFullYear()}`;
 }
 
@@ -583,9 +583,9 @@ function describeAdd() {
   const found = parseTimeLine(el.addTimeValue.value);
   el.addSave.disabled = !found;
   el.addNote.textContent = el.addTimeValue.value.trim() && !found
-    ? 'Dat lees ik niet als een tijd. Probeer 12.34 of 1:23.45.'
+    ? t('I cannot read that as a time. Try 12.34 or 1:23.45.')
     : found
-      ? `Wordt toegevoegd als ${formatSolve({ ms: found.ms, penalty: addPenalty })}.`
+      ? t('Will be added as {time}.', { time: formatSolve({ ms: found.ms, penalty: addPenalty }) })
       : '';
 }
 
@@ -622,7 +622,7 @@ el.addSave.addEventListener('click', () => {
   persist();
   render();
   el.addSheet.close();
-  toast(`${formatSolve(solve)} toegevoegd.`, {
+  toast(t('{time} added.', { time: formatSolve(solve) }), {
     label: 'Ongedaan maken',
     run: () => {
       const at = solves.indexOf(solve);
@@ -700,15 +700,15 @@ function renderSolves() {
   el.solves.innerHTML = '';
   if (hushed(run)) {
     el.empty.hidden = false;
-    el.empty.textContent = `Verrassingsmodus — nog ${Math.max(0, run.number - runSolves(run).length)} te gaan.`;
+    el.empty.textContent = t('Surprise mode — {n} to go.', { n: Math.max(0, run.number - runSolves(run).length) });
     return;
   }
 
   const shown = solves.filter(matches);
   el.empty.hidden = shown.length > 0;
   el.empty.textContent = solves.length && !shown.length
-    ? 'Niets gevonden met deze filter.'
-    : 'Nog geen tijden.';
+    ? t('Nothing found with this filter.')
+    : t('No times yet.');
 
   const times = solves.map(effective).filter(Number.isFinite);
   const fastest = settings.highlight && times.length > 1 ? Math.min(...times) : null;
@@ -775,7 +775,7 @@ function renderSolves() {
       const star = document.createElement('span');
       star.className = 'solve-star';
       star.textContent = '★';
-      star.title = 'Bewaard';
+      star.title = t('Kept');
       row.append(star);
     }
 
@@ -816,8 +816,8 @@ const currentGoal = () => ({
 });
 
 const goalText = () => settings.goalKind === 'solves'
-  ? `${settings.goalSolves} solves`
-  : `${settings.goalMinutes} minuten`;
+  ? t('{n} solves', { n: settings.goalSolves })
+  : t('{n} minutes', { n: settings.goalMinutes });
 
 /** The strip under the averages: today so far, and how long the run is. */
 function renderPractice() {
@@ -835,8 +835,8 @@ function renderPractice() {
   el.practiceFlame.style.setProperty('--filled', String(progress(now, goal)));
   el.practiceRun.textContent = String(current);
   el.practiceToday.textContent = now
-    ? `${formatDuration(now.ms)} · ${now.count} ${now.count === 1 ? 'solve' : 'solves'}`
-    : 'nog niets vandaag';
+    ? `${formatDuration(now.ms)} · ` + t(now.count === 1 ? '{n} solve' : '{n} solves', { n: now.count })
+    : t('nothing yet today');
   el.practiceGoal.textContent = goalText();
   el.practiceFill.style.width = `${Math.round(progress(now, goal) * 100)}%`;
 }
@@ -851,8 +851,8 @@ function openPractice() {
   el.practiceLongest.textContent = String(longest);
   el.practiceSumToday.textContent = formatDuration(days.get(today())?.ms || 0);
   el.practiceSumAll.textContent = formatDuration(all);
-  el.practiceNote.textContent = `Een dag telt mee vanaf ${goalText()}. `
-    + 'De tijd is je solves bij elkaar opgeteld, niet hoe lang de app openstond.';
+  el.practiceNote.textContent = t('A day counts from {goal} on. ', { goal: goalText() })
+    + t('The time is your solves added up, not how long the app was open.');
 
   el.practiceDays.innerHTML = '';
   const ordered = [...days.keys()].sort((a, b) => b - a).slice(0, 60);
@@ -882,7 +882,7 @@ function openPractice() {
   if (!ordered.length) {
     const empty = document.createElement('li');
     empty.className = 'practice-empty';
-    empty.textContent = 'Nog geen dag met solves erin.';
+    empty.textContent = t('No day with solves in it yet.');
     el.practiceDays.append(empty);
   }
 
@@ -931,7 +931,7 @@ function renderInsight() {
 
   if (currentTarget() !== null) {
     const streak = currentStreak();
-    if (streak >= 2) parts.push(`${streak} op rij onder ${formatTime(currentTarget())}`);
+    if (streak >= 2) parts.push(t('{n} in a row under {time}', { n: streak, time: formatTime(currentTarget()) }));
   }
 
   // Chasing the record is more interesting than chasing a round number, so when
@@ -946,8 +946,8 @@ function renderInsight() {
   if (goal) {
     const ceiling = ao5Ceiling(goal);
     const what = chasingRecord ? 'PB ao5' : `ao5 onder ${formatTime(goal)}`;
-    if (ceiling === Infinity) parts.push(`${what} is binnen, wat deze ook wordt`);
-    else if (ceiling) parts.push(`${what}: deze mag max ${formatTime(ceiling)}`);
+    if (ceiling === Infinity) parts.push(t('{what} is safe, whatever this one becomes', { what }));
+    else if (ceiling) parts.push(t('{what}: this one may be {time} at most', { what, time: formatTime(ceiling) }));
   }
 
   el.insight.textContent = parts.join('  ·  ');
@@ -1030,9 +1030,9 @@ function anOldScramble() {
    than making you wait. */
 
 const TASTES = [
-  { id: 'any', label: 'Alles', about: 'Gewoon wat de scrambler geeft.' },
-  { id: 'easy', label: 'Vlot kruis', about: 'Alleen scrambles met een kruis van 5 zetten of korter.' },
-  { id: 'hard', label: 'Lastig kruis', about: 'Alleen scrambles met een kruis van 7 zetten of langer.' }
+  { id: 'any', label: t('Everything'), about: t('Simply what the scrambler gives.') },
+  { id: 'easy', label: t('Quick cross'), about: t('Only scrambles with a cross of 5 moves or fewer.') },
+  { id: 'hard', label: t('Awkward cross'), about: t('Only scrambles with a cross of 7 moves or more.') }
 ];
 
 const TASTE_TRIES = 12;
@@ -1085,7 +1085,7 @@ function renderTaste() {
   el.scrambleTaste.hidden = !on;
   if (!on) return;
   el.scrambleTaste.textContent = tasteMissed
-    ? `${taste.label.toLowerCase()} — geen gevonden in twaalf pogingen, dit is een gewone`
+    ? t('{taste} — none found in twelve tries, this is an ordinary one', { taste: taste.label.toLowerCase() })
     : taste.label.toLowerCase();
 }
 
@@ -1093,8 +1093,8 @@ function renderRematch() {
   el.scrambleAgain.hidden = !rematch;
   if (!rematch) return;
   const when = new Date(rematch.at);
-  const month = MONTHS[when.getMonth()];
-  el.scrambleAgain.textContent = `deze had je in ${month} ook`;
+  const month = when.toLocaleDateString(locale(), { month: 'long' });
+  el.scrambleAgain.textContent = t('you had this one in {month} too', { month });
 }
 
 /**
@@ -1108,7 +1108,7 @@ function setScramble(text) {
   scramble = text;
   delete el.scramble.dataset.loading;
   el.scramble.dataset.official = 'true';
-  el.scramble.title = 'Klik om te kopiëren';
+  el.scramble.title = t('Click to copy');
   renderScramble();
   renderRematch();
 }
@@ -1122,7 +1122,7 @@ async function newScramble({ allowRematch = true } = {}) {
     scramble = rematch.scramble;
     delete el.scramble.dataset.loading;
     el.scramble.dataset.official = 'true';
-    el.scramble.title = 'Klik om te kopiëren';
+    el.scramble.title = t('Click to copy');
     renderScramble();
     renderRematch();
     return;
@@ -1146,8 +1146,8 @@ async function newScramble({ allowRematch = true } = {}) {
   delete el.scramble.dataset.loading;
   el.scramble.dataset.official = String(official);
   el.scramble.title = official
-    ? 'Officiële random-state scramble · klik om te kopiëren'
-    : 'Reservescramble: de officiële scrambler kon niet laden · klik om te kopiëren';
+    ? t('Official random-state scramble · click to copy')
+    : t('Stand-in scramble: the official scrambler could not load · click to copy');
   renderScramble();
   renderRematch();
 }
@@ -1197,7 +1197,7 @@ el.sessionSelect.addEventListener('change', () => {
 el.sessionManage.addEventListener('click', () => {
   el.sessionManage.blur();
   el.sessionName.value = currentSession().name;
-  el.sessionSummary.textContent = `${solves.length} tijden · ${saveFile.sessions.length} sessies in totaal`;
+  el.sessionSummary.textContent = t('{times} times · {sessions} sessions in all', { times: solves.length, sessions: saveFile.sessions.length });
   el.sessionDelete.disabled = saveFile.sessions.length < 2;
   el.sessionSheet.showModal();
   el.sessionSheet.focus();
@@ -1205,30 +1205,30 @@ el.sessionManage.addEventListener('click', () => {
 
 el.sessionName.addEventListener('input', () => {
   const name = el.sessionName.value.trim().slice(0, 40);
-  currentSession().name = name || `Sessie ${saveFile.active + 1}`;
+  currentSession().name = name || t('Session {n}', { n: saveFile.active + 1 });
   persist();
   renderSessions();
 });
 
 el.sessionNew.addEventListener('click', () => {
   saveFile.sessions.push({
-    name: `Sessie ${saveFile.sessions.length + 1}`,
+    name: t('Session {n}', { n: saveFile.sessions.length + 1 }),
     puzzle: currentSession().puzzle,
     solves: []
   });
   useSession(saveFile.sessions.length - 1);
   el.sessionSheet.close();
-  toast('Nieuwe sessie gestart.');
+  toast(t('New session started.'));
 });
 
 el.sessionDelete.addEventListener('click', () => {
   if (saveFile.sessions.length < 2) return;
-  if (!confirm(`"${currentSession().name}" verwijderen met alle tijden erin?`)) return;
+  if (!confirm(t('Delete "{name}" with every time in it?', { name: currentSession().name }))) return;
   const name = currentSession().name;
   saveFile.sessions.splice(saveFile.active, 1);
   useSession(Math.max(0, saveFile.active - 1));
   el.sessionSheet.close();
-  toast(`${name} verwijderd.`);
+  toast(t('{name} deleted.', { name }));
 });
 
 /* ---------- all statistics ---------- */
@@ -1286,18 +1286,18 @@ function statGroups(list = solves) {
 
   const skipped = list.length - scored.length;
   const session = [
-    ['solves', String(scored.length), outward(all)],
+    [t('solves'), String(scored.length), outward(all)],
     ['mean', formatTime(sessionMean(scored)), outward(all)],
-    ['beste', formatTime(best(scored)), extreme(best(scored))],
-    ['slechtste', formatTime(worst(scored)), extreme(worst(scored))]
+    [t('best'), formatTime(best(scored)), extreme(best(scored))],
+    [t('worst'), formatTime(worst(scored)), extreme(worst(scored))]
   ];
   if (skipped) {
-    session.push(['telt niet mee', String(skipped),
+    session.push([t('does not count'), String(skipped),
       list.flatMap((solve, index) => (counts(solve) ? [] : [index]))]);
   }
 
   return [
-    { title: 'Sessie', tiles: session },
+    { title: t('Session'), tiles: session },
     {
       title: 'Gemiddelden',
       // label, where it stands now, the best it has ever been, and the solves
@@ -1326,7 +1326,7 @@ function renderCompareOptions() {
   el.statsCompare.innerHTML = '';
   const none = document.createElement('option');
   none.value = '';
-  none.textContent = 'niets — alleen deze sessie';
+  none.textContent = t('nothing — only this session');
   el.statsCompare.append(none);
 
   saveFile.sessions.forEach((session, index) => {
@@ -1452,7 +1452,7 @@ const comparisonTable = (rows, names) =>
 function flatten(group) {
   if (group.tiles) return group.tiles.map(([label, value]) => [label, value]);
   return group.averages.flatMap(([label, now, record]) => [
-    [label, now], [`beste ${label}`, record]
+    [label, now], [t('best {label}', { label }), record]
   ]);
 }
 
@@ -1468,8 +1468,8 @@ function showSolves(title, indices) {
   pickedIndices = indices;
   el.pickedTitle.textContent = title;
   el.pickedNote.textContent = indices.length === 1
-    ? 'Tik de tijd aan voor de scramble.'
-    : `${indices.length} solves · tik er een aan voor de scramble.`;
+    ? t('Tap the time for its scramble.')
+    : t('{n} solves · tap one for its scramble.', { n: indices.length });
 
   el.pickedList.innerHTML = '';
   for (const index of indices) {
@@ -1563,15 +1563,15 @@ el.statsButton.addEventListener('click', () => {
 function sayHowThatWent(then, now) {
   const before = effective(then);
   const after = effective(now);
-  const when = new Date(then.at).toLocaleDateString('nl-BE');
+  const when = new Date(then.at).toLocaleDateString(locale());
   if (!Number.isFinite(before) || !Number.isFinite(after)) {
-    toast(`Deze scramble had je op ${when} ook.`);
+    toast(t('You had this scramble on {when} too.', { when }));
     return;
   }
   const gap = formatTime(Math.abs(before - after));
   toast(after < before
-    ? `Deze scramble deed je op ${when} in ${formatTime(before)} — ${gap} sneller nu.`
-    : `Deze scramble deed je op ${when} in ${formatTime(before)} — ${gap} trager nu.`);
+    ? t('You did this scramble on {when} in {then} — {gap} faster now.', { when, then: formatTime(before), gap })
+    : t('You did this scramble on {when} in {then} — {gap} slower now.', { when, then: formatTime(before), gap }));
 }
 
 /* ---------- games ----------
@@ -1634,8 +1634,8 @@ async function sayCrossLength(solve) {
 
   const shortest = lengths[0];
   toast(own.moves === shortest.moves
-    ? `Het kruis kon in ${own.moves} zetten, en op geen enkele kleur korter.`
-    : `Het kruis kon in ${own.moves} zetten op ${own.name} — op ${shortest.name} in ${shortest.moves}.`);
+    ? t('The cross could have gone in {n} moves, and no shorter on any colour.', { n: own.moves })
+    : t('The cross could have gone in {n} moves on {colour} — on {other} in {m}.', { n: own.moves, colour: own.name, other: shortest.name, m: shortest.moves }));
 }
 
 /** A finished run, remembered under its own game. */
@@ -1662,7 +1662,7 @@ const dailyScramble = (day) => randomMoveScramble('333', seeded(`cubetimer:${day
 
 function startDaily() {
   const day = dayStamp();
-  if (play().daily[day]) { toast('Je hebt hem vandaag al gedaan.'); return; }
+  if (play().daily[day]) { toast(t('You have already done it today.')); return; }
 
   stopRun(true);
   drilling = null;
@@ -1678,7 +1678,7 @@ function startDaily() {
   renderScramble();
   renderMode();
   el.modeSheet.close();
-  toast('Scramble van de dag — je hebt één poging.');
+  toast(t('Scramble of the day — you get one try.'));
 }
 
 function finishDaily(solve) {
@@ -1694,7 +1694,7 @@ function finishDaily(solve) {
   const streak = dailyStreak(play());
   cue('win');
   if (settings.celebrate) confetti('burst');
-  toast(`${formatSolve(solve)} voor vandaag — ${streak} ${streak === 1 ? 'dag' : 'dagen'} op rij.`);
+  toast(t('{time} for today — {n} {word} in a row.', { time: formatSolve(solve), n: streak, word: t(streak === 1 ? 'day' : 'days') }));
 }
 
 function renderDaily() {
@@ -1707,21 +1707,21 @@ function renderDaily() {
   const head = document.createElement('div');
   head.className = 'daily-head';
   const title = document.createElement('b');
-  title.textContent = 'Scramble van de dag';
+  title.textContent = t('Scramble of the day');
   const run = document.createElement('small');
-  run.textContent = streak ? `${streak} ${streak === 1 ? 'dag' : 'dagen'} op rij` : 'nog niet begonnen';
+  run.textContent = streak ? t('{n} {word} in a row', { n: streak, word: t(streak === 1 ? 'day' : 'days') }) : t('not started yet');
   head.append(title, run);
 
   const body = document.createElement('p');
   body.className = 'records-line';
   body.textContent = done
-    ? `Vandaag: ${formatSolve(done)}. Morgen weer een nieuwe.`
-    : 'Eén scramble, één poging, voor iedereen dezelfde. Vergelijk gerust met een vriend.';
+    ? t('Today: {time}. A new one tomorrow.', { time: formatSolve(done) })
+    : t('One scramble, one try, the same for everybody. Compare with a friend.');
 
   const action = document.createElement('button');
   action.type = 'button';
   action.className = 'daily-go';
-  action.textContent = done ? 'Al gedaan vandaag' : 'Doe de dagscramble';
+  action.textContent = done ? t('Already done today') : t('Do the daily scramble');
   action.disabled = Boolean(done);
   action.addEventListener('click', startDaily);
 
@@ -1734,7 +1734,7 @@ function renderDaily() {
       const row = document.createElement('div');
       const when = document.createElement('span');
       const date = new Date(`${entry.day}T12:00:00`);
-      when.textContent = entry.day === day ? 'vandaag' : date.toLocaleDateString('nl-BE');
+      when.textContent = entry.day === day ? t('today') : date.toLocaleDateString(locale());
       const figure = document.createElement('b');
       figure.textContent = formatSolve(entry);
       row.append(when, figure);
@@ -1754,7 +1754,7 @@ function renderDaily() {
 let duel = null;
 
 function startDuel() {
-  const names = [el.duelOne.value.trim() || 'Jij', el.duelTwo.value.trim() || 'De ander'];
+  const names = [el.duelOne.value.trim() || 'Jij', el.duelTwo.value.trim() || t('The other one')];
   stopRun(true);
   drilling = null;
   dailyRun = false;
@@ -1815,8 +1815,8 @@ function endDuel() {
   list.className = 'round-lines';
   for (const [label, value] of [
     ['Winnaar', winner || 'gelijkspel'],
-    [`Beste van ${names[0]}`, formatTime(best[0])],
-    [`Beste van ${names[1]}`, formatTime(best[1])],
+    [t('Best of {name}', { name: names[0] }), formatTime(best[0])],
+    [t('Best of {name}', { name: names[1] }), formatTime(best[1])],
     ['Onderling', `${tally[0]} – ${tally[1]}`]
   ]) {
     const row = document.createElement('div');
@@ -1841,9 +1841,9 @@ el.duelStart.addEventListener('click', startDuel);
    For when you do not know what to practise and just feel like turning. */
 
 const DARES = [
-  'met één hand', 'zonder je pols te draaien', 'met je ogen dicht na de inspectie',
-  'zo langzaam mogelijk zonder te stoppen', 'drie keer achter elkaar, dezelfde scramble',
-  'met de kubus op je knie', 'zonder naar de tijd te kijken', 'zo snel als je durft'
+  t('with one hand'), t('without turning your wrist'), t('with your eyes shut after the inspection'),
+  t('as slowly as you can without stopping'), t('three times running, the same scramble'),
+  t('with the cube on your knee'), t('without looking at the time'), t('as fast as you dare')
 ];
 
 el.roulette.addEventListener('click', () => {
@@ -1872,19 +1872,19 @@ function renderMode() {
   let kind = run?.kind || '';
 
   if (duel) {
-    text = `${duel.names[duel.turn]} is aan zet — ${duel.score[0]}–${duel.score[1]}, ronde ${duel.round} van ${duel.of}`;
+    text = t('{name} is up — {a}–{b}, round {round} of {of}', { name: duel.names[duel.turn], a: duel.score[0], b: duel.score[1], round: duel.round, of: duel.of });
     kind = 'duel';
   } else if (dailyRun) {
-    text = 'Scramble van de dag — één poging';
+    text = t('Scramble of the day — one try');
     kind = 'daily';
   } else if (drilling) {
     text = `Trainen — ${drilling.id}`;
     kind = 'drill';
   } else if (grinding) {
-    text = `Dezelfde scramble tot je onder ${formatTime(grinding.target)} zit — poging ${grinding.tries + 1}`;
+    text = t('The same scramble until you are under {time} — try {n}', { time: formatTime(grinding.target), n: grinding.tries + 1 });
     kind = 'grind';
   } else if (warmingUp) {
-    text = 'Opwarmen — deze tellen niet mee';
+    text = t('Warming up — these do not count');
     kind = 'warm';
   }
 
@@ -1944,7 +1944,7 @@ function showResult() {
   if (record) {
     const row = document.createElement('div');
     const name = document.createElement('span');
-    name.textContent = 'Beste ooit';
+    name.textContent = t('Best ever');
     const figure = document.createElement('b');
     figure.textContent = spellScore(run.kind, record.score);
     row.append(name, figure);
@@ -2004,7 +2004,7 @@ function renderModeRecords() {
   runs.forEach((entry, place) => {
     const row = document.createElement('div');
     const when = document.createElement('span');
-    when.textContent = `${place + 1}e · ${new Date(entry.at).toLocaleDateString('nl-BE')}`;
+    when.textContent = `${place + 1}. ${new Date(entry.at).toLocaleDateString(locale())}`;
     const figure = document.createElement('b');
     figure.textContent = spellScore(kind, entry.score);
     row.append(when, figure);
@@ -2013,7 +2013,7 @@ function renderModeRecords() {
 
   const heading = document.createElement('h3');
   heading.className = 'transfer-head';
-  heading.textContent = 'Je beste pogingen';
+  heading.textContent = t('Your best runs');
   el.modeRecords.replaceChildren(heading, list);
 }
 
@@ -2029,9 +2029,9 @@ function renderModeFields() {
       el.modeNumber.dataset.for = picked;
     }
   }
-  el.modeStart.textContent = picked === 'normal' ? 'Terug naar gewoon' : 'Beginnen';
+  el.modeStart.textContent = picked === 'normal' ? t('Back to plain') : 'Beginnen';
   el.modeNote.textContent = run && picked !== 'normal'
-    ? 'Dit begint een nieuwe reeks; de vorige telt niet verder.'
+    ? t('This starts a new run; the last one does not carry on.')
     : '';
 }
 
@@ -2042,7 +2042,7 @@ el.repeatScramble.addEventListener('click', () => {
   // moment it is granted.
   keepScramble = true;
   el.repeatScramble.dataset.active = 'true';
-  toast('De volgende is dezelfde scramble.');
+  toast(t('The next one is the same scramble.'));
 });
 
 el.modeOpen.addEventListener('click', () => {
@@ -2058,13 +2058,13 @@ el.modeOpen.addEventListener('click', () => {
 function renderDuelNote() {
   const names = [el.duelOne.value.trim(), el.duelTwo.value.trim()];
   if (!names[0] || !names[1]) {
-    el.duelNote.textContent = 'Twee namen, om de beurt solven op hetzelfde toestel. Best of vijf.';
+    el.duelNote.textContent = t('Two names, taking turns on the same device. Best of five.');
     return;
   }
   const tally = duelTally(play(), names);
   el.duelNote.textContent = tally[0] || tally[1]
-    ? `Onderling staat het ${tally[0]}–${tally[1]}.`
-    : 'Nog nooit tegen elkaar gespeeld.';
+    ? t('Between you it stands {a}–{b}.', { a: tally[0], b: tally[1] })
+    : t('Never played each other yet.');
 }
 
 el.duelOne.addEventListener('input', renderDuelNote);
@@ -2146,7 +2146,7 @@ async function loadCases() {
   ]);
   const kpuzzle = await puzzles['3x3x3'].kpuzzle();
   const { cases, dropped } = usableCases(kpuzzle, Alg);
-  if (dropped.length) console.warn('Gevallen afgekeurd:', dropped);
+  if (dropped.length) console.warn(t('Cases refused:'), dropped);
   // The cube itself is kept, because an algorithm you type in later has to be
   // put on it before it is believed.
   caseSet = { cases, dropped, GROUPS, AUF, kpuzzle, Alg, solvesCase };
@@ -2291,10 +2291,10 @@ function focusCases(group, focus = drillFocus) {
 
 /** What the focus is called, for a heading. */
 function focusName(group, focus = drillFocus) {
-  if (focus === 'spread') return 'alles door elkaar';
-  if (focus === 'weak') return 'je zwakste derde';
+  if (focus === 'spread') return t('everything mixed together');
+  if (focus === 'weak') return t('your weakest third');
   if (focus === 'recall') return 'opfrissen';
-  return setsOf(play(), group).find((entry) => entry.id === focus)?.name || 'alles door elkaar';
+  return setsOf(play(), group).find((entry) => entry.id === focus)?.name || t('everything mixed together');
 }
 
 /* ---------- the picture of a case ---------- */
@@ -2354,7 +2354,7 @@ let building = null;   // { group, chosen: Set, id: string|null }
 
 function renderSetCount() {
   const many = building.chosen.size;
-  el.setCount.textContent = `${many} gekozen`;
+  el.setCount.textContent = t('{n} chosen', { n: many });
   el.setSave.disabled = many === 0 || !el.setName.value.trim();
 }
 
@@ -2386,7 +2386,7 @@ function openSetBuilder(group, set = null) {
     id: set?.id || null,
     chosen: new Set(set ? set.cases : [])
   };
-  el.setTitle.textContent = set ? `Reeks — ${set.name}` : `Nieuwe reeks — ${caseSet.GROUPS[group].name}`;
+  el.setTitle.textContent = set ? t('Set — {name}', { name: set.name }) : t('New set — {group}', { group: caseSet.GROUPS[group].name });
   el.setName.value = set?.name || '';
   el.setDrop.hidden = !set;
   renderSetGrid();
@@ -2413,7 +2413,7 @@ el.setUnknown.addEventListener('click', () => {
 el.setDue.addEventListener('click', () => {
   building.chosen = new Set(dueCases(building.group).map((entry) => entry.id));
   renderSetGrid();
-  if (!building.chosen.size) toast('Niets aan de beurt — alles is nog vers.');
+  if (!building.chosen.size) toast(t('Nothing due — everything is still fresh.'));
 });
 el.setSlow.addEventListener('click', () => {
   const slow = caseStanding(play(), building.group).filter((row) => row.count >= 2).slice(0, 10);
@@ -2430,7 +2430,7 @@ el.setSave.addEventListener('click', () => {
   drillFocus = set.id;
   el.setSheet.close();
   renderDrill();
-  toast(`"${set.name}" bewaard — ${set.cases.length} gevallen.`);
+  toast(t('"{name}" saved — {n} cases.', { name: set.name, n: set.cases.length }));
 });
 
 el.setDrop.addEventListener('click', () => {
@@ -2441,7 +2441,7 @@ el.setDrop.addEventListener('click', () => {
   if (drillFocus === building.id) drillFocus = 'spread';
   el.setSheet.close();
   renderDrill();
-  toast(`"${name}" verwijderd.`);
+  toast(t('"{name}" deleted.', { name }));
 });
 
 /* ---------- the case book ----------
@@ -2523,7 +2523,7 @@ function algRow(entry, alg) {
   const star = document.createElement('button');
   star.type = 'button';
   star.className = 'alg-star';
-  star.title = 'Dit is de mijne';
+  star.title = t('This is the one I use');
   star.setAttribute('aria-label', `Kies ${alg.moves}`);
   star.textContent = '★';
   star.addEventListener('click', () => {
@@ -2540,7 +2540,7 @@ function algRow(entry, alg) {
   const under = document.createElement('div');
   under.className = 'alg-under';
   const count = document.createElement('small');
-  count.textContent = `${alg.turns} zetten${alg.mine ? ' · van jezelf' : ''}`;
+  count.textContent = t('{n} moves', { n: alg.turns }) + (alg.mine ? t(' · your own') : '');
   under.append(count);
 
   const copy = document.createElement('button');
@@ -2552,7 +2552,7 @@ function algRow(entry, alg) {
       await navigator.clipboard.writeText(alg.moves);
       toast('Gekopieerd.');
     } catch {
-      toast('Kopiëren lukte niet in deze browser.');
+      toast(t('Copying did not work in this browser.'));
     }
   });
   under.append(copy);
@@ -2591,7 +2591,7 @@ function algAdder(entry, after) {
 
   const field = document.createElement('input');
   field.type = 'text';
-  field.placeholder = "Je eigen manier, bv. R U R' U' R' F R F'";
+  field.placeholder = t("Your own way, e.g. R U R' U' R' F R F'");
   field.autocomplete = 'off';
   field.spellcheck = false;
   field.maxLength = 120;
@@ -2599,7 +2599,7 @@ function algAdder(entry, after) {
   const go = document.createElement('button');
   go.type = 'button';
   go.className = 'text-button';
-  go.textContent = 'Nakijken';
+  go.textContent = t('Check it');
 
   const said = document.createElement('p');
   said.className = 'import-note';
@@ -2608,16 +2608,16 @@ function algAdder(entry, after) {
     const moves = field.value.trim().replace(/\s+/g, ' ');
     if (!moves) return;
     if (entry.algs.some((alg) => alg.moves === moves)) {
-      said.textContent = 'Die staat er al.';
+      said.textContent = t('That one is already there.');
       return;
     }
     const tried = tryMyAlg(entry, moves);
     if (!tried.ok) {
       // The reason matters: "breekt de eerste twee lagen" is a typo, "lost een
       // ander geval op" is the right algorithm filed under the wrong case.
-      said.textContent = tried.why === 'draait de hele kubus'
-        ? 'Afgekeurd — hij laat de kubus gedraaid achter. Zet er de tegendraai achter (y, x2, …), dan klopt het plaatje ook.'
-        : `Afgekeurd — ${tried.why}. Op een echte kubus geprobeerd, dus het ligt niet aan de app.`;
+      said.textContent = tried.why === 'it leaves the whole cube turned'
+        ? t('Refused — it leaves the cube turned. Put the counter-rotation after it (y, x2, …) and the picture will match too.')
+        : t('Refused — {why}. Tried on a real cube, so it is not the app.', { why: t(tried.why) });
       said.dataset.bad = 'true';
       return;
     }
@@ -2628,7 +2628,7 @@ function algAdder(entry, after) {
     said.textContent = '';
     delete said.dataset.bad;
     renderCaseBook();
-    toast(`Nagekeken op een echte kubus en toegevoegd — ${tried.alg.turns} zetten.`);
+    toast(t('Checked on a real cube and added — {n} moves.', { n: tried.alg.turns }));
     after?.();
   };
 
@@ -2650,12 +2650,12 @@ function noteField(entry) {
   const wrap = document.createElement('label');
   wrap.className = 'field case-note';
   const name = document.createElement('span');
-  name.textContent = 'Notitie';
+  name.textContent = t('Note');
   const field = document.createElement('input');
   field.type = 'text';
   field.maxLength = 140;
   field.autocomplete = 'off';
-  field.placeholder = 'bv. rechterhand, x-rotatie op het einde';
+  field.placeholder = t('e.g. right hand, x rotation at the end');
   field.value = noteOf(play(), algKey(entry));
   // Saved when you look away rather than on every keystroke: a note is a
   // sentence, and writing to storage per letter is how you lose one.
@@ -2712,14 +2712,14 @@ function caseCard(entry, row) {
     one.append(key, said);
     facts.append(one);
   };
-  fact('Jouw manier', `${chosenAlg(entry).turns} zetten`);
+  fact(t('Your way'), t('{n} moves', { n: chosenAlg(entry).turns }));
   fact('Manieren', `${entry.algs.length}`);
   if (row) {
     fact('Gemiddeld', formatTime(row.mean));
-    fact('Beste', formatTime(row.best));
-    fact('Gedaan', `${row.count}×`);
+    fact(t('Best'), formatTime(row.best));
+    fact(t('Done'), `${row.count}×`);
   } else {
-    fact('Gedaan', 'nog nooit');
+    fact(t('Done'), t('never yet'));
   }
   about.append(facts);
 
@@ -2749,7 +2749,7 @@ function renderCaseBook() {
   }));
 
   el.casesFilter.replaceChildren(...[
-    ['all', 'alles'], ['drilled', 'geoefend'], ['untried', 'nog nooit'],
+    ['all', 'alles'], ['drilled', 'geoefend'], ['untried', t('never yet')],
     ['due', 'opfrissen'], ['own', 'eigen alg']
   ].map(([id, label]) => {
     const chip = document.createElement('button');
@@ -2785,8 +2785,8 @@ function renderCaseBook() {
 
   if (!shown.length) {
     el.casesBody.replaceChildren(line(casesOnly === 'due'
-      ? 'Niets te herhalen — alles wat je geoefend hebt is nog vers.'
-      : 'Niets om te laten zien met deze keuze.', 'import-note'));
+      ? t('Nothing to go over — everything you have drilled is still fresh.')
+      : t('Nothing to show with this choice.'), 'import-note'));
     return;
   }
 
@@ -2834,8 +2834,8 @@ function renderCaseBook() {
         when.className = 'case-due';
         when.dataset.now = String(due.ratio >= 1);
         when.textContent = due.ratio >= 1
-          ? `Aan herhaling toe — ${whenDue(due)}.`
-          : `Vers — weer aan de beurt ${whenDue(due)}.`;
+          ? t('Due for a repeat — {when}.', { when: whenDue(due) })
+          : t('Fresh — up again {when}.', { when: whenDue(due) });
         body.append(when);
       }
 
@@ -2843,7 +2843,7 @@ function renderCaseBook() {
       algs.className = 'alg-list';
       const heading = document.createElement('h4');
       heading.className = 'alg-heading';
-      heading.textContent = 'Manieren — de ster is die van jou';
+      heading.textContent = t('Ways through it — the star is yours');
       algs.append(heading);
       for (const alg of entry.algs) algs.append(algRow(entry, alg));
       algs.append(algAdder(entry));
@@ -2858,7 +2858,7 @@ function renderCaseBook() {
         for (const time of mineTimes) {
           const one = document.createElement('span');
           one.textContent = formatSolve(time);
-          one.title = time.at ? new Date(time.at).toLocaleString('nl-BE') : '';
+          one.title = time.at ? new Date(time.at).toLocaleString(locale()) : '';
           one.dataset.best = String(row && effective(time) === row.best);
           strip.append(one);
         }
@@ -2870,11 +2870,11 @@ function renderCaseBook() {
       const go = document.createElement('button');
       go.type = 'button';
       go.className = 'primary';
-      go.textContent = 'Dit geval nu oefenen';
+      go.textContent = t('Drill this case now');
       go.addEventListener('click', () => {
         el.casesSheet.close();
         startCase(entry);
-        toast(`${entry.id} — draai de opzet en solve dan het geval.`);
+        toast(t('{id} — turn the setup, then solve the case.', { id: entry.id }));
       });
       actions.append(go);
 
@@ -2882,13 +2882,13 @@ function renderCaseBook() {
         const forget = document.createElement('button');
         forget.type = 'button';
         forget.className = 'danger';
-        forget.textContent = 'Tijden wissen';
+        forget.textContent = t('Clear the times');
         forget.addEventListener('click', () => {
           const had = mineTimes;
           delete play().cases[casesGroup][entry.id];
           persist();
           renderCaseBook();
-          toast(`Tijden van ${entry.id} gewist.`, {
+          toast(t('Times for {id} cleared.', { id: entry.id }), {
             label: 'Ongedaan',
             run: () => {
               play().cases[casesGroup] ||= {};
@@ -2914,7 +2914,7 @@ async function openCaseBook(group = null) {
   try {
     await loadCases();
   } catch {
-    toast('De gevallen konden niet geladen worden.');
+    toast(t('The cases could not be loaded.'));
     return;
   }
   renderCaseBook();
@@ -2979,7 +2979,7 @@ function renderSpot() {
 
   const parts = [];
   if (!spotting) {
-    parts.push(line('Te weinig gevallen in deze groep om uit te kiezen.', 'import-note'));
+    parts.push(line(t('Too few cases in this group to choose from.'), 'import-note'));
     el.spotBody.replaceChildren(...parts);
     return;
   }
@@ -3012,9 +3012,9 @@ function renderSpot() {
   score.className = 'records-aside';
   if (spotRound.asked) {
     const middle = spotRound.times.slice().sort((a, b) => a - b)[spotRound.times.length >> 1];
-    score.textContent = `${spotRound.right} van ${spotRound.asked} goed · ${formatTime(middle)} per keer`;
+    score.textContent = t('{right} of {asked} right · {time} each', { right: spotRound.right, asked: spotRound.asked, time: formatTime(middle) });
   } else {
-    score.textContent = 'Welk geval zie je? Tik de naam aan.';
+    score.textContent = t('Which case are you looking at? Tap the name.');
   }
   parts.push(score);
 
@@ -3022,12 +3022,12 @@ function renderSpot() {
   if (standing.length >= 3) {
     const rows = standing.slice(0, 6).map((row) => [
       row.id,
-      `${formatTime(row.mean)} · ${row.right}/${row.count} goed`
+      `${formatTime(row.mean)} · ` + t('{right}/{all} right', { right: row.right, all: row.count })
     ]);
     const block = document.createElement('section');
     block.className = 'records-block';
     const heading = document.createElement('h3');
-    heading.textContent = 'Waar je het langst over doet';
+    heading.textContent = t('What takes you longest');
     block.append(heading, figures(rows));
     parts.push(block);
   }
@@ -3066,7 +3066,7 @@ async function openSpot(group = null) {
   try {
     await loadCases();
   } catch {
-    toast('De gevallen konden niet geladen worden.');
+    toast(t('The cases could not be loaded.'));
     return;
   }
   spotRound = { asked: 0, right: 0, times: [] };
@@ -3124,20 +3124,20 @@ function renderDrill() {
     return button;
   };
 
-  focus.append(choice('spread', 'Alles door elkaar',
-    `Eerst wat je nog niet gehad hebt, daarna willekeurig. ${groupCases(drillGroup).length} gevallen.`));
+  focus.append(choice('spread', t('Everything mixed together'),
+    t('First what you have not had yet, then at random. {n} cases.', { n: groupCases(drillGroup).length })));
   const due = dueCases(drillGroup).length;
   focus.append(choice('recall', 'Opfrissen', due
-    ? `${due} ${due === 1 ? 'geval is' : 'gevallen zijn'} lang genoeg geleden om te wankelen. Die eerst, de wankelste vooraan.`
-    : 'Niets aan de beurt — alles wat je geoefend hebt is nog vers. Kom morgen terug.',
+    ? t(due === 1 ? '{n} case is long enough ago to wobble. That one first.' : '{n} cases are long enough ago to wobble. Those first, the shakiest at the front.', { n: due })
+    : t('Nothing due — everything you have drilled is still fresh. Come back tomorrow.'),
   { off: due === 0 }));
-  focus.append(choice('weak', 'Je zwakste derde', ranked >= 6
-    ? `De ${Math.max(3, Math.ceil(ranked / 3))} gevallen waar je het traagst op bent, en niets anders.`
-    : `Nog te weinig gemeten — doe er eerst ${6 - ranked} meer, dan weet hij welke dat zijn.`,
+  focus.append(choice('weak', t('Your weakest third'), ranked >= 6
+    ? t('The {n} cases you are slowest on, and nothing else.', { n: Math.max(3, Math.ceil(ranked / 3)) })
+    : t('Too little measured yet — do {n} more first, then it knows which they are.', { n: 6 - ranked }),
   { off: ranked < 6 }));
 
   for (const set of setsOf(play(), drillGroup)) {
-    const button = choice(set.id, set.name, `${set.cases.length} gevallen, door jou gekozen.`);
+    const button = choice(set.id, set.name, t('{n} cases, chosen by you.', { n: set.cases.length }));
     const edit = document.createElement('span');
     edit.className = 'set-edit';
     edit.textContent = 'wijzig';
@@ -3152,7 +3152,7 @@ function renderDrill() {
   const make = document.createElement('button');
   make.type = 'button';
   make.className = 'make-set';
-  make.textContent = '+  Zelf een reeks samenstellen';
+  make.textContent = t('+  Put a set together yourself');
   make.addEventListener('click', () => openSetBuilder(drillGroup));
   focus.append(make);
   parts.push(focus);
@@ -3164,20 +3164,20 @@ function renderDrill() {
   go.type = 'button';
   go.id = 'drill-go';
   go.className = 'primary';
-  go.textContent = drilling ? 'Volgend geval' : 'Beginnen';
+  go.textContent = drilling ? t('Next case') : 'Beginnen';
   go.addEventListener('click', () => {
     const entry = nextCase(cases, drillGroup);
     if (!entry) return;
     startCase(entry);
     el.drillSheet.close();
-    toast(`${entry.id} — draai de opzet en solve dan het geval.`);
+    toast(t('{id} — turn the setup, then solve the case.', { id: entry.id }));
   });
   actions.append(go);
 
   const seeTimes = document.createElement('button');
   seeTimes.type = 'button';
   seeTimes.id = 'drill-times';
-  seeTimes.textContent = 'Gevallenboek';
+  seeTimes.textContent = t('Case book');
   seeTimes.addEventListener('click', () => {
     el.drillSheet.close();
     openCaseBook(drillGroup);
@@ -3188,7 +3188,7 @@ function renderDrill() {
     const stop = document.createElement('button');
     stop.type = 'button';
     stop.id = 'drill-stop';
-    stop.textContent = 'Stoppen';
+    stop.textContent = t('Stop');
     stop.addEventListener('click', () => {
       drilling = null;
       keepScramble = false;
@@ -3216,7 +3216,7 @@ function renderDrill() {
     const block = document.createElement('section');
     block.className = 'records-block';
     const heading = document.createElement('h3');
-    heading.textContent = `Slechtst gekend bovenaan — ${standing.length} van ${groupCases(drillGroup).length} geoefend`;
+    heading.textContent = t('Least known at the top — {done} of {all} drilled', { done: standing.length, all: groupCases(drillGroup).length });
     block.append(heading, list);
     parts.push(block);
   }
@@ -3224,8 +3224,8 @@ function renderDrill() {
   const note = document.createElement('p');
   note.className = 'import-note';
   note.textContent = dropped.length
-    ? `Draai de opzet op een opgeloste kubus; dan staat het geval voor je. ${dropped.length} geval(len) werden bij het inladen afgekeurd en niet aangeboden.`
-    : 'Draai de opzet op een opgeloste kubus, en solve dan alleen dat geval. Je tijden blijven bij het geval en komen niet in je sessie.';
+    ? t('Turn the setup on a solved cube and the case is in front of you. {n} case(s) were refused while loading and are not offered.', { n: dropped.length })
+    : t('Turn the setup on a solved cube, then solve only that case. Your times stay with the case and do not go into your session.');
   parts.push(note);
 
   el.drillTitle.textContent = drilling
@@ -3241,7 +3241,7 @@ async function openDrill({ focus = null, group = null } = {}) {
   try {
     await loadCases();
   } catch (error) {
-    toast('De gevallen konden niet geladen worden.');
+    toast(t('The cases could not be loaded.'));
     console.error('Trainen:', error);
     return;
   }
@@ -3375,23 +3375,23 @@ function setBig(on) {
 
 const KEYS = [
   ['Timer', [
-    ['Spatie vasthouden', 'Klaarzetten; loslaten start de tijd'],
-    ['Spatie', 'Stopt een lopende tijd'],
-    ['Spatie kort tikken', 'Start de inspectie, als die aanstaat'],
-    ['Escape', 'Inspectie afbreken, selectie sluiten, grote weergave uit'],
-    ['Tikken op het scherm', 'Hetzelfde als spatie, op een telefoon']
+    ['Spatie vasthouden', t('Gets it ready; letting go starts the time')],
+    ['Spatie', t('Stops a running time')],
+    ['Spatie kort tikken', t('Starts the inspection, when it is on')],
+    ['Escape', t('Cancels inspection, closes a selection, leaves the big display')],
+    [t('Tapping the screen'), t('The same as space, on a phone')]
   ]],
-  ['Op je matje', [
-    ['Handen erop en er meteen af', 'Eén keer: inspectie. Twee keer snel: laatste tijd wissen'],
-    ['Handen erop tot groen', 'Gewone start; telt nooit als een tik'],
-    ['Resetknop op de timer', 'De app volgt, maar onderbreekt nooit een lopende solve']
+  [t('On your mat'), [
+    [t('Hands on and straight off again'), t('Once: inspection. Twice quickly: delete the last time')],
+    ['Handen erop tot groen', t('An ordinary start; never counts as a touch')],
+    [t('Reset button on the timer'), t('The app follows, but never interrupts a running solve')]
   ]],
-  ['In de lijst met tijden', [
-    ['Tikken', 'Details van die solve'],
-    ['Vasthouden', 'Snelacties: +2, DNF, ★, telt niet, verplaatsen, wissen'],
-    ['Naar links vegen', 'Naar de vuilbak'],
-    ['Naar rechts vegen', 'Kort: +2. Verder door: DNF'],
-    ['selecteer', 'Meerdere tegelijk straffen, verplaatsen of wissen']
+  [t('In the list of times'), [
+    ['Tikken', t('Details of that solve')],
+    ['Vasthouden', t('Quick actions: +2, DNF, ★, does not count, move, delete')],
+    [t('Swiping left'), t('Into the bin')],
+    [t('Swiping right'), 'Kort: +2. Verder door: DNF'],
+    [t('select'), t('Penalise, move or delete several at once')]
   ]]
 ];
 
@@ -3473,10 +3473,10 @@ function crossBlock(kit) {
   const list = document.createElement('div');
   list.className = 'round-lines';
   for (const [label, value] of [
-    ['Jouw kleur', `${face?.name || settings.crossFace} · ${shape.mine.toFixed(1)} zetten`],
-    ['Kortste kleur', `${shape.shortest.toFixed(1)} zetten`],
-    ['Je laat liggen', `${shape.lost.toFixed(1)} zetten per solve`],
-    ['3 of meer korter', `${shape.muchBetter} van ${shape.counted}`]
+    [t('Your colour'), `${face?.name || settings.crossFace} · ` + t('{n} moves', { n: shape.mine.toFixed(1) })],
+    ['Kortste kleur', t('{n} moves', { n: shape.shortest.toFixed(1) })],
+    [t('You leave behind'), t('{n} moves per solve', { n: shape.lost.toFixed(1) })],
+    [t('3 or more shorter'), t('{a} of {b}', { a: shape.muchBetter, b: shape.counted })]
   ]) {
     const row = document.createElement('div');
     const name = document.createElement('span');
@@ -3488,11 +3488,11 @@ function crossBlock(kit) {
   }
 
   const note = line(shape.lost < 0.4
-    ? 'Er valt hier weinig te winnen: op jouw kleur zit je zo goed als altijd al op de kortste.'
-    : `Over ${shape.counted} scrambles was een andere kleur gemiddeld ${shape.lost.toFixed(1)} zetten korter. Dat is wat kleurneutraal zijn je zou schelen.`,
+    ? t('There is little to win here: on your colour you are as good as always already on the shortest.')
+    : t('Over {n} scrambles another colour was on average {moves} moves shorter. That is what being colour neutral would save you.', { n: shape.counted, moves: shape.lost.toFixed(1) }),
   'records-aside');
 
-  return recordBlock('Je scrambles', [list, note]);
+  return recordBlock(t('Your scrambles'), [list, note]);
 }
 
 /** The deck you want dealt from. */
@@ -3546,8 +3546,8 @@ async function sayCross(usedScramble) {
   if (!mine) return;
 
   toast(best.moves < mine.moves
-    ? `Cross kon in ${mine.moves} op ${kit.cross.FACES.find((f) => f.id === settings.crossFace)?.name}, maar in ${best.moves} op ${best.name}.`
-    : `Cross kon in ${mine.moves} zetten.`);
+    ? t('The cross could have gone in {n} on {colour}, but in {m} on {other}.', { n: mine.moves, colour: kit.cross.FACES.find((f) => f.id === settings.crossFace)?.name, m: best.moves, other: best.name })
+    : t('The cross could have gone in {n} moves.', { n: mine.moves }));
 }
 
 /* ---------- sharing ----------
@@ -3573,9 +3573,9 @@ function renderShare() {
 }
 
 function openShare(title, list) {
-  if (!list.length) { toast('Nog niets om te delen.'); return; }
+  if (!list.length) { toast(t('Nothing to share yet.')); return; }
   sharing = { title, solves: list.map((solve) => ({ ms: solve.ms, penalty: solve.penalty || 'none' })) };
-  el.shareWhat.textContent = `${list.length} ${list.length === 1 ? 'tijd' : 'tijden'} · ${title}`;
+  el.shareWhat.textContent = t(list.length === 1 ? '{n} time · {title}' : '{n} times · {title}', { n: list.length, title });
   el.shareName.value = settings.shareName || '';
   el.shareSend.hidden = !canShareFiles();
   renderShare();
@@ -3590,7 +3590,7 @@ el.shareName.addEventListener('input', () => {
   renderShare();
 });
 
-const shareFileName = () => `cubetimer-${(sharing?.title || 'tijden').replace(/[^\p{L}\p{N}]+/gu, '-')}.png`;
+const shareFileName = () => `cubetimer-${(sharing?.title || 'times').replace(/[^\p{L}\p{N}]+/gu, '-')}.png`;
 
 async function shareBlob() {
   const response = await fetch(el.shareImage.src);
@@ -3608,7 +3608,7 @@ el.shareSave.addEventListener('click', async () => {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(address), 20000);
-  toast('Kaartje bewaard.');
+  toast(t('Card saved.'));
 });
 
 el.shareSend.addEventListener('click', async () => {
@@ -3617,7 +3617,7 @@ el.shareSend.addEventListener('click', async () => {
     const file = new File([await shareBlob()], shareFileName(), { type: 'image/png' });
     await navigator.share({ files: [file], text: `${sharing.title} — Cubetimer` });
   } catch (error) {
-    if (error?.name !== 'AbortError') toast('Versturen lukte niet; bewaar het kaartje dan gewoon.');
+    if (error?.name !== 'AbortError') toast(t('Sending did not work; just save the card instead.'));
   }
 });
 
@@ -3642,7 +3642,7 @@ function showShared() {
   history.replaceState(null, '', location.pathname + location.search);
 
   const average = averageOf(sent.solves, sent.solves.length);
-  el.pickedTitle.textContent = sent.name ? `Van ${sent.name}` : 'Iemand stuurde je dit';
+  el.pickedTitle.textContent = sent.name ? t('From {name}', { name: sent.name }) : t('Somebody sent you this');
   el.pickedList.replaceChildren(...sent.solves.map((solve, index) => {
     const item = document.createElement('li');
     const row = document.createElement('div');
@@ -3661,8 +3661,8 @@ function showShared() {
   const note = document.createElement('p');
   note.className = 'import-note';
   note.textContent = Number.isFinite(average)
-    ? `Gemiddelde ${formatTime(average)}. Deze tijden zijn niet van jou en worden niet bewaard.`
-    : 'Deze tijden zijn niet van jou en worden niet bewaard.';
+    ? t('Average {time}. These times are not yours and are not kept.', { time: formatTime(average) })
+    : t('These times are not yours and are not kept.');
   el.pickedList.append(note);
   openSheet(el.pickedSheet);
 }
@@ -3683,8 +3683,8 @@ function setWarmUp(on) {
   el.body.dataset.warm = String(on);
   renderMode();
   toast(on
-    ? 'Opwarmen — deze tellen niet mee. Zet het uit als je begint.'
-    : 'Opwarmen uit. Vanaf nu telt alles weer mee.');
+    ? t('Warming up — these do not count. Turn it off when you start.')
+    : t('Warm-up off. From now on everything counts again.'));
 }
 
 /* ---------- one scramble until it goes right ----------
@@ -3697,14 +3697,14 @@ let grinding = null;   // { scramble, target, tries }
 
 function startGrind(solve) {
   const scored = counting(solves).map(effective).filter(Number.isFinite);
-  if (scored.length < 5) { toast('Nog te weinig tijden om te weten wat goed genoeg is.'); return; }
+  if (scored.length < 5) { toast(t('Too few times yet to know what is good enough.')); return; }
   const middle = scored.slice().sort((a, b) => a - b)[scored.length >> 1];
 
   grinding = { scramble: solve.scramble, target: middle, tries: 0 };
   setScramble(solve.scramble);
   keepScramble = true;
   renderMode();
-  toast(`Deze scramble blijft staan tot je onder ${formatTime(middle)} zit.`);
+  toast(t('This scramble stays until you are under {time}.', { time: formatTime(middle) }));
 }
 
 function stopGrind(said) {
@@ -3723,14 +3723,14 @@ function judgeGrind(solve) {
   if (beat) {
     cue('win');
     if (settings.celebrate) confetti('burst');
-    stopGrind(`${formatSolve(solve)} — onder ${formatTime(grinding.target)} na ${grinding.tries} ${grinding.tries === 1 ? 'poging' : 'pogingen'}.`);
+    stopGrind(t(grinding.tries === 1 ? '{time} — under {target} after {n} try.' : '{time} — under {target} after {n} tries.', { time: formatSolve(solve), target: formatTime(grinding.target), n: grinding.tries }));
     return;
   }
 
   keepScramble = true;
   setScramble(grinding.scramble);
   renderMode();
-  toast(`${formatSolve(solve)} — nog niet onder ${formatTime(grinding.target)}. Poging ${grinding.tries + 1}.`, {
+  toast(t('{time} — not under {target} yet. Try {n}.', { time: formatSolve(solve), target: formatTime(grinding.target), n: grinding.tries + 1 }), {
     label: 'Genoeg',
     run: () => stopGrind('')
   });
@@ -3759,7 +3759,7 @@ function restIfFlagging() {
   if (!(lately > opened * 1.06)) return;
 
   restSaid = Date.now();
-  toast(`Je laatste acht zijn ${formatTime(lately - opened)} trager dan je eerste acht. Even vijf minuten?`);
+  toast(t('Your last eight are {gap} slower than your first eight. Five minutes off?', { gap: formatTime(lately - opened) }));
 }
 
 /* ---------- the closing ritual ----------
@@ -3791,7 +3791,7 @@ function thisSitting(gapMs = 30 * 60 * 1000) {
  */
 function closingWord(run, mine) {
   const values = run.map(effective).filter(Number.isFinite);
-  if (!values.length) return 'Alleen DNFs. Dat telt ook als een sessie.';
+  if (!values.length) return t('Nothing but DNFs. That counts as a session too.');
 
   const quickest = Math.min(...values);
   const half = Math.ceil(values.length / 2);
@@ -3800,25 +3800,25 @@ function closingWord(run, mine) {
   const middle = (list) => list.slice().sort((a, b) => a - b)[list.length >> 1];
   const warmed = middle(early) - middle(late);
 
-  if (mine.record) return `Je record ging eraan. ${formatTime(quickest)} staat vanaf nu op de muur.`;
+  if (mine.record) return t('Your record went. {time} is on the wall from now on.', { time: formatTime(quickest) });
   if (values.length >= 10 && warmed > 700) {
-    return `Je bent tijdens deze sessie ${formatTime(warmed)} sneller geworden. Dat is precies waarvoor je ging zitten.`;
+    return t('You got {gap} faster during this session. That is exactly what you sat down for.', { gap: formatTime(warmed) });
   }
   if (values.length >= 10 && warmed < -700) {
-    return 'Je liep tegen het eind trager. Dat is moe worden, niet slechter worden — morgen sta je er weer.';
+    return t('You slowed towards the end. That is getting tired, not getting worse — tomorrow you are back.');
   }
-  if (values.length <= 5) return 'Kort en klaar. Ook vijf solves is een sessie.';
-  return `${values.length} solves, netjes op je eigen tempo. Zo bouw je het op.`;
+  if (values.length <= 5) return t('Short and done. Five solves is a session too.');
+  return t('{n} solves, neatly at your own pace. That is how it is built.', { n: values.length });
 }
 
 let closingPicture = null;
 
 function renderClosing() {
   const run = thisSitting();
-  el.closingTitle.textContent = `Tot hier — ${currentSession().name}`;
+  el.closingTitle.textContent = t('That is it for now — {name}', { name: currentSession().name });
 
   if (!run.length) {
-    el.closingBody.replaceChildren(line('Nog niets om af te sluiten. Doe eerst een paar solves.'));
+    el.closingBody.replaceChildren(line(t('Nothing to close yet. Do a few solves first.')));
     el.closingCard.hidden = true;
     closingPicture = null;
     return;
@@ -3834,11 +3834,11 @@ function renderClosing() {
   const record = quickest !== null && (standing === null || quickest < standing);
 
   const rows = [
-    ['Solves', String(run.length)],
+    [t('Solves'), String(run.length)],
     ['Snelste', quickest === null ? '—' : formatTime(quickest)],
-    ['Laatste ao5', Number.isFinite(five) ? formatTime(five) : '—'],
-    ['Tijd aan de kubus', formatDuration(spent)],
-    ['Begonnen om', new Date(run[0].at).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })]
+    [t('Last ao5'), Number.isFinite(five) ? formatTime(five) : '—'],
+    [t('Time on the cube'), formatDuration(spent)],
+    [t('Started at'), new Date(run[0].at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })]
   ];
   if (record) rows.splice(2, 0, ['Persoonlijk record', 'vandaag gezet']);
 
@@ -3849,11 +3849,11 @@ function renderClosing() {
     title: currentSession().name,
     headline: quickest === null ? '—' : formatTime(quickest),
     lines: [
-      `${run.length} solves · ${formatDuration(spent)}`,
+      t('{n} solves', { n: run.length }) + ` · ${formatDuration(spent)}`,
       Number.isFinite(five) ? `ao5 ${formatTime(five)}` : '',
       word
     ].filter(Boolean),
-    footer: [settings.shareName, new Date().toLocaleDateString('nl-BE')].filter(Boolean).join(' \u00b7 '),
+    footer: [settings.shareName, new Date().toLocaleDateString(locale())].filter(Boolean).join(' \u00b7 '),
     accent: colorOf(settings, 'led'),
     dark: settings.theme === 'dark'
   };
@@ -3882,12 +3882,12 @@ el.closingCard?.addEventListener('click', async () => {
   const address = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = address;
-  link.download = `cubetimer-sessie-${new Date().toISOString().slice(0, 10)}.png`;
+  link.download = `cubetimer-session-${new Date().toISOString().slice(0, 10)}.png`;
   document.body.append(link);
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(address), 20000);
-  toast('Kaartje bewaard.');
+  toast(t('Card saved.'));
 });
 
 /* ---------- your cubes ----------
@@ -3961,7 +3961,7 @@ function cubesBlock() {
     row.append(label, figure);
     list.append(row);
   }
-  return recordBlock('Per kubus', list);
+  return recordBlock(t('Per cube'), list);
 }
 
 /* ---------- records and looking back ----------
@@ -4011,7 +4011,7 @@ function podiumBlock() {
     item.append(medal, time, when);
     list.append(item);
   });
-  return recordBlock('Je snelste drie', list);
+  return recordBlock(t('Your fastest three'), list);
 }
 
 function recordHistoryBlock() {
@@ -4032,18 +4032,18 @@ function recordHistoryBlock() {
     const time = document.createElement('b');
     time.textContent = formatTime(mark.ms);
     const when = document.createElement('small');
-    const gained = mark.before === null ? 'eerste tijd' : `${formatTime(mark.before - mark.ms)} eraf`;
-    when.textContent = `${mark.at ? new Date(mark.at).toLocaleDateString('nl-BE') : ''} · ${gained}`;
+    const gained = mark.before === null ? t('first time') : `${formatTime(mark.before - mark.ms)} eraf`;
+    when.textContent = `${mark.at ? new Date(mark.at).toLocaleDateString(locale()) : ''} · ${gained}`;
     item.append(time, when);
     list.append(item);
   });
 
   const head = age === null ? null
-    : line(age === 0 ? 'Je record is van vandaag.' : `Je record staat ${age} ${age === 1 ? 'dag' : 'dagen'}.`, 'records-lead');
+    : line(age === 0 ? t('Your record is from today.') : t(age === 1 ? 'Your record has stood {n} day.' : 'Your record has stood {n} days.', { n: age }), 'records-lead');
   const rest = all.length > SHOWN
-    ? line(`En daarvoor nog ${all.length - SHOWN} keer.`, 'records-aside')
+    ? line(t('And {n} times before that.', { n: all.length - SHOWN }), 'records-aside')
     : null;
-  return recordBlock('Hoe je record gezakt is', [head, list, rest]);
+  return recordBlock(t('How your record came down'), [head, list, rest]);
 }
 
 function runsBlock() {
@@ -4065,12 +4065,12 @@ function runsBlock() {
     button.append(time, where);
     button.addEventListener('click', () => {
       el.recordsSheet.close();
-      showSolves(`Beste ao5 #${place + 1}`, back.slice(run.start, run.end));
+      showSolves(t('Best ao5 #{n}', { n: place + 1 }), back.slice(run.start, run.end));
     });
     item.append(button);
     list.append(item);
   });
-  return recordBlock('Je beste vijf op rij', list);
+  return recordBlock(t('Your best five in a row'), list);
 }
 
 function whatIfBlock() {
@@ -4078,10 +4078,10 @@ function whatIfBlock() {
   const shape = without(solves, drop);
   if (!shape || shape.now - shape.then < 50) return null;
 
-  const many = drop === 1 ? 'je traagste solve' : `je ${drop} traagste solves`;
-  return recordBlock('Wat als', [
-    line(`Zonder ${many} was je gemiddelde ${formatTime(shape.then)} in plaats van ${formatTime(shape.now)}.`),
-    line(`Dat scheelt ${formatTime(shape.now - shape.then)} — meer aan uitschieters dan aan tempo, als dat groot is.`, 'records-aside')
+  const many = drop === 1 ? t('your slowest solve') : t('your {n} slowest solves', { n: drop });
+  return recordBlock(t('What if'), [
+    line(t('Without {what} your average would be {then} instead of {now}.', { what: many, then: formatTime(shape.then), now: formatTime(shape.now) })),
+    line(t('That is {gap} — more about outliers than about pace, when it is large.', { gap: formatTime(shape.now - shape.then) }), 'records-aside')
   ]);
 }
 
@@ -4089,11 +4089,11 @@ function counterBlock() {
   const sum = totals(saveFile.sessions);
   if (!sum.solves) return null;
 
-  const bits = [`${sum.solves} solves`, spellDuration(sum.ms), `${sum.days} ${sum.days === 1 ? 'dag' : 'dagen'}`];
+  const bits = [t('{n} solves', { n: sum.solves }), spellDuration(sum.ms), t(sum.days === 1 ? '{n} day' : '{n} days', { n: sum.days })];
   const strip = document.createElement('div');
   strip.className = 'counter-strip';
-  for (const [value, label] of [[String(sum.solves), 'solves ooit'],
-    [spellDuration(sum.ms), 'aan het draaien'], [String(sum.days), sum.days === 1 ? 'dag' : 'dagen']]) {
+  for (const [value, label] of [[String(sum.solves), t('solves ever')],
+    [spellDuration(sum.ms), t('turning')], [String(sum.days), t(sum.days === 1 ? 'day' : 'days')]]) {
     const cell = document.createElement('div');
     const big = document.createElement('b');
     big.textContent = value;
@@ -4104,9 +4104,9 @@ function counterBlock() {
   }
 
   const since = sum.since
-    ? line(`Sinds ${new Date(sum.since).toLocaleDateString('nl-BE')}, over al je sessies samen.`, 'records-aside')
+    ? line(t('Since {date}, over all your sessions together.', { date: new Date(sum.since).toLocaleDateString(locale()) }), 'records-aside')
     : null;
-  return recordBlock('De teller', [strip, since]);
+  return recordBlock(t('The counter'), [strip, since]);
 }
 
 function longAgoBlock() {
@@ -4114,7 +4114,7 @@ function longAgoBlock() {
   if (!then.length) return null;
 
   const shown = then.slice(0, 3);
-  return recordBlock('Op deze dag', shown.map((entry) => line(
+  return recordBlock(t('On this day'), shown.map((entry) => line(
     `${entry.years} jaar geleden, in ${entry.session}: ${formatSolve(entry.solve)}.`)));
 }
 
@@ -4136,8 +4136,8 @@ function todayBlock() {
   const strip = document.createElement('div');
   strip.className = 'counter-strip';
   for (const [value, label] of [
-    [String(mine.length), mine.length === 1 ? 'solve' : 'solves'],
-    [formatTime(best(mine)), 'beste'],
+    [String(mine.length), t(mine.length === 1 ? 'solve' : 'solves')],
+    [formatTime(best(mine)), t('best')],
     [formatTime(averageOf(mine, 5)), 'ao5']
   ]) {
     const cell = document.createElement('div');
@@ -4151,10 +4151,10 @@ function todayBlock() {
 
   const versus = usual === null ? null : line(
     mine.length >= usual
-      ? `Meer dan je gewone dag (${Math.round(usual)}).`
-      : `Je gewone dag is er ${Math.round(usual)}.`,
+      ? t('More than your usual day ({n}).', { n: Math.round(usual) })
+      : t('Your usual day is {n}.', { n: Math.round(usual) }),
     'records-aside');
-  return recordBlock('Vandaag', [strip, versus]);
+  return recordBlock(t('Today'), [strip, versus]);
 }
 
 /** What each stretch usually costs you, over every solve that has marks. */
@@ -4180,7 +4180,7 @@ function splitsBlock() {
     list.append(row);
   });
 
-  return recordBlock(`Gemiddeld per deel (${rows.length} solves)`, list);
+  return recordBlock(t('Average per stage ({n} solves)', { n: rows.length }), list);
 }
 
 /** The cabinet: what you have, and what is next. */
@@ -4201,13 +4201,13 @@ function badgesBlock() {
     name.textContent = badge.name;
     const detail = document.createElement('small');
     detail.textContent = badge.at !== null
-      ? new Date(badge.at).toLocaleDateString('nl-BE')
+      ? new Date(badge.at).toLocaleDateString(locale())
       : badge.detail;
     item.append(name, detail);
     wall.append(item);
   }
 
-  return recordBlock(`Kast — ${score.got} van ${score.all}`, wall);
+  return recordBlock(t('Cabinet — {got} of {all}', { got: score.got, all: score.all }), wall);
 }
 
 /** A year of days as squares. Not a graph: a wall you can look at. */
@@ -4222,7 +4222,8 @@ function calendarBlock() {
     cell.dataset.level = String(day.level);
     cell.style.gridRow = String(day.weekday + 1);
     cell.title = day.count
-      ? `${day.day}: ${day.count} ${day.count === 1 ? 'solve' : 'solves'}${day.best ? `, beste ${formatTime(day.best)}` : ''}`
+      ? `${day.day}: ` + t(day.count === 1 ? '{n} solve' : '{n} solves', { n: day.count })
+        + (day.best ? t(', best {time}', { time: formatTime(day.best) }) : '')
       : day.day;
     grid.append(cell);
   }
@@ -4230,7 +4231,7 @@ function calendarBlock() {
   const wrap = document.createElement('div');
   wrap.className = 'year-wrap';
   wrap.append(grid);
-  return recordBlock('Een jaar aan dagen', wrap);
+  return recordBlock(t('A year of days'), wrap);
 }
 
 /** One line a day, written by nobody. */
@@ -4243,7 +4244,7 @@ function diaryBlock() {
   for (const entry of lines) {
     const row = document.createElement('div');
     const when = document.createElement('b');
-    when.textContent = new Date(entry.at).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' });
+    when.textContent = new Date(entry.at).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
     const note = document.createElement('span');
     note.textContent = entry.note;
     row.append(when, note);
@@ -4311,27 +4312,27 @@ function trendBlock() {
     // Said rather than hidden: the point of the block is that a hundred solves
     // is what an honest answer costs, and that is worth knowing in advance.
     return scored.length >= 20
-      ? recordBlock('Ben je echt beter geworden?', line(
-        `Nog ${100 - scored.length} solves te gaan. Onder de honderd is elk verschil tussen toen en nu even goed toeval, en dan zegt de app het liever niet.`,
+      ? recordBlock(t('Have you really got better?'), line(
+        t('{n} solves to go. Under a hundred, any difference between then and now is just as likely chance, and the app would rather not say.', { n: 100 - scored.length }),
         'records-aside'))
       : null;
   }
 
   const better = shape.gap > 0;
   const table = figures([
-    ['Eerste 50', formatTime(shape.then)],
-    ['Laatste 50', formatTime(shape.now)],
+    [t('First 50'), formatTime(shape.then)],
+    [t('Last 50'), formatTime(shape.now)],
     ['Verschil', `${better ? '−' : '+'}${formatTime(Math.abs(shape.gap))}`],
-    ['Toeval haalt dit', `${Math.round(shape.share * 100)}% van de keren`]
+    [t('Chance manages this'), t('{n}% of the time', { n: Math.round(shape.share * 100) })]
   ]);
 
   const verdict = shape.sure
     ? (better
-      ? `Ja. Dit verschil is te groot om toeval te zijn — toeval haalt het maar ${Math.round(shape.share * 100)} keer op de honderd.`
-      : 'Je bent trager geworden, en meer dan toeval kan verklaren. Dat gebeurt: te weinig geslapen, andere kubus, of te veel nieuwe dingen tegelijk.')
-    : `Nog niet te zeggen. Toeval alleen haalt dit verschil in ${Math.round(shape.share * 100)} van de honderd gevallen, dus dit is even goed een goede avond als vooruitgang.`;
+      ? t('Yes. This difference is too big to be chance — chance manages it only {n} times in a hundred.', { n: Math.round(shape.share * 100) })
+      : t('You have got slower, and by more than chance explains. It happens: too little sleep, a different cube, or too many new things at once.'))
+    : t('Too early to say. Chance alone manages this difference in {n} cases out of a hundred, so this is just as likely a good evening as progress.', { n: Math.round(shape.share * 100) });
 
-  return recordBlock('Ben je echt beter geworden?', [table, line(verdict, 'records-aside')]);
+  return recordBlock(t('Have you really got better?'), [table, line(verdict, 'records-aside')]);
 }
 
 /** When in a sitting you are quick. Everybody has a shape; nobody knows theirs. */
@@ -4351,13 +4352,14 @@ function shapeBlock() {
 
   const spread = (slowest.share - quickest.share) * 100;
   const note = spread < 4
-    ? 'Je bent even snel aan het begin als aan het eind. Dat is zeldzaam en het scheelt je opwarmtijd.'
-    : `Je bent op je snelst bij ${quickest.name}, en ${spread.toFixed(0)}% trager bij ${slowest.name}. ${
-      quickest.name === 'de eerste vijf'
-        ? 'Je stopt dus beter vroeger dan je denkt.'
-        : 'Reken de eerste paar solves van een sessie dus niet mee als je jezelf beoordeelt.'}`;
+    ? t('You are as quick at the start as at the end. That is rare, and it saves you warming up.')
+    : t('You are quickest at {quick}, and {n}% slower at {slow}.', {
+      quick: quickest.name, n: spread.toFixed(0), slow: slowest.name
+    }) + ' ' + (quickest.name === t('the first five')
+      ? t('So you are better off stopping earlier than you think.')
+      : t('So do not count the first few solves of a session when you judge yourself.'));
 
-  return recordBlock('De vorm van je sessie', [list, line(note, 'records-aside')]);
+  return recordBlock(t('The shape of your session'), [list, line(note, 'records-aside')]);
 }
 
 /** Does looking longer pay? Your own numbers, not somebody's advice. */
@@ -4374,7 +4376,7 @@ function inspectionBlock() {
   })));
 
   return recordBlock('Loont langer kijken?', [list, line(
-    `Bij jou is ${quickest.name} inspectie het snelst. Dat is geen advies uit een boek — het staat in je eigen tijden.`,
+    t('For you, {what} inspection is fastest. That is not advice from a book — it is in your own times.', { what: quickest.name }),
     'records-aside')]);
 }
 
@@ -4402,21 +4404,21 @@ function fairBlock(kit) {
   // times at all, and then a correction built on it would be made up.
   const linked = Math.abs(fair.slope) >= 60;
   const table = figures([
-    ['Je gemiddelde', formatTime(fair.plain)],
+    [t('Your average'), formatTime(fair.plain)],
     ['Gecorrigeerd', linked ? formatTime(fair.fair) : '—'],
-    ['Je scrambles waren', `${fair.easy.toFixed(1)} zetten kruis`],
-    ['Elke zet kruis kost je', linked
+    [t('Your scrambles were'), t('{n} moves of cross', { n: fair.easy.toFixed(1) })],
+    [t('Every move of cross costs you'), linked
       ? `${fair.slope > 0 ? '' : '−'}${formatTime(Math.abs(fair.slope))}`
-      : 'niets meetbaars']
+      : t('nothing measurable')]
   ]);
 
   const note = !linked
-    ? `Over ${fair.counted} solves is er in jouw tijden geen verband te zien tussen de lengte van het kruis en hoe lang je erover deed. Er valt dus ook niets te corrigeren — je gemiddelde is wat het is.`
+    ? t('Over {n} solves there is no link in your times between the length of the cross and how long you took. So there is nothing to correct — your average is what it is.', { n: fair.counted })
     : luckyMs < 150
-      ? `Over ${fair.counted} solves kreeg je een doorsnee set scrambles. Je gemiddelde is wat het is.`
+      ? t('Over {n} solves you got an average set of scrambles. Your average is what it is.', { n: fair.counted })
       : fair.luck > 0
-        ? `Je scrambles waren gemiddeld makkelijker dan gewoon. Op scrambles van normale zwaarte was dit ${luckySeconds.toFixed(2)}s trager geweest.`
-        : `Je scrambles waren zwaarder dan gewoon. Op scrambles van normale zwaarte was dit ${luckySeconds.toFixed(2)}s sneller geweest — je gemiddelde vleit je niet.`;
+        ? t('Your scrambles were easier than usual on average. On scrambles of ordinary weight this would have been {n}s slower.', { n: luckySeconds.toFixed(2) })
+        : t('Your scrambles were heavier than usual. On scrambles of ordinary weight this would have been {n}s faster — your average does not flatter you.', { n: luckySeconds.toFixed(2) });
 
   return recordBlock('Eerlijk vergelijken', [table, line(note, 'records-aside')]);
 }
@@ -4436,13 +4438,13 @@ function weakBlock() {
       value: `${(entry.share * 100).toFixed(0)}% · richtwaarde ${(entry.ideal * 100).toFixed(0)}%`
     }))));
     parts.push(line(stage.worst.off < 0.03
-      ? `Je solve is netjes verdeeld over ${stage.counted} gemeten solves. Er springt geen enkel deel uit.`
-      : `${stage.worst.name} neemt ${(stage.worst.off * 100).toFixed(0)}% meer van je solve dan gebruikelijk. Daar ligt je volgende seconde, en nergens anders.`,
+      ? t('Your solve is evenly spread over {n} measured solves. No part stands out.', { n: stage.counted })
+      : t('{what} takes {n}% more of your solve than usual. That is where your next second is, and nowhere else.', { what: stage.worst.name, n: (stage.worst.off * 100).toFixed(0) }),
     'records-aside'));
   }
   if (cases) {
     parts.push(line(
-      `Van de gevallen die je geoefend hebt is ${cases.slowest.id} je traagste (${formatTime(cases.slowest.mean)}), en ${cases.quickest.id} je snelste (${formatTime(cases.quickest.mean)}).`,
+      t('Of the cases you have drilled, {slow} is your slowest ({slowTime}) and {fast} your fastest ({fastTime}).', { slow: cases.slowest.id, slowTime: formatTime(cases.slowest.mean), fast: cases.quickest.id, fastTime: formatTime(cases.quickest.mean) }),
       'records-aside'));
 
     // Knowing which case is your worst is only half of it; the other half is a
@@ -4453,7 +4455,7 @@ function weakBlock() {
       if (rankedCases(group) < 6) continue;
       const button = document.createElement('button');
       button.type = 'button';
-      button.textContent = `Oefen je zwakste ${group.toUpperCase()}`;
+      button.textContent = t('Drill your weakest {group}', { group: group.toUpperCase() });
       button.addEventListener('click', () => {
         el.recordsSheet.close();
         openDrill({ focus: 'weak', group });
@@ -4463,7 +4465,7 @@ function weakBlock() {
     if (drill.children.length) parts.push(drill);
   }
 
-  return recordBlock('Waar je het verliest', parts);
+  return recordBlock(t('Where you lose it'), parts);
 }
 
 /**
@@ -4484,14 +4486,14 @@ function worstBlock() {
     const time = document.createElement('b');
     time.textContent = formatSolve(entry.solve);
     const cost = document.createElement('span');
-    cost.textContent = `+${formatTime(entry.cost)} op je ao5`;
+    cost.textContent = t('+{time} on your ao5', { time: formatTime(entry.cost) });
     row.append(time, cost);
     if (entry.solve.scramble) {
       const again = document.createElement('button');
       again.type = 'button';
       again.className = 'ghost tiny';
-      again.textContent = 'Tot hij zit';
-      again.title = 'Deze scramble blijft komen tot je er onder je gewone tempo op zit';
+      again.textContent = t('Until it lands');
+      again.title = t('This scramble keeps coming back until you are under your usual pace on it');
       again.addEventListener('click', () => {
         el.recordsSheet.close();
         startGrind(entry.solve);
@@ -4502,8 +4504,8 @@ function worstBlock() {
   }
 
   const total = worst.reduce((sum, entry) => sum + entry.cost, 0);
-  return recordBlock('De vijf die pijn deden', [list, line(
-    `Samen kostten deze vijf je ${formatTime(total)} aan gemiddelden. Ze staan er met hun scramble bij, zodat je ze opnieuw kunt leggen.`,
+  return recordBlock(t('The five that hurt'), [list, line(
+    t('Together these five cost you {time} in averages. Their scrambles are here, so you can set them up again.', { time: formatTime(total) }),
     'records-aside')]);
 }
 
@@ -4521,26 +4523,26 @@ function worstBlock() {
  * page is worse than no tab.
  */
 const RECORD_TABS = [
-  { id: 'now', name: 'Nu', blocks: (kit) => [bingoBlock(), todayBlock(), podiumBlock(), counterBlock()] },
+  { id: 'now', get name() { return t('Now'); }, blocks: (kit) => [bingoBlock(), todayBlock(), podiumBlock(), counterBlock()] },
   {
     id: 'better',
-    name: 'Vooruitgang',
+    get name() { return t('Progress'); },
     blocks: (kit) => [trendBlock(), aimBlock(), thenNowBlock(), shapeBlock(),
       inspectionBlock(), kit ? fairBlock(kit) : null]
   },
   {
     id: 'weak',
-    name: 'Zwaktes',
+    get name() { return t('Weak spots'); },
     blocks: (kit) => [weakBlock(), splitsBlock(), worstBlock(), kit ? crossBlock(kit) : null]
   },
   {
     id: 'records',
-    name: 'Records',
+    get name() { return t('Records'); },
     blocks: (kit) => [recordHistoryBlock(), runsBlock(), whatIfBlock(), cubesBlock()]
   },
   {
     id: 'back',
-    name: 'Terugblik',
+    get name() { return t('Looking back'); },
     blocks: (kit) => [badgesBlock(), calendarBlock(), clickedBlock(), diaryBlock(),
       longAgoBlock(), yearBlock()]
   }
@@ -4571,10 +4573,10 @@ function thenNowBlock() {
   }
 
   const note = shape.gap > 200
-    ? `Je beste vijf zijn ${formatTime(shape.gap)} sneller dan je beste vijf van toen. Dat is jij tegen jou, en jij wint.`
+    ? t('Your best five are {gap} faster than your best five back then. That is you against you, and you are winning.', { gap: formatTime(shape.gap) })
     : shape.gap < -200
-      ? `Je beste vijf van toen waren ${formatTime(-shape.gap)} sneller. Die dag zat er iets in dat er nu niet in zit.`
-      : 'Je beste dagen zijn even goed als ze waren. Dat is niet niets — een piek vasthouden is moeilijker dan hem halen.';
+      ? t('Your best five back then were {gap} faster. Something was there that day that is not there now.', { gap: formatTime(-shape.gap) })
+      : t('Your best days are as good as they were. That is not nothing — holding a peak is harder than reaching one.');
 
   return recordBlock('Jij tegen jou', [list, line(note, 'records-aside')]);
 }
@@ -4603,12 +4605,12 @@ function clickedBlock() {
     const label = document.createElement('b');
     label.textContent = one.id;
     const figure = document.createElement('span');
-    figure.textContent = `${new Date(one.at).toLocaleDateString('nl-BE')} · ${formatTime(one.before)} → ${formatTime(one.after)}`;
+    figure.textContent = `${new Date(one.at).toLocaleDateString(locale())} · ${formatTime(one.before)} → ${formatTime(one.after)}`;
     row.append(label, figure);
     list.append(row);
   }
-  return recordBlock('Toen het klikte', [list, line(
-    'Een algoritme leren is geen helling maar een trede: op een dag hoef je niet meer na te denken. Dit zijn de dagen waarop dat gebeurde.',
+  return recordBlock(t('When it clicked'), [list, line(
+    t('Learning an algorithm is not a slope but a step: one day you no longer have to think. These are the days that happened on.'),
     'records-aside')]);
 }
 
@@ -4617,26 +4619,26 @@ function aimBlock() {
   if (!settings.aimTime) return null;
   const deadline = settings.aimBy ? new Date(`${settings.aimBy}T23:59:59`).getTime() : NaN;
   const shape = aimAt(counting(solves), settings.aimTime, deadline);
-  if (!shape) return recordBlock('Je doel', line('Nog te weinig tijden om te zeggen of je op schema ligt.', 'records-aside'));
+  if (!shape) return recordBlock(t('Your aim'), line(t('Too few times yet to say whether you are on schedule.'), 'records-aside'));
 
   const rows = [
-    ['Doel', formatTime(shape.target) + (settings.aimBy ? ` voor ${new Date(deadline).toLocaleDateString('nl-BE')}` : '')],
+    ['Doel', formatTime(shape.target) + (settings.aimBy ? t(' before {date}', { date: new Date(deadline).toLocaleDateString(locale()) }) : '')],
     ['Nu', formatTime(shape.now)],
-    ['Nog te gaan', shape.needed <= 0 ? 'gehaald' : formatTime(shape.needed)],
-    ['Je wint per week', shape.rate > 0 ? formatTime(shape.rate * 7) : 'niets op dit moment']
+    [t('Still to go'), shape.needed <= 0 ? 'gehaald' : formatTime(shape.needed)],
+    [t('You gain per week'), shape.rate > 0 ? formatTime(shape.rate * 7) : t('nothing at the moment')]
   ];
 
   const note = shape.needed <= 0
-    ? 'Gehaald. Zet er een nieuw doel onder, dan blijft dit iets zeggen.'
+    ? t('Reached. Set a new aim under it and this keeps meaning something.')
     : shape.rate <= 0
-      ? 'Op dit tempo kom je er niet — je tijden zakken op het moment niet. Dat hoeft niets ergs te betekenen, maar een datum kan de app er niet op plakken.'
+      ? t('At this rate you will not get there — your times are not coming down at the moment. That need not mean anything bad, but the app cannot put a date on it.')
       : shape.onTrack === null
-        ? `Op dit tempo haal je het rond ${new Date(shape.byDay).toLocaleDateString('nl-BE')}. Zet er een datum bij en hij zegt of dat op tijd is.`
+        ? t('At this rate you get there around {date}. Put a date beside it and it will say whether that is in time.', { date: new Date(shape.byDay).toLocaleDateString(locale()) })
         : shape.onTrack
-          ? `Je ligt op schema: op dit tempo zit je er rond ${new Date(shape.byDay).toLocaleDateString('nl-BE')}.`
-          : `Op dit tempo haal je het rond ${new Date(shape.byDay).toLocaleDateString('nl-BE')} — na je datum. Dat is geen ramp, het is alleen eerlijk.`;
+          ? t('You are on schedule: at this rate you are there around {date}.', { date: new Date(shape.byDay).toLocaleDateString(locale()) })
+          : t('At this rate you get there around {date} — after your date. That is no disaster, it is only honest.', { date: new Date(shape.byDay).toLocaleDateString(locale()) });
 
-  return recordBlock('Je doel', [figures(rows), line(note, 'records-aside')]);
+  return recordBlock(t('Your aim'), [figures(rows), line(note, 'records-aside')]);
 }
 
 
@@ -4663,12 +4665,12 @@ function bingoBlock() {
 
   const rows = bingoLines(week.squares);
   const note = week.filled === 9
-    ? 'Vol. De volgende kaart staat er maandag.'
+    ? t('Full. The next card is here on Monday.')
     : rows
-      ? `${week.filled} van de negen, en ${rows} ${rows === 1 ? 'rij' : 'rijen'} vol.`
-      : `${week.filled} van de negen. Elke maandag een nieuwe kaart.`;
+      ? t(rows === 1 ? '{filled} of the nine, and {rows} line full.' : '{filled} of the nine, and {rows} lines full.', { filled: week.filled, rows })
+      : t('{n} of the nine. A new card every Monday.', { n: week.filled });
 
-  return recordBlock(`Deze week — ${week.name}`, [grid, line(note, 'records-aside')]);
+  return recordBlock(t('This week — {name}', { name: week.name }), [grid, line(note, 'records-aside')]);
 }
 
 /**
@@ -4687,26 +4689,26 @@ function yearBlock() {
   }
 
   const rows = [
-    ['Solves', String(all.solves)],
-    ['Aan het draaien', spellDuration(all.ms)],
-    ['Dagen', String(all.days)],
+    [t('Solves'), String(all.solves)],
+    [t('Turning'), spellDuration(all.ms)],
+    [t('Days'), String(all.days)],
     ['Sneller geworden', shape && shape.gap > 0 ? formatTime(shape.gap) : '—']
   ];
 
   const save = document.createElement('button');
   save.type = 'button';
-  save.textContent = 'Bewaar als kaart';
+  save.textContent = t('Save as a card');
   save.addEventListener('click', async () => {
     const canvas = drawCard({
       title: 'mijn cubetimer',
       headline: String(all.solves),
       lines: [
-        `solves in ${all.days} ${all.days === 1 ? 'dag' : 'dagen'}`,
-        `${spellDuration(all.ms)} aan het draaien`,
-        bestDay ? `beste dag ${new Date(`${bestDay.day}T12:00:00`).toLocaleDateString('nl-BE')} — ${formatTime(bestDay.best)}` : '',
-        shape && shape.gap > 0 ? `${formatTime(shape.gap)} sneller dan toen je begon` : ''
+        t(all.days === 1 ? 'solves in {n} day' : 'solves in {n} days', { n: all.days }),
+        t('{time} of turning', { time: spellDuration(all.ms) }),
+        bestDay ? t('best day {date} — {time}', { date: new Date(`${bestDay.day}T12:00:00`).toLocaleDateString(locale()), time: formatTime(bestDay.best) }) : '',
+        shape && shape.gap > 0 ? t('{gap} faster than when you started', { gap: formatTime(shape.gap) }) : ''
       ].filter(Boolean),
-      footer: [settings.shareName, new Date().toLocaleDateString('nl-BE')].filter(Boolean).join(' \u00b7 '),
+      footer: [settings.shareName, new Date().toLocaleDateString(locale())].filter(Boolean).join(' \u00b7 '),
       accent: colorOf(settings, 'led'),
       dark: settings.theme === 'dark'
     });
@@ -4714,19 +4716,19 @@ function yearBlock() {
     const address = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = address;
-    link.download = `cubetimer-alles-${new Date().toISOString().slice(0, 10)}.png`;
+    link.download = `cubetimer-everything-${new Date().toISOString().slice(0, 10)}.png`;
     document.body.append(link);
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(address), 20000);
-    toast('Kaartje bewaard.');
+    toast(t('Card saved.'));
   });
 
   const actions = document.createElement('div');
   actions.className = 'detail-actions';
   actions.append(save);
 
-  return recordBlock('Alles bij elkaar', [figures(rows), actions]);
+  return recordBlock(t('Everything together'), [figures(rows), actions]);
 }
 
 function renderRecords(kit = crossKit) {
@@ -4739,7 +4741,7 @@ function renderRecords(kit = crossKit) {
   if (!built.length) {
     el.recordsTabs.replaceChildren();
     el.recordsBody.replaceChildren(
-      line('Nog te weinig tijden om iets terug te kijken. Solve er een paar en kom terug.'));
+      line(t('Too few times to look back on. Do a few and come back.')));
     return;
   }
 
@@ -4770,7 +4772,7 @@ el.shareOpen.addEventListener('click', () => {
   const scored = counting(solves);
   const five = scored.slice(-5);
   el.statsSheet.close();
-  openShare(five.length === 5 ? 'ao5' : `laatste ${five.length}`, five);
+  openShare(five.length === 5 ? 'ao5' : t('last {n}', { n: five.length }), five);
 });
 
 el.recordsOpen.addEventListener('click', async () => {
@@ -4778,7 +4780,7 @@ el.recordsOpen.addEventListener('click', async () => {
   el.statsSheet.close();
   renderRecords();
   if (!openSheet(el.recordsSheet)) {
-    toast('Dit venster gaat niet open in deze browser.');
+    toast(t('This window will not open in this browser.'));
     return;
   }
 
@@ -4801,8 +4803,8 @@ el.recordsClose.addEventListener('click', () => el.recordsSheet.close());
 function renderSelection() {
   el.selectionBar.hidden = !selecting;
   el.body.toggleAttribute('data-selecting', selecting);
-  el.selectMode.textContent = selecting ? 'stop selectie' : 'selecteer';
-  el.selectionCount.textContent = `${selected.size} gekozen`;
+  el.selectMode.textContent = selecting ? t('stop selecting') : t('select');
+  el.selectionCount.textContent = t('{n} chosen', { n: selected.size });
 
   const none = selected.size === 0;
   for (const button of [el.selectionPlus2, el.selectionDnf, el.selectionMove, el.selectionDelete]) {
@@ -4849,7 +4851,7 @@ function penaliseSelection(penalty) {
   renderSolves();
   render();
   renderSelection();
-  toast(allSet ? `${selected.size} tijden weer gewoon.` : `${penalty} op ${selected.size} tijden.`);
+  toast(allSet ? t('{n} times back to plain.', { n: selected.size }) : t('{penalty} on {n} times.', { penalty, n: selected.size }));
 }
 
 el.selectionPlus2.addEventListener('click', () => penaliseSelection('+2'));
@@ -4858,7 +4860,7 @@ el.selectionDnf.addEventListener('click', () => penaliseSelection('DNF'));
 el.selectionDelete.addEventListener('click', () => {
   const count = selected.size;
   if (!count) return;
-  if (!confirm(count === 1 ? 'Deze tijd verwijderen?' : `${count} tijden verwijderen?`)) return;
+  if (!confirm(count === 1 ? t('Delete this time?') : t('Delete {n} times?', { n: count }))) return;
 
   const doomed = new Set(selected);
   for (let index = solves.length - 1; index >= 0; index--) {
@@ -4868,7 +4870,7 @@ el.selectionDelete.addEventListener('click', () => {
   persist();
   render();
   renderSelection();
-  toast(count === 1 ? 'Tijd verwijderd.' : `${count} tijden verwijderd.`);
+  toast(count === 1 ? t('Time deleted.') : t('{n} times deleted.', { n: count }));
 });
 
 /* ---------- moving times to another session ----------
@@ -4885,7 +4887,7 @@ el.selectionDelete.addEventListener('click', () => {
 let moving = null;
 
 function describeMoving(count) {
-  return count === 1 ? 'Deze tijd' : `Deze ${count} tijden`;
+  return count === 1 ? t('This time') : t('These {n} times', { n: count });
 }
 
 function openMove(list, title) {
@@ -4893,8 +4895,8 @@ function openMove(list, title) {
   moving = { solves: list.slice(), from: saveFile.active };
 
   el.moveTitle.textContent = title;
-  el.moveWhat.textContent = `${describeMoving(list.length)} uit ${currentSession().name}. `
-    + (list.length === 1 ? 'Kies waar hij heen moet.' : 'Kies waar ze heen moeten.');
+  el.moveWhat.textContent = t('{what} from {name}. ', { what: describeMoving(list.length), name: currentSession().name })
+    + (list.length === 1 ? t('Choose where it should go.') : 'Kies waar ze heen moeten.');
 
   el.moveList.replaceChildren(...saveFile.sessions.flatMap((session, index) => {
     if (index === moving.from) return [];
@@ -4909,7 +4911,7 @@ function openMove(list, title) {
     // The label already carries the puzzle when it is worth carrying, so the
     // line beside it only has the count to add.
     const about = document.createElement('small');
-    about.textContent = `${session.solves.length} ${session.solves.length === 1 ? 'tijd' : 'tijden'}`;
+    about.textContent = t(session.solves.length === 1 ? '{n} time' : '{n} times', { n: session.solves.length });
     // A different puzzle is usually the whole reason for moving, so it is
     // pointed out rather than warned about.
     if (session.puzzle !== currentSession().puzzle) name.className = 'other';
@@ -4922,7 +4924,7 @@ function openMove(list, title) {
   if (el.moveList.children.length === 0) {
     const only = document.createElement('p');
     only.className = 'import-note';
-    only.textContent = 'Dit is je enige sessie. Maak er hieronder een aan.';
+    only.textContent = t('This is your only session. Make one below.');
     el.moveList.append(only);
   }
 
@@ -4938,7 +4940,7 @@ function openMove(list, title) {
   // Opened from inside another sheet, which Safari has been known to refuse.
   if (!openSheet(el.moveSheet)) {
     moving = null;
-    toast('Dit venster gaat niet open in deze browser.');
+    toast(t('This window will not open in this browser.'));
   }
 }
 
@@ -4974,7 +4976,7 @@ function moveTo(index) {
   persist();
   render();
 
-  toast(`${describeMoving(taken.length)} verplaatst naar ${target.name}.`, {
+  toast(t('{what} moved to {name}.', { what: describeMoving(taken.length), name: target.name }), {
     label: 'Ongedaan maken',
     run: () => undoMove(from, index, before)
   });
@@ -5016,10 +5018,10 @@ function describeMoment(at) {
   if (!at) return '';
   const date = new Date(at);
   const today = new Date().toDateString() === date.toDateString();
-  const time = date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+  const time = date.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
   return today
-    ? `vandaag om ${time}`
-    : `${date.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })} om ${time}`;
+    ? t('today at {time}', { time })
+    : t('{date} at {time}', { date: date.toLocaleDateString(locale(), { day: 'numeric', month: 'long' }), time });
 }
 
 function fillDetail() {
@@ -5029,7 +5031,7 @@ function fillDetail() {
   el.detailTitle.textContent = `Solve ${detailIndex + 1}`;
   el.detailTime.textContent = formatSolve(solve);
   el.detailMeta.textContent = describeMoment(solve.at);
-  el.detailScramble.textContent = solve.scramble || 'Niet bewaard bij deze tijd.';
+  el.detailScramble.textContent = solve.scramble || t('Not kept with this time.');
 
   const spans = phaseSpans(solve, currentSession().puzzle);
   el.detailSplits.hidden = !spans.length;
@@ -5064,13 +5066,13 @@ el.quickDnf.addEventListener('click', () => {
 el.quickSkip.addEventListener('click', () => {
   const solve = markSolve(quickIndex, 'skip');
   el.quickSheet.close();
-  if (solve) toast(solve.skip ? 'Telt niet mee in je gemiddelden.' : 'Telt weer mee.');
+  if (solve) toast(solve.skip ? t('Does not count towards your averages.') : t('Counts again.'));
 });
 
 el.quickStar.addEventListener('click', () => {
   const solve = markSolve(quickIndex, 'star');
   el.quickSheet.close();
-  if (solve) toast(solve.star ? 'Bewaard.' : 'Niet meer bewaard.');
+  if (solve) toast(solve.star ? t('Kept.') : t('No longer kept.'));
 });
 
 el.quickDetail.addEventListener('click', () => {
@@ -5129,7 +5131,7 @@ el.detailDnf.addEventListener('click', () => {
 el.detailSkip.addEventListener('click', () => {
   const solve = markSolve(detailIndex, 'skip');
   if (solve) fillDetail();
-  if (solve) toast(solve.skip ? 'Telt niet mee in je gemiddelden.' : 'Telt weer mee.');
+  if (solve) toast(solve.skip ? t('Does not count towards your averages.') : t('Counts again.'));
 });
 
 el.detailStar.addEventListener('click', () => {
@@ -5227,14 +5229,14 @@ function adoptElsewhere() {
   selected.clear();
   syncTargetUi();
   render();
-  toast('Er is in een ander venster gesolved; deze lijst is nu bijgewerkt.');
+  toast(t('Somebody solved in another window; this list has been brought up to date.'));
 }
 
 /** Save, and say so once if this browser refuses to store anything. */
 function persist() {
   if (save(saveFile) || storageWarned) return;
   storageWarned = true;
-  toast('Deze browser bewaart niets (privémodus?). Je tijden blijven staan tot je de pagina herlaadt.');
+  toast(t('This browser keeps nothing (private mode?). Your times stay until you reload the page.'));
 }
 
 /**
@@ -5338,13 +5340,13 @@ function removeSolveWithUndo(index) {
   if (!removed) return;
   persist();
   render();
-  toast(`${formatSolve(removed)} gewist.`, {
+  toast(t('{time} deleted.', { time: formatSolve(removed) }), {
     label: 'ongedaan maken',
     run: () => {
       solves.splice(Math.min(index, solves.length), 0, removed);
       persist();
       render();
-      toast(`${formatSolve(removed)} staat er weer.`);
+      toast(t('{time} is back.', { time: formatSolve(removed) }));
     }
   });
 }
@@ -5500,7 +5502,7 @@ function openQuickActions(index) {
 
   el.quickTitle.textContent = formatSolve(solve);
   el.quickMeta.textContent = solve.at
-    ? new Date(solve.at).toLocaleString('nl-BE', { dateStyle: 'medium', timeStyle: 'short' })
+    ? new Date(solve.at).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' })
     : `solve ${index + 1}`;
   el.quickPlus2.dataset.active = String(solve.penalty === '+2');
   el.quickDnf.dataset.active = String(solve.penalty === 'DNF');
@@ -5516,14 +5518,14 @@ function openQuickActions(index) {
  */
 function armDelete() {
   if (!solves.length) {
-    toast('Geen tijd om te wissen.');
+    toast(t('No time to delete.'));
     return;
   }
   const target = solves[solves.length - 1];
   deleteArmed = true;
   el.body.dataset.confirm = 'delete';
   el.time.textContent = formatSolve(target);
-  setHint('Wissen? Tik <strong>1×</strong> om te bevestigen');
+  setHint(t('Delete? Tap <strong>once</strong> to confirm'));
 
   clearTimeout(deleteTimer);
   deleteTimer = setTimeout(disarmDelete, DELETE_CONFIRM_MS);
@@ -5552,7 +5554,7 @@ function removeLastSolve() {
   persist();
   render();
   showTime(0);
-  toast(`${formatSolve(removed)} gewist.`);
+  toast(t('{time} deleted.', { time: formatSolve(removed) }));
 }
 
 /* ---------- inspection ---------- */
@@ -5786,7 +5788,7 @@ document.addEventListener('keydown', (event) => {
   if (phase !== 'idle') return;
 
   const key = event.key.toLowerCase();
-  if (key === 'n') { newScramble(); toast('Nieuwe scramble.'); }
+  if (key === 'n') { newScramble(); toast(t('New scramble.')); }
   else if (key === 'c') el.scramble.click();
   else if (key === 'd') { if (solves.length) armDelete(); }
   else if (key === 'i') el.settingsOpen.click();
@@ -5972,10 +5974,10 @@ function onDeviceDisconnect() {
   disarmDelete();
 
   const midSolve = phase === 'running';
-  el.connect.textContent = 'Verbind timer';
+  el.connect.textContent = t('Connect timer');
   el.deviceStatus.hidden = true;
   setHint(currentHint());
-  el.deviceNote.textContent = 'Nog geen timer verbonden.';
+  el.deviceNote.textContent = t('No timer connected yet.');
   el.deviceDetails.hidden = true;
   el.importTimes.hidden = true;
   showManualPick(true);
@@ -5983,7 +5985,7 @@ function onDeviceDisconnect() {
   // screen is the app's own from here, and it keeps counting until someone
   // stops it -- so say that rather than let a good solve turn into a mystery.
   toast(midSolve
-    ? 'Timer losgekoppeld tijdens je solve — de tijd loopt nu op de klok van de app. Druk op spatie of tik om te stoppen.'
+    ? t('The timer dropped out during your solve — the time is now running on the app’s own clock. Press space or tap to stop.')
     : 'Timer losgekoppeld.');
 }
 
@@ -6008,24 +6010,24 @@ function explainBluetoothError(error) {
   const detail = message ? ` (${message})` : '';
 
   if (name === 'NotAllowedError') {
-    return `Geen toestemming voor bluetooth. Sta het toe in je browser en probeer opnieuw${detail}`;
+    return t('No permission for bluetooth. Allow it in your browser and try again{detail}', { detail });
   }
   if (name === 'NetworkError') {
-    return `Verbinden lukte niet. Staat de timer aan, en is hij niet al verbonden met een andere app of telefoon?${detail}`;
+    return t('Connecting did not work. Is the timer on, and is it not already connected to another app or phone?{detail}', { detail });
   }
   if (name === 'SecurityError') {
-    return `De browser blokkeert deze verbinding. Werkt de pagina wel via https?${detail}`;
+    return t('The browser is blocking this connection. Is the page served over https?{detail}', { detail });
   }
   if (name === 'NotSupportedError') {
-    return `Deze browser kan niet met de timer praten${detail}`;
+    return t('This browser cannot talk to the timer{detail}', { detail });
   }
   // Our own throws carry a full sentence; a bare "Error" says nothing.
   if (name === 'Error' && message && message !== 'Error') return message;
 
   // Nothing usable came back. Name the usual causes rather than a bare "mislukt".
-  const kind = name || (error === undefined ? 'geen foutobject' : typeof error);
+  const kind = name || (error === undefined ? t('no error object') : typeof error);
   const raw = message ? `${kind}: ${message}` : kind;
-  return `Verbinden mislukt. Zet de timer even uit en weer aan, en koppel hem los van andere apparaten of apps. [${raw}]`;
+  return t('Connecting failed. Turn the timer off and on again, and disconnect it from other devices or apps. [{raw}]', { raw });
 }
 
 /**
@@ -6040,15 +6042,15 @@ async function reportConnectionFailure(error) {
 
   let text;
   if (available === false) {
-    text = 'Dit apparaat heeft geen bluetooth, of de browser mag er niet bij. '
-      + 'Op iPhone staat dat bij Instellingen → de browser → Bluetooth, op een Mac onder '
-      + 'Systeeminstellingen → Privacy → Bluetooth, op Windows bij Instellingen → Privacy.';
+    text = t('This device has no bluetooth, or the browser is not allowed near it. ')
+      + t('On an iPhone that is under Settings → the browser → Bluetooth, on a Mac under ')
+      + t('System Settings → Privacy → Bluetooth, on Windows under Settings → Privacy.');
   } else {
     text = explainBluetoothError(error);
   }
 
   toast(text);
-  el.deviceNote.textContent = `Laatste poging mislukt — ${text} [${name || 'geen naam'}${message ? `: ${message}` : ''}]`;
+  el.deviceNote.textContent = t('Last attempt failed — {text} [{name}{extra}]', { text, name: name || t('no name'), extra: message ? `: ${message}` : '' });
   el.importTimes.hidden = true;
 }
 
@@ -6063,7 +6065,7 @@ function adoptDevice(connection) {
   device = connection;
   connectedAt = performance.now();
   clearPendingTap();
-  el.connect.textContent = 'Loskoppelen';
+  el.connect.textContent = t('Disconnect');
   el.deviceStatus.textContent = device.name;
   el.deviceStatus.hidden = false;
   setHint(currentHint());
@@ -6084,22 +6086,22 @@ async function connect(anyDevice) {
     return;
   }
   if (!isSupported()) {
-    toast('Deze browser kan niet met bluetooth praten. Op de computer of Android werkt Chrome of Edge, op iPhone een browser als Bluefy.');
+    toast(t('This browser cannot talk to bluetooth. On a computer or Android, Chrome or Edge works; on an iPhone, a browser like Bluefy.'));
     return;
   }
 
   el.connect.disabled = true;
-  el.connect.textContent = 'Verbinden…';
+  el.connect.textContent = t('Connecting…');
   try {
     adoptDevice(await connectGanTimer({ onEvent: onDeviceEvent, onDisconnect: onDeviceDisconnect, anyDevice }));
-    toast(`Verbonden met ${device.name}.`);
+    toast(t('Connected to {name}.', { name: device.name }));
   } catch (error) {
     device = null;
-    el.connect.textContent = 'Verbind timer';
+    el.connect.textContent = t('Connect timer');
     const closedByUser = error?.name === 'NotFoundError' && /cancel|chooser/i.test(error.message || '');
     // A chooser with nothing in it and a chooser someone closed look exactly
     // the same from here, so say what to check either way.
-    if (closedByUser) toast('Geen timer gekozen. Stond er niets in de lijst? Zet de timer aan en koppel hem los van andere apps of telefoons.');
+    if (closedByUser) toast(t('No timer chosen. Was the list empty? Turn the timer on and disconnect it from other apps or phones.'));
     else await reportConnectionFailure(error);
   } finally {
     el.connect.disabled = false;
@@ -6134,7 +6136,7 @@ function celebrateBadges({ quietly = false } = {}) {
   if (settings.celebrate) confetti('party');
   toast(fresh.length === 1
     ? `${first.name} — ${first.about}`
-    : `${first.name} en nog ${fresh.length - 1} erbij.`);
+    : t('{name} and {n} more.', { name: first.name, n: fresh.length - 1 }));
 }
 
 /** Opening a sheet from inside another one has been known to throw on Safari. */
@@ -6265,7 +6267,7 @@ function applySettings() {
 function storeSettings() {
   if (!saveSettings(settings) && !storageWarned) {
     storageWarned = true;
-    toast('Deze browser bewaart niets (privémodus?). Instellingen gelden tot je herlaadt.');
+    toast(t('This browser keeps nothing (private mode?). Settings last until you reload.'));
   }
 }
 
@@ -6362,7 +6364,11 @@ const groups = {
   hold: bindGroup('set-hold', (v) => { settings.holdMs = Number(v); }),
   font: bindGroup('set-font', (v) => { settings.font = v; }),
   // the one box follows the kind, so it has to be redrawn with it
-  goalKind: bindGroup('set-goalKind', (v) => { settings.goalKind = v; syncGoalValue(); })
+  goalKind: bindGroup('set-goalKind', (v) => { settings.goalKind = v; syncGoalValue(); }),
+  // The language is the one setting that has to redraw everything, because
+  // every other word on the screen was written by something that has already
+  // run. That is what onLangChange below is for.
+  lang: bindGroup('set-lang', (v) => { settings.lang = v; setLang(v); })
 };
 
 const switches = [
@@ -6390,8 +6396,8 @@ function syncGoalValue() {
   el.goalValue.value = String(solves ? settings.goalSolves : settings.goalMinutes);
   el.goalValue.max = String(solves ? 500 : 600);
   el.goalNote.textContent = solves
-    ? 'Zoveel solves op een dag houdt de vlam brandend'
-    : 'Zoveel minuten solven op een dag houdt de vlam brandend';
+    ? t('That many solves in a day keeps the flame alight')
+    : t('That many minutes of solving in a day keeps the flame alight');
 }
 
 el.goalValue.addEventListener('change', () => {
@@ -6415,7 +6421,7 @@ function syncTargetUi() {
   el.targetSwitch.setAttribute('aria-checked', String(target !== null));
   el.targetValue.value = ((target ?? 20000) / 1000).toFixed(2).replace(/\.?0+$/, '');
   el.targetValue.disabled = target === null;
-  el.targetNote.textContent = `Alleen voor ${currentSession().name}; elke sessie heeft zijn eigen doel.`;
+  el.targetNote.textContent = t('Only for {name}; every session has its own target.', { name: currentSession().name });
 }
 
 function syncSettingsUi() {
@@ -6425,6 +6431,7 @@ function syncSettingsUi() {
   markGroup(groups.hold, settings.holdMs);
   markGroup(groups.font, settings.font);
   markGroup(groups.goalKind, settings.goalKind);
+  markGroup(groups.lang, currentLang());
   syncGoalValue();
   markGroup(el.exportFormat, exportFormat);
   markGroup(el.ledColors, settings.led);
@@ -6454,7 +6461,7 @@ el.targetValue.addEventListener('change', () => {
 
 /** Session as plain text, one solve per line, ready to paste anywhere. */
 function sessionAsText() {
-  const header = `${currentSession().name} — ${solves.length} tijden`;
+  const header = t('{name} — {n} times', { name: currentSession().name, n: solves.length });
   const lines = solves.map((solve, index) =>
     `${index + 1}. ${formatSolve(solve)}   ${solve.scramble || ''}`.trimEnd());
   return [header, ...lines].join('\n');
@@ -6504,15 +6511,15 @@ function sessionAsCstimer() {
 let exportFormat = 'text';
 
 const EXPORTS = {
-  text: { build: sessionAsText, label: 'als tekst', extension: 'txt', type: 'text/plain' },
-  csv: { build: sessionAsCsv, label: 'als csv', extension: 'csv', type: 'text/csv' },
-  cstimer: { build: sessionAsCstimer, label: 'voor cstimer', extension: 'json', type: 'application/json' }
+  text: { build: sessionAsText, label: t('as text'), extension: 'txt', type: 'text/plain' },
+  csv: { build: sessionAsCsv, label: t('as csv'), extension: 'csv', type: 'text/csv' },
+  cstimer: { build: sessionAsCstimer, label: t('for cstimer'), extension: 'json', type: 'application/json' }
 };
 
 /** A file name out of the session's own name, safe on every filesystem. */
 const fileNameFor = (extension) => {
   const stem = currentSession().name.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').toLowerCase();
-  return `${stem || 'sessie'}-${backupName().slice(10, 20)}.${extension}`;
+  return `${stem || 'session'}-${backupName().slice(10, 20)}.${extension}`;
 };
 
 el.exportFormat.addEventListener('click', (event) => {
@@ -6525,27 +6532,27 @@ el.exportFormat.addEventListener('click', (event) => {
 el.exportSave.addEventListener('click', () => {
   el.exportSave.blur();
   if (!solves.length) {
-    toast('Nog geen tijden om te bewaren.');
+    toast(t('No times to save yet.'));
     return;
   }
   const { build, extension, type } = EXPORTS[exportFormat] || EXPORTS.text;
   const name = fileNameFor(extension);
   offerFile(name, build(), type);
-  toast(`${solves.length} tijden bewaard als ${name}.`);
+  toast(t('{n} times saved as {name}.', { n: solves.length, name }));
 });
 
 el.export.addEventListener('click', async () => {
   el.export.blur();
   if (!solves.length) {
-    toast('Nog geen tijden om te kopiëren.');
+    toast(t('No times to copy yet.'));
     return;
   }
   const { build, label } = EXPORTS[exportFormat] || EXPORTS.text;
   try {
     await navigator.clipboard.writeText(build());
-    toast(`${solves.length} tijden gekopieerd ${label}.`);
+    toast(t('{n} times copied {label}.', { n: solves.length, label }));
   } catch {
-    toast('Kopiëren lukte niet in deze browser.');
+    toast(t('Copying did not work in this browser.'));
   }
 });
 
@@ -6577,7 +6584,7 @@ async function textOf(input) {
   try {
     return { name: file.name, text: await file.text() };
   } catch {
-    toast('Dat bestand kon niet gelezen worden.');
+    toast(t('That file could not be read.'));
     return null;
   }
 }
@@ -6588,8 +6595,8 @@ function showTransfer() {
   const sessions = saveFile.sessions.length;
   const times = saveFile.sessions.reduce((sum, session) => sum + session.solves.length, 0);
   el.transferHere.textContent = times
-    ? `${sessions} ${sessions === 1 ? 'sessie' : 'sessies'}, ${times} ${times === 1 ? 'tijd' : 'tijden'}.`
-    : 'Nog geen tijden op dit toestel.';
+    ? t('{a} {sessionWord}, {b} {timeWord}.', { a: sessions, sessionWord: t(sessions === 1 ? 'session' : 'sessions'), b: times, timeWord: t(times === 1 ? 'time' : 'times') })
+    : t('No times on this device yet.');
   el.transferSave.disabled = !times;
   el.transferShare.disabled = !times;
   el.transferChoice.hidden = true;
@@ -6609,7 +6616,7 @@ const canShareFiles = () => {
 /** The one place that opens it, now that the settings no longer carry a copy. */
 function openTransfer() {
   el.transferShare.hidden = !canShareFiles();
-  el.transferThere.textContent = 'Kies het bestand dat je op je andere toestel bewaard hebt.';
+  el.transferThere.textContent = t('Pick the file you saved on your other device.');
   showTransfer();
   openSheet(el.transferSheet);
 }
@@ -6620,7 +6627,7 @@ el.transferSheet.addEventListener('close', () => { arriving = null; });
 el.transferSave.addEventListener('click', () => {
   el.transferSave.blur();
   offerFile(backupName(), JSON.stringify(buildBackup(saveFile, settings)));
-  toast('Bestand bewaard. Zet het op je andere toestel en open het daar.');
+  toast(t('File saved. Put it on your other device and open it there.'));
 });
 
 el.transferShare.addEventListener('click', async () => {
@@ -6631,7 +6638,7 @@ el.transferShare.addEventListener('click', async () => {
     await navigator.share({ files: [file], title: 'Cubetimer' });
   } catch (error) {
     // Closing the share sheet is not a failure and is not worth a word.
-    if (error?.name !== 'AbortError') toast('Versturen lukte niet; bewaar het bestand dan gewoon.');
+    if (error?.name !== 'AbortError') toast(t('Sending did not work; just save the file instead.'));
   }
 });
 
@@ -6649,15 +6656,15 @@ el.transferFile.addEventListener('change', async () => {
     const look = summarise(incoming, saveFile);
     arriving = incoming;
 
-    const when = look.saved ? ` van ${new Date(look.saved).toLocaleDateString('nl-BE')}` : '';
-    const times = (count) => `${count} ${count === 1 ? 'tijd' : 'tijden'}`;
+    const when = look.saved ? t(' from {date}', { date: new Date(look.saved).toLocaleDateString(locale()) }) : '';
+    const times = (count) => t(count === 1 ? '{n} time' : '{n} times', { n: count });
     el.transferThere.textContent = look.added
-      ? `${picked.name}${when}: ${look.sessions} ${look.sessions === 1 ? 'sessie' : 'sessies'}, `
-        + `${times(look.times)} — daarvan ${look.added} nieuw voor dit toestel`
-        + (look.known ? `, ${look.known} staan er al` : '')
-        + (look.newSessions ? `, ${look.newSessions} nieuwe ${look.newSessions === 1 ? 'sessie' : 'sessies'}` : '')
+      ? `${picked.name}${when}: ` + t('{n} {word}, ', { n: look.sessions, word: t(look.sessions === 1 ? 'session' : 'sessions') })
+        + `${times(look.times)}` + t(' — {n} of them new to this device', { n: look.added })
+        + (look.known ? t(', {n} are already here', { n: look.known }) : '')
+        + (look.newSessions ? t(', {n} new {word}', { n: look.newSessions, word: t(look.newSessions === 1 ? 'session' : 'sessions') }) : '')
         + '.'
-      : `${picked.name}${when}: alles wat erin staat heb je hier al.`;
+      : `${picked.name}${when}: ` + t('everything in it is already here.');
     el.transferChoice.hidden = false;
     el.transferMerge.disabled = !look.added;
   } catch (error) {
@@ -6687,9 +6694,9 @@ function fold(how) {
   syncTargetUi();
   render();
   el.transferSheet.close();
-  const count = `${folded.added} ${folded.added === 1 ? 'tijd' : 'tijden'}`;
+  const count = t(folded.added === 1 ? '{n} time' : '{n} times', { n: folded.added });
   toast(how === 'replace'
-    ? `Alles vervangen: ${count}.`
+    ? t('Everything replaced: {n}.', { n: count })
     : `${count} erbij${folded.known ? `, ${folded.known} stonden er al` : ''}.`);
 }
 
@@ -6697,7 +6704,7 @@ el.transferMerge.addEventListener('click', () => fold('merge'));
 
 el.transferReplace.addEventListener('click', () => {
   const times = saveFile.sessions.reduce((sum, session) => sum + session.solves.length, 0);
-  if (!times || confirm(`Alles op dit toestel weggooien en vervangen door het bestand? ${times} tijden verdwijnen.`)) {
+  if (!times || confirm(t('Throw away everything on this device and replace it with the file? {n} times disappear.', { n: times }))) {
     fold('replace');
   }
 });
@@ -6755,8 +6762,9 @@ function describePaste() {
   if (!lines) { el.pasteNote.textContent = ''; return; }
   const skipped = lines - found.length;
   el.pasteNote.textContent = found.length
-    ? `${found.length} ${found.length === 1 ? 'tijd' : 'tijden'} herkend${skipped ? `, ${skipped} ${skipped === 1 ? 'regel' : 'regels'} overgeslagen` : ''}.`
-    : 'Geen tijden herkend in wat er staat.';
+    ? t(found.length === 1 ? '{n} time recognised' : '{n} times recognised', { n: found.length })
+      + (skipped ? t(skipped === 1 ? ', {n} line skipped' : ', {n} lines skipped', { n: skipped }) : '') + '.'
+    : t('No times recognised in what is there.');
 }
 
 function openPaste() {
@@ -6777,7 +6785,7 @@ el.pasteFile.addEventListener('change', async () => {
   // A whole-app backup picked here is not what this sheet is for, and reading
   // it as a list of times would find nothing. Say where it belongs instead.
   if (/"cubetimer"\s*:/.test(picked.text) || /"session1"\s*:/.test(picked.text)) {
-    el.pasteNote.textContent = 'Dit is een heel bestand met sessies erin. Gebruik "naar een ander toestel" — daar blijven je sessies, scrambles en notities heel.';
+    el.pasteNote.textContent = t('This is a whole file with sessions in it. Use "to another device" — that keeps your sessions, scrambles and notes intact.');
     return;
   }
 
@@ -6800,7 +6808,7 @@ el.pasteAdd.addEventListener('click', () => {
   persist();
   render();
   el.pasteSheet.close();
-  toast(`${found.length} ${found.length === 1 ? 'tijd' : 'tijden'} toegevoegd.`);
+  toast(t(found.length === 1 ? '{n} time added.' : '{n} times added.', { n: found.length }));
 });
 
 /**
@@ -6867,19 +6875,21 @@ async function offerTimerTimes({ announce = false } = {}) {
   const { times, slots, skipped } = await unknownTimerTimes();
   el.importTimes.hidden = !device;
   if (!times.length) {
-    if (announce) toast('Geen nieuwe tijden op je timer.');
+    if (announce) toast(t('No new times on your timer.'));
     return;
   }
 
   offeredTimes = times;
-  el.importTitle.textContent = times.length === 1 ? 'Nieuwe tijd gevonden' : 'Nieuwe tijden gevonden';
+  el.importTitle.textContent = times.length === 1 ? t('New time found') : t('New times found');
   el.importText.textContent = times.length === 1
-    ? `Op je timer staat een tijd die hier nog niet bij staat. Wil je hem erbij zetten in "${currentSession().name}"?`
-    : `Op je timer staan ${times.length} tijden die hier nog niet bij staan. Wil je ze erbij zetten in "${currentSession().name}"?`;
+    ? t('Your timer has a time that is not here yet. Add it to "{name}"?', { name: currentSession().name })
+    : t('Your timer has {n} times that are not here yet. Add them to "{name}"?', { n: times.length, name: currentSession().name });
 
   el.importNote.textContent = skipped > 0
-    ? `Je timer geeft ${slots} plekken door; ${skipped === 1 ? 'één daarvan was' : `${skipped} daarvan waren`} dubbel of stond er al bij.`
-    : `Alles wat je timer doorgeeft (${slots} plekken).`;
+    ? t(skipped === 1
+      ? 'Your timer reports {slots} slots; one of them was a duplicate or already here.'
+      : 'Your timer reports {slots} slots; {n} of them were duplicates or already here.', { slots, n: skipped })
+    : t('Everything your timer reports ({n} slots).', { n: slots });
 
   el.importList.innerHTML = '';
   times.forEach((ms, index) => {
@@ -6887,7 +6897,7 @@ async function offerTimerTimes({ announce = false } = {}) {
     const value = document.createElement('strong');
     value.textContent = formatTime(ms);
     const label = document.createElement('span');
-    label.textContent = index === 0 ? 'op het display' : `${index} terug`;
+    label.textContent = index === 0 ? t('on the display') : `${index} terug`;
     item.append(value, label);
     el.importList.append(item);
   });
@@ -6910,8 +6920,8 @@ el.importYes.addEventListener('click', () => {
   persist();
   render();
 
-  if (!added.length) toast('Die tijden stonden er al.');
-  else toast(added.length === 1 ? 'Tijd toegevoegd.' : `${added.length} tijden toegevoegd.`);
+  if (!added.length) toast(t('Those times were already there.'));
+  else toast(added.length === 1 ? t('Time added.') : t('{n} times added.', { n: added.length }));
 
   offeredTimes = [];
   el.importSheet.close();
@@ -6939,7 +6949,7 @@ async function showDeviceDetails() {
   el.deviceDetails.innerHTML = '';
 
   if (!description.length) {
-    el.deviceDetails.textContent = 'Geen details op te vragen.';
+    el.deviceDetails.textContent = t('No details to ask for.');
   } else {
     for (const { service, characteristics } of description) {
       const block = document.createElement('div');
@@ -6955,8 +6965,8 @@ async function showDeviceDetails() {
     }
     const note = document.createElement('p');
     note.className = 'device-hint';
-    note.textContent = 'De lampjes van de timer zijn hier niet mee te sturen: '
-      + 'dat loopt via GAN\'s eigen app over een protocol dat niet openbaar is.';
+    note.textContent = t('The timer’s lights cannot be driven from here: ')
+      + t('that goes through GAN\u2019s own app, over a protocol that is not public.');
     el.deviceDetails.append(note);
   }
   el.deviceDetails.hidden = false;
@@ -6982,16 +6992,16 @@ el.scramble.addEventListener('click', async () => {
   el.scramble.blur();
   try {
     await navigator.clipboard.writeText(scramble);
-    toast('Scramble gekopieerd.');
+    toast(t('Scramble copied.'));
   } catch {
-    toast('Kopiëren lukte niet in deze browser.');
+    toast(t('Copying did not work in this browser.'));
   }
 });
 
 el.clear.addEventListener('click', () => {
   el.clear.blur();
   if (!solves.length) return;
-  if (!confirm('Alle tijden van deze sessie wissen?')) return;
+  if (!confirm(t('Clear every time in this session?'))) return;
   solves.length = 0;
   persist();
   render();
@@ -7016,8 +7026,8 @@ function renderSettingsTabs() {
   const groups = [...el.settingsGroups.querySelectorAll('.settings-group')];
 
   el.settingsTabs.replaceChildren(...[...groups.map((group) => ({
-    id: group.dataset.group, name: group.dataset.name
-  })), { id: 'all', name: 'Alles' }].map((tab) => {
+    id: group.dataset.group, name: t(group.dataset.name)
+  })), { id: 'all', name: t('Everything') }].map((tab) => {
     const chip = document.createElement('button');
     // Inside a dialog form a button submits by default, and submitting closes
     // the dialog -- so every one of these has to say it is only a button.
@@ -7097,7 +7107,7 @@ function renderPaper() {
   }));
 
   el.paperFilter.replaceChildren(...[
-    ['all', 'alle gevallen'], ['mine', 'alleen wat ik zelf koos'], ['drilled', 'alleen wat ik geoefend heb']
+    ['all', t('all cases')], ['mine', t('only what I chose myself')], ['drilled', t('only what I have drilled')]
   ].map(([id, label]) => {
     const chip = document.createElement('button');
     chip.type = 'button';
@@ -7117,7 +7127,7 @@ function renderPaper() {
   el.paperTitle.textContent = `Algblad — ${rows.length}`;
 
   if (!rows.length) {
-    el.paperBody.replaceChildren(line('Niets gekozen. Zet een groep aan, of kies een ruimere selectie.', 'import-note'));
+    el.paperBody.replaceChildren(line(t('Nothing chosen. Turn a group on, or pick a wider selection.'), 'import-note'));
     return;
   }
 
@@ -7180,7 +7190,7 @@ async function openPaper() {
   try {
     await loadCases();
   } catch {
-    toast('De gevallen konden niet geladen worden.');
+    toast(t('The cases could not be loaded.'));
     return;
   }
   renderPaper();
@@ -7208,9 +7218,9 @@ el.paperPrint.addEventListener('click', () => {
 el.paperCopy.addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(paperAsText());
-    toast('Het blad staat op je klembord.');
+    toast(t('The sheet is on your clipboard.'));
   } catch {
-    toast('Kopiëren lukte niet in deze browser.');
+    toast(t('Copying did not work in this browser.'));
   }
 });
 
@@ -7272,7 +7282,7 @@ function daresDone() {
   // A solve that finishes a challenge is often also a record, and the record
   // says so first. This waits for that to have been read.
   setTimeout(() => {
-    toast('Opdracht gehaald. De regel weet jij zelf.', { label: 'Afvinken', run: () => openSlot() });
+    toast(t('Task done. The rule is between you and you.'), { label: 'Afvinken', run: () => openSlot() });
   }, 1400);
 }
 
@@ -7421,13 +7431,13 @@ function renderSlot() {
       renderDareStrip();
       renderSlot();
       confetti();
-      toast('Genoteerd. Draai nog eens als je durft.');
+      toast(t('Noted. Spin again if you dare.'));
     });
 
     const gave = document.createElement('button');
     gave.type = 'button';
     gave.className = 'danger';
-    gave.textContent = 'Opgegeven';
+    gave.textContent = t('Gave up');
     gave.addEventListener('click', () => {
       recordSpin(play(), idsOf(dare), { gave: true });
       persist();
@@ -7435,7 +7445,7 @@ function renderSlot() {
       keepDare();
       renderDareStrip();
       renderSlot();
-      toast('Ook goed. Het rad vergeet niets.');
+      toast(t('Fair enough. The wheel forgets nothing.'));
     });
 
     actions.append(won, gave);
@@ -7461,31 +7471,31 @@ function renderSlot() {
     const take = document.createElement('button');
     take.type = 'button';
     take.className = 'primary';
-    take.textContent = 'Ik doe het';
+    take.textContent = t('I will do it');
     take.addEventListener('click', () => {
       dare = { ...shown, tally: {}, at: Date.now() };
       shown = null;
       keepDare();
       renderDareStrip();
       renderSlot();
-      toast('Aangenomen. De teller loopt.');
+      toast(t('Taken on. The counter is running.'));
     });
     const again = document.createElement('button');
     again.type = 'button';
-    again.textContent = 'Nog eens draaien';
+    again.textContent = t('Spin again');
     again.addEventListener('click', pullTheArm);
     actions.append(take, again);
     card.append(actions);
     parts.push(card);
   } else {
-    parts.push(line('Trek aan de hendel. Drie rollen, één opdracht, en geen van de 2640 uitkomsten is er een die je jezelf zou geven.', 'import-note'));
+    parts.push(line(t('Pull the lever. Three reels, one task, and not one of the 2640 outcomes is one you would set yourself.'), 'import-note'));
   }
 
   if (tally.played) {
     const block = document.createElement('section');
     block.className = 'records-block';
     const heading = document.createElement('h3');
-    heading.textContent = 'Hoe het rad met je omgaat';
+    heading.textContent = t('How the wheel treats you');
     const said = document.createElement('div');
     said.className = 'round-lines';
     const row = document.createElement('div');
@@ -7659,7 +7669,7 @@ function stepCard(step, index) {
 
   const check = document.createElement('p');
   check.className = 'step-check';
-  check.textContent = `Je bent hier klaar als: ${step.check}`;
+  check.textContent = t('You are done here when: {what}', { what: step.check });
   body.append(check);
 
   const actions = document.createElement('div');
@@ -7678,7 +7688,7 @@ function stepCard(step, index) {
   if (step.drill?.mode === 'cross') {
     const go = document.createElement('button');
     go.type = 'button';
-    go.textContent = 'Alleen het kruis oefenen';
+    go.textContent = t('Practise the cross only');
     go.addEventListener('click', () => {
       el.courseSheet.close();
       picked = 'cross';
@@ -7690,7 +7700,7 @@ function stepCard(step, index) {
   const tick = document.createElement('button');
   tick.type = 'button';
   tick.className = had ? '' : 'primary';
-  tick.textContent = had ? 'Toch nog niet' : 'Dit kan ik';
+  tick.textContent = had ? t('Not yet after all') : t('I can do this');
   tick.addEventListener('click', () => {
     markStep(play(), step.id, !had);
     persist();
@@ -7719,8 +7729,8 @@ function renderCourse() {
   said.className = 'course-said';
   const after = nextStep(done);
   said.textContent = after
-    ? `${far.had} van ${far.all} stappen. Nu aan de beurt: ${after.name}. Nog ongeveer ${hoursLeft(done)} uur oefenen te gaan.`
-    : 'Alle stappen afgevinkt. Vanaf hier is het alleen nog kilometers maken.';
+    ? t('{had} of {all} steps. Up now: {name}. About {hours} hours of practice to go.', { had: far.had, all: far.all, name: after.name, hours: hoursLeft(done) })
+    : t('Every step ticked off. From here it is only mileage.');
   const track = document.createElement('div');
   track.className = 'course-track';
   const fill = document.createElement('span');
@@ -7834,11 +7844,49 @@ for (const button of el.rail.querySelectorAll('[data-go]')) {
 
 fitRail();
 
+/* ---------- switching language ----------
+
+   Everything the app has already drawn was drawn in the language that was on at
+   the time, so a switch has to draw it again. The static page looks after
+   itself -- lang.js remembers how it was written -- and this is the list of
+   things the app puts there afterwards. */
+
+onLangChange(() => {
+  applySettings();
+  renderPuzzles();
+  renderSessions();
+  renderScramble();
+  renderMode();
+  renderInsight();
+  renderPractice();
+  renderCubes();
+  renderAim();
+  renderTastePick();
+  renderCrossFace();
+  renderSkins();
+  renderSettingsTabs();
+  renderDareStrip();
+  syncGoalValue();
+  syncTargetUi();
+  setHint(currentHint());
+  if (el.casesSheet.open) renderCaseBook();
+  if (el.drillSheet.open) renderDrill();
+  if (el.slotSheet.open) renderSlot();
+  if (el.courseSheet.open) renderCourse();
+  if (el.paperSheet.open) renderPaper();
+  if (el.spotSheet.open) renderSpot();
+});
+
 /* ---------- init ---------- */
 
 if (!isSupported()) {
-  el.connect.title = 'Web Bluetooth is niet beschikbaar in deze browser';
+  el.connect.title = t('Web Bluetooth is not available in this browser');
 }
+
+// The language, before anything is drawn. Without a choice of your own the
+// browser's own setting decides, and English is what it falls back to.
+startLang(settings.lang || guessLang());
+bindStatic();
 
 buildLedSwatches();
 buildColorSlots();
@@ -7875,7 +7923,7 @@ el.tastePick?.addEventListener('change', () => {
   // started now than in the pause after your next solve.
   if (settings.taste !== 'any') {
     loadCross().catch(() => {});
-    toast('Vanaf de volgende scramble.');
+    toast(t('From the next scramble on.'));
   }
 });
 

@@ -1,3 +1,4 @@
+import { locale } from './lang.js';
 // Handing a result to somebody else.
 //
 // Two ways, both without a server. A picture, because a screenshot of a list of
@@ -92,7 +93,7 @@ export function cardFor(solves, { title = 'ao5', name = '', accent = '#4fc3f7', 
       times.join('   '),
       quickest === null ? '' : `beste ${formatTime(quickest)}`
     ].filter(Boolean),
-    footer: [name, new Date().toLocaleDateString('nl-BE')].filter(Boolean).join(' · '),
+    footer: [name, new Date().toLocaleDateString(locale())].filter(Boolean).join(' · '),
     accent,
     dark
   };

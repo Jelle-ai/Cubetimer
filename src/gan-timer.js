@@ -1,3 +1,4 @@
+import { t } from './lang.js';
 // Web Bluetooth client for the GAN Smart Timer.
 // Protocol (service/characteristics, packet layout, CRC) as implemented in
 // afedotov/gan-web-bluetooth.
@@ -63,7 +64,7 @@ function readTime(data, offset) {
  * @param {() => void} [handlers.onDisconnect]
  */
 export async function connectGanTimer({ onEvent, onDisconnect, anyDevice = false }) {
-  if (!isSupported()) throw new Error('Web Bluetooth is niet beschikbaar in deze browser.');
+  if (!isSupported()) throw new Error(t('Web Bluetooth is not available in this browser.'));
   return attach(await pickDevice(anyDevice), { onEvent, onDisconnect });
 }
 
@@ -147,7 +148,7 @@ async function attach(device, { onEvent, onDisconnect }) {
     service = await server.getPrimaryService(SERVICE);
   } catch {
     if (server.connected) server.disconnect();
-    throw new Error(`${device.name || 'Dit apparaat'} biedt de tijd-dienst van de GAN timer niet aan.`);
+    throw new Error(t('{name} does not offer the GAN timer\u2019s time service.', { name: device.name || t('This device') }));
   }
 
   const timeChar = await service.getCharacteristic(TIME_CHARACTERISTIC);
@@ -213,7 +214,7 @@ async function attach(device, { onEvent, onDisconnect }) {
     async getRecordedTimes() {
       const data = await timeChar.readValue();
       const slots = Math.floor(data.byteLength / 4);
-      if (slots < 1) throw new Error('Onverwachte data van de timer.');
+      if (slots < 1) throw new Error(t('Unexpected data from the timer.'));
 
       const times = [];
       for (let slot = 0; slot < slots; slot++) times.push(readTime(data, slot * 4));
