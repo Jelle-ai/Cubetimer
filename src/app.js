@@ -6,7 +6,7 @@ import {
   averageOf, best, bestAverageAt, bestAverageOf, bestMeanAt, bestMeanOf, counting, counts,
   effective, formatSolve, formatTime, meanOf, sessionMean, setDecimals, setUnit, worst
 } from './stats.js';
-import { KEY as SAVE_KEY, load, save } from './store.js';
+import { KEY as SAVE_KEY, SAVE_BASE, load, save } from './store.js';
 import { backupName, buildBackup, foldIn, inOrder, readBackup, summarise } from './backup.js';
 import {
   bestRuns, byDay, diary, fastest, onThisDay, recordAge, records, spellDuration, totals,
@@ -28,7 +28,14 @@ import {
   DEMO_SCRAMBLE, MAP, STEPS, cubeAfter, hoursLeft, howFar, isOpen, nextStep, roadPath, stepAt
 } from './course.js';
 import { makeCube } from './cube3d.js';
-import { COLOR_SLOTS, LED_COLORS, SKINS, colorOf, loadSettings, saveSettings } from './settings.js';
+import {
+  COLOR_SLOTS, LED_COLORS, SETTINGS_BASE, SKINS, colorOf, loadSettings, saveSettings
+} from './settings.js';
+import {
+  addPerson, current as currentPerson, dropPerson, keyFor, people, recolourPerson,
+  renamePerson, shared as sharedDevice, usePerson
+} from './who.js';
+import * as cloud from './cloud.js';
 import { chord, confetti, flashMiss, together, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
 import { drawF2L, drawLastLayer, f2lOf, lastLayerOf } from './diagram.js';
@@ -65,6 +72,13 @@ const el = {
   puzzles: document.getElementById('puzzles'),
   preview: document.getElementById('preview'),
   eventExtra: document.getElementById('event-extra'),
+  whoOpen: document.getElementById('who-open'),
+  whoSheet: document.getElementById('who-sheet'),
+  whoClose: document.getElementById('who-close'),
+  whoList: document.getElementById('who-list'),
+  whoName: document.getElementById('who-name'),
+  whoAdd: document.getElementById('who-add'),
+  whoCloud: document.getElementById('who-cloud'),
   progress: document.getElementById('progress'),
   insight: document.getElementById('insight'),
   colorSlots: document.getElementById('color-slots'),
@@ -1954,7 +1968,7 @@ function renderDaily() {
 let duel = null;
 
 function startDuel() {
-  const names = [el.duelOne.value.trim() || 'Jij', el.duelTwo.value.trim() || t('The other one')];
+  const names = [el.duelOne.value.trim() || t('You'), el.duelTwo.value.trim() || t('The other one')];
   stopRun(true);
   drilling = null;
   dailyRun = false;
@@ -2251,7 +2265,7 @@ el.modeOpen.addEventListener('click', () => {
   renderDaily();
   renderModeList();
   renderModeFields();
-  renderDuelNote();
+  nameTheDuel();
   el.modeSheet.showModal();
 });
 
@@ -2265,6 +2279,21 @@ function renderDuelNote() {
   el.duelNote.textContent = tally[0] || tally[1]
     ? t('Between you it stands {a}–{b}.', { a: tally[0], b: tally[1] })
     : t('Never played each other yet.');
+}
+
+/**
+ * Two people on one device already have names -- their profiles. Filling them
+ * in means the running tally between you two is kept under the names you both
+ * answer to, rather than under "You" and "The other one".
+ */
+function nameTheDuel() {
+  const here = people();
+  if (here.length < 2) return;
+  const me = currentPerson();
+  const other = here.find((one) => one.id !== me.id);
+  if (!el.duelOne.value.trim()) el.duelOne.value = me.name;
+  if (!el.duelTwo.value.trim() && other) el.duelTwo.value = other.name;
+  renderDuelNote();
 }
 
 el.duelOne.addEventListener('input', renderDuelNote);
@@ -8388,6 +8417,329 @@ el.courseSheet.addEventListener('close', () => {
   courseCube?.stop();
 });
 
+/* ---------- who is solving ----------
+
+   One laptop, more than one person. Everything the app stores hangs off a
+   profile, and switching profile reloads the page: every piece of state in here
+   is read once at boot, and reading it all again is the only way to be certain
+   nothing from the last profile is left in a variable somewhere. A wrong
+   average is worse than a flicker.
+
+   The first profile keeps the bare storage key, so somebody who has been using
+   this for a year and never heard of profiles keeps every time where it was. */
+
+/** Six colours for the little cube beside a name. */
+const WHO_COLOURS = ['#4fc3f7', '#34d399', '#fbbf24', '#fb7185', '#a78bfa', '#22d3ee'];
+
+/** A profile's face: a cube in their own colour, drawn rather than a photo. */
+function whoMark(person, size = 22) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', String(size));
+  svg.setAttribute('height', String(size));
+  svg.classList.add('who-mark');
+  const colour = WHO_COLOURS[person.colour % WHO_COLOURS.length];
+  for (let row = 0; row < 3; row++) {
+    for (let column = 0; column < 3; column++) {
+      const tile = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      tile.setAttribute('x', String(2.5 + column * 6.6));
+      tile.setAttribute('y', String(2.5 + row * 6.6));
+      tile.setAttribute('width', '5.6');
+      tile.setAttribute('height', '5.6');
+      tile.setAttribute('rx', '1.4');
+      // The middle square is the profile's colour and the rest is quiet, so
+      // eight profiles are still eight different faces at a glance.
+      tile.setAttribute('fill', row === 1 && column === 1 ? colour : 'currentColor');
+      tile.setAttribute('opacity', row === 1 && column === 1 ? '1' : '.22');
+      svg.append(tile);
+    }
+  }
+  return svg;
+}
+
+function renderWhoChip() {
+  const on = sharedDevice();
+  el.whoOpen.hidden = !on;
+  if (!on) return;
+  const me = currentPerson();
+  el.whoOpen.replaceChildren(whoMark(me), document.createTextNode(me.name));
+}
+
+function renderWhoList() {
+  const me = currentPerson();
+  el.whoList.replaceChildren(...people().map((person) => {
+    const row = document.createElement('div');
+    row.className = 'who-row';
+    row.dataset.me = String(person.id === me.id);
+
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'who-go';
+    go.append(whoMark(person, 26));
+    const name = document.createElement('b');
+    name.textContent = person.name;
+    go.append(name);
+    if (person.id === me.id) {
+      const said = document.createElement('small');
+      said.textContent = t('you');
+      go.append(said);
+    }
+    go.addEventListener('click', () => {
+      if (person.id === me.id) return;
+      usePerson(person.id);
+    });
+    row.append(go);
+
+    const paint = document.createElement('button');
+    paint.type = 'button';
+    paint.className = 'link';
+    paint.textContent = t('colour');
+    paint.addEventListener('click', () => {
+      recolourPerson(person.id, (person.colour + 1) % WHO_COLOURS.length);
+      renderWhoList();
+      renderWhoChip();
+    });
+    row.append(paint);
+
+    const rename = document.createElement('button');
+    rename.type = 'button';
+    rename.className = 'link';
+    rename.textContent = t('rename');
+    rename.addEventListener('click', () => {
+      const wanted = prompt(t('A new name'), person.name);
+      if (wanted && renamePerson(person.id, wanted)) {
+        renderWhoList();
+        renderWhoChip();
+      }
+    });
+    row.append(rename);
+
+    if (person.id !== me.id && people().length > 1) {
+      const drop = document.createElement('button');
+      drop.type = 'button';
+      drop.className = 'link danger';
+      drop.textContent = t('remove');
+      drop.addEventListener('click', () => {
+        if (!confirm(t('Remove {name} and everything they have solved?', { name: person.name }))) return;
+        dropPerson(person.id, [SAVE_BASE, SETTINGS_BASE, 'cubetimer.cloud.v1']);
+        renderWhoList();
+        renderWhoChip();
+        toast(t('{name} removed.', { name: person.name }));
+      });
+      row.append(drop);
+    }
+
+    return row;
+  }));
+}
+
+el.whoAdd.addEventListener('click', () => {
+  const made = addPerson(el.whoName.value);
+  if (!made) return;
+  el.whoName.value = '';
+  renderWhoList();
+  renderWhoChip();
+  toast(t('{name} added. Tap the name to switch.', { name: made.name }));
+});
+el.whoName.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') { event.preventDefault(); el.whoAdd.click(); }
+});
+
+function openWho() {
+  renderWhoList();
+  renderCloud();
+  openSheet(el.whoSheet);
+}
+
+el.whoOpen.addEventListener('click', openWho);
+el.whoClose.addEventListener('click', () => el.whoSheet.close());
+
+/* ---------- an account, for when one device is not enough ----------
+
+   Optional in the strongest sense: the app has never needed one and still does
+   not. Signing in adds one thing -- the same backup file the app already writes
+   for "to another device", kept in a Firebase project you own -- and syncing is
+   the same fold that file already goes through. Nothing is overwritten, because
+   that machinery never overwrites. */
+
+let syncing = false;
+
+function cloudSettings() {
+  return { apiKey: settings.cloudKey || '', projectId: settings.cloudProject || '' };
+}
+
+/** Pull what is up there, fold it in, and push the result back. */
+async function syncNow({ quiet = false } = {}) {
+  if (syncing || !cloud.who()) return false;
+  syncing = true;
+  renderCloud();
+  try {
+    const there = await cloud.pull();
+    if (there?.backup) {
+      const incoming = readBackup(there.backup);
+      const folded = foldIn(saveFile, incoming, 'merge');
+      saveFile = {
+        active: Math.min(folded.active ?? saveFile.active, folded.sessions.length - 1),
+        sessions: folded.sessions,
+        play: folded.play
+      };
+      solves = currentSession().solves;
+      persist();
+      render();
+      if (!quiet && folded.added) toast(t('{n} times came down.', { n: folded.added }));
+    }
+    await cloud.push(JSON.stringify(buildBackup(saveFile, settings)));
+    settings.cloudAt = Date.now();
+    storeSettings();
+    if (!quiet) toast(t('In step.'));
+    return true;
+  } catch (error) {
+    if (!quiet) toast(error.message);
+    return false;
+  } finally {
+    syncing = false;
+    renderCloud();
+  }
+}
+
+function renderCloud() {
+  if (!el.whoCloud) return;
+  el.whoCloud.replaceChildren();
+
+  const head = document.createElement('h3');
+  head.className = 'transfer-head';
+  head.textContent = t('An account');
+  el.whoCloud.append(head);
+
+  if (!cloud.configured()) {
+    el.whoCloud.append(line(
+      t('Not set up. An account keeps your times on a Firebase project of your own, so they are on every device you sign in on. The README says how, in six steps.'),
+      'import-note'));
+
+    const fields = document.createElement('div');
+    fields.className = 'move-new';
+    const key = document.createElement('input');
+    key.type = 'text';
+    key.placeholder = t('Firebase API key');
+    key.value = settings.cloudKey || '';
+    const project = document.createElement('input');
+    project.type = 'text';
+    project.placeholder = t('Project id');
+    project.value = settings.cloudProject || '';
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'text-button';
+    save.textContent = t('Save');
+    save.addEventListener('click', () => {
+      settings.cloudKey = key.value.trim().slice(0, 80);
+      settings.cloudProject = project.value.trim().slice(0, 80);
+      storeSettings();
+      cloud.setConfig(cloudSettings());
+      renderCloud();
+    });
+    fields.append(key, project, save);
+    el.whoCloud.append(fields);
+    return;
+  }
+
+  const me = cloud.who();
+  if (!me) {
+    const fields = document.createElement('div');
+    fields.className = 'move-new';
+    const email = document.createElement('input');
+    email.type = 'email';
+    email.placeholder = t('Email');
+    email.autocomplete = 'username';
+    const word = document.createElement('input');
+    word.type = 'password';
+    word.placeholder = t('Password');
+    word.autocomplete = 'current-password';
+    fields.append(email, word);
+
+    const said = document.createElement('p');
+    said.className = 'import-note';
+
+    const actions = document.createElement('div');
+    actions.className = 'detail-actions';
+
+    const go = async (how) => {
+      said.textContent = '';
+      try {
+        await how(email.value.trim(), word.value);
+        renderCloud();
+        await syncNow();
+      } catch (error) {
+        said.textContent = error.message;
+      }
+    };
+
+    const inButton = document.createElement('button');
+    inButton.type = 'button';
+    inButton.className = 'primary';
+    inButton.textContent = t('Sign in');
+    inButton.addEventListener('click', () => go(cloud.signIn));
+
+    const upButton = document.createElement('button');
+    upButton.type = 'button';
+    upButton.textContent = t('Make an account');
+    upButton.addEventListener('click', () => go(cloud.signUp));
+
+    const forget = document.createElement('button');
+    forget.type = 'button';
+    forget.className = 'link';
+    forget.textContent = t('another project');
+    forget.addEventListener('click', () => {
+      settings.cloudKey = '';
+      settings.cloudProject = '';
+      storeSettings();
+      cloud.setConfig(cloudSettings());
+      renderCloud();
+    });
+
+    actions.append(inButton, upButton, forget);
+    el.whoCloud.append(fields, said, actions);
+    return;
+  }
+
+  const said = document.createElement('p');
+  said.className = 'import-note';
+  said.textContent = settings.cloudAt
+    ? t('Signed in as {email}. Last in step {when}.', {
+      email: me.email,
+      when: new Date(settings.cloudAt).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' })
+    })
+    : t('Signed in as {email}.', { email: me.email });
+
+  const actions = document.createElement('div');
+  actions.className = 'detail-actions';
+
+  const now = document.createElement('button');
+  now.type = 'button';
+  now.className = 'primary';
+  now.textContent = syncing ? t('Syncing…') : t('Sync now');
+  now.disabled = syncing;
+  now.addEventListener('click', () => syncNow());
+
+  const out = document.createElement('button');
+  out.type = 'button';
+  out.textContent = t('Sign out');
+  out.addEventListener('click', () => {
+    cloud.signOut();
+    renderCloud();
+    toast(t('Signed out. Your times stay on this device.'));
+  });
+
+  actions.append(now, out);
+  el.whoCloud.append(said, actions);
+}
+
+// Going away is the moment to put things in step: closing the tab, switching
+// app, locking the phone. Doing it after every solve would be chatty and would
+// still miss the last one.
+addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && cloud.who()) syncNow({ quiet: true });
+});
+
 /* ---------- your first solve, and the piece of paper ----------
 
    Learning to solve a cube happens once. Nothing in the app noticed, because
@@ -8543,6 +8895,7 @@ const RAIL = {
   'slot-open': () => openSlot(),
   'course-open': () => openCourse(),
   'away-open': () => openAway(),
+  'who-open': () => openWho(),
   'transfer-open': () => openTransfer(),
   'paste-open': () => openPaste(),
   'settings-open': () => el.settingsOpen.click()
@@ -8660,6 +9013,16 @@ renderAim();
 dare = loadDare();
 renderDareStrip();
 showDareLink();
+
+// Who is solving, and -- only if you set one up -- an account to keep it in
+// step with your other device.
+cloud.useKeys(keyFor);
+cloud.setConfig({ apiKey: settings.cloudKey || '', projectId: settings.cloudProject || '' });
+if (cloud.configured()) {
+  cloud.restore();
+  if (cloud.who()) syncNow({ quiet: true });
+}
+renderWhoChip();
 renderCrossFace();
 renderTastePick();
 renderSkins();

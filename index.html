@@ -21,6 +21,7 @@
     </svg>
   </button>
   <span class="brand">cubetimer</span>
+  <button id="who-open" class="who-chip" type="button" title="Profile" aria-label="Profile" hidden></button>
   <div class="bar-right">
     <span id="device-status" class="status" hidden></span>
     <button id="scramble-open" class="icon-button" type="button" title="Puzzle" aria-label="Puzzle" hidden>
@@ -175,6 +176,7 @@
       <summary>Keeping and settings</summary>
       <button type="button" data-go="transfer-open"><svg viewBox="0 0 24 24"><use href="#mark-file"/></svg>To another device</button>
       <button type="button" data-go="paste-open"><svg viewBox="0 0 24 24"><use href="#mark-paste"/></svg>Paste times</button>
+      <button type="button" data-go="who-open"><svg viewBox="0 0 24 24"><use href="#mark-eye"/></svg>Who is solving?</button>
       <button type="button" data-go="settings-open"><svg viewBox="0 0 24 24"><use href="#mark-gear"/></svg>Settings</button>
     </details>
   </div>
@@ -865,6 +867,24 @@
       </div>
       <div id="course-body" class="course-body sheet-scroll"></div>
     </div>
+  </div>
+</dialog>
+
+<!-- More than one person on one device. -->
+<dialog id="who-sheet" class="sheet" tabindex="-1">
+  <div class="sheet-inner">
+    <header class="sheet-head">
+      <h2>Who is solving?</h2>
+      <button type="button" id="who-close" class="icon-button" aria-label="Close">&#10005;</button>
+    </header>
+    <p class="detail-meta">Everyone gets their own sessions, times, cases, course and settings.
+      Nothing is shared between them, and nothing leaves this device.</p>
+    <div id="who-list" class="who-list"></div>
+    <div class="move-new">
+      <input type="text" id="who-name" maxlength="24" autocomplete="off" placeholder="A name">
+      <button type="button" id="who-add" class="text-button">add</button>
+    </div>
+    <div id="who-cloud" class="who-cloud"></div>
   </div>
 </dialog>
 

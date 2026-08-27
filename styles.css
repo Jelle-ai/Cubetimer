@@ -4079,3 +4079,60 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
   body[data-printing='cert'] .detail-actions { display: none !important; }
   body[data-printing='cert'] .cert { border-color: #333; }
 }
+
+
+/* ---------- who is solving ----------
+
+   A profile's face is a little cube in their own colour, drawn rather than
+   photographed: the middle square is theirs and the rest is quiet, so eight
+   profiles are still eight faces at a glance. */
+
+.who-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .2rem .6rem .2rem .3rem;
+  border-radius: 999px;
+  background: var(--sunken);
+  color: var(--ink-soft, var(--ink));
+  font-size: .76rem;
+  font-weight: 600;
+  max-width: 9rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.who-chip:hover { background: var(--hover); }
+.who-mark { flex: none; color: var(--ink); }
+
+.who-list { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .5rem; }
+
+.who-row {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .3rem .4rem;
+  border-radius: 10px;
+  background: var(--sunken);
+}
+
+.who-row[data-me='true'] { background: color-mix(in srgb, var(--led) 12%, var(--sunken)); }
+
+.who-go {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex: 1;
+  min-width: 0;
+  padding: .2rem;
+  text-align: left;
+  color: var(--ink);
+}
+
+.who-go b { font-size: .9rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.who-go small { font-size: .7rem; color: var(--muted); }
+
+.who-cloud { margin-top: .8rem; }
+.who-cloud .move-new { flex-wrap: wrap; }
+.who-cloud input { flex: 1 1 9rem; }

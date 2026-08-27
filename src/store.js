@@ -2,9 +2,15 @@ import { t } from './lang.js';
 // Session persistence in localStorage. A save file holds several named
 // sessions; version 1 stored a single flat list and is migrated on read.
 
+import { keyFor } from './who.js';
+
 /** Exported so a page can tell its own writes from another tab's. */
-export const KEY = 'cubetimer.sessions.v2';
+const BASE = 'cubetimer.sessions.v2';
+export const KEY = keyFor(BASE);
 const LEGACY_KEY = 'cubetimer.session.v1';
+
+/** The bare key, for wiping a profile's storage when it is removed. */
+export const SAVE_BASE = BASE;
 
 import { cleanPlay, emptyPlay } from './play.js';
 
@@ -62,7 +68,9 @@ export function load() {
     const raw = localStorage.getItem(KEY);
     if (raw) return clean(JSON.parse(raw));
 
-    const legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null');
+    // Version 1's flat list belongs to whoever was using the app before there
+    // were profiles, which is the first one. A second profile starts empty.
+    const legacy = KEY === BASE ? JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null') : null;
     return emptyState(Array.isArray(legacy) ? legacy.filter(isSolve).map(tidy) : []);
   } catch {
     return emptyState();

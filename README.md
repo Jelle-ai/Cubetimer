@@ -6,7 +6,9 @@ offline als je hem installeert.
 
 ## Features
 
-- Scrambles voor 3x3, 2x2, 4x4, Pyraminx, Skewb en Megaminx; elke puzzel heeft zijn eigen sessie
+- Scrambles voor **alle zeventien WCA-events**, in een menu met vier laden; elk event heeft
+  zijn eigen sessie
+- De hele app in het Engels of het Nederlands, met één knop ertussen
 - Inspectie start op het moment dat je de mat aanraakt, met een ring die in 15 seconden
   leegloopt rond de tijd
 - Klik op de scramble om hem te kopiëren; notities per solve in het detailvenster
@@ -37,7 +39,10 @@ offline als je hem installeert.
 - Een algblad om af te drukken, met alleen wat jij gekozen hebt
 - Een cursus in acht stappen om te leren oplossen, met een weg die meegroeit
 - Het rad: 2640 kleine, onredelijke uitdagingen
-- Alles wordt lokaal bewaard (localStorage), niets gaat naar een server
+- Profielen: meerdere mensen op één toestel, elk met eigen tijden en instellingen
+- Optioneel een account op een Firebase-project van jezelf, om je tijden op meer
+  dan één toestel te hebben — de app werkt volledig zonder
+- Alles wordt lokaal bewaard (localStorage); zonder account gaat er niets naar een server
 
 ## Draaien
 
@@ -209,6 +214,93 @@ haalden krijgen een streep in de recordkleur.
 
 Alles telt over al je sessies samen — oefenen is oefenen, op welke puzzel dan ook.
 
+## Wie solvet er — profielen
+
+**Zijlijst → wie solvet er.** Eén laptop, meer dan één persoon: je broer hoort
+niet in jouw gemiddelden en jij niet in de zijne. Elk profiel krijgt eigen
+sessies, tijden, gevallen, cursusvoortgang en instellingen, en wisselen wisselt
+alles tegelijk.
+
+Het gezicht van een profiel is een kubusje in zijn eigen kleur — getekend, geen
+foto. Het middelste vakje is van hem en de rest is stil, zodat acht profielen op
+één blik nog acht gezichten zijn.
+
+Wisselen herlaadt de pagina. Dat ziet er lui uit en is het tegenovergestelde:
+elk stukje toestand in de app wordt één keer bij het opstarten gelezen, en alles
+opnieuw lezen is de enige manier om zeker te weten dat er niets van het vorige
+profiel in een variabele is blijven hangen. Een verkeerd gemiddelde is erger dan
+een flikkering.
+
+Het eerste profiel houdt de kale opslagsleutel. Wie de app al een jaar gebruikt
+en nog nooit van profielen gehoord heeft, houdt dus elke tijd precies waar hij
+stond.
+
+Twee profielen op één toestel vullen ook meteen het **duel** in: de onderlinge
+stand staat dan onder de namen waar jullie allebei op reageren.
+
+## Een account (Firebase)
+
+Volledig optioneel. De app heeft er nooit een nodig gehad en heeft er nog steeds
+geen nodig; alles blijft werken zonder in te loggen. Wat inloggen erbij doet is
+één ding: hetzelfde back-upbestand dat de app al schrijft voor "naar een ander
+toestel" wordt bewaard in een Firebase-project **van jou**, zodat je tijden op
+elk toestel staan waarop je inlogt.
+
+Er komt geen SDK aan te pas en er wordt geen script van een CDN geladen. De app
+praat rechtstreeks met de REST-endpoints van Firebase — ongeveer tweehonderd
+regels — dus offline werkt de pagina precies zoals daarvoor.
+
+### Het opzetten, in zes stappen
+
+1. Ga naar [console.firebase.google.com](https://console.firebase.google.com) en
+   maak een project. Analytics mag je uitzetten; die heb je hier niet nodig.
+2. **Authentication → Get started → Sign-in method → Email/Password → aanzetten.**
+   Alleen de bovenste; "Email link" laat je uit.
+3. **Firestore Database → Create database.** Kies een regio bij je in de buurt en
+   start in **production mode** — de regels zet je in stap 4 goed.
+4. **Firestore → Rules**, en plak dit erin. Dit is wat je tijden van jou houdt:
+   iedereen kan alleen bij zijn eigen document.
+
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /cubetimer/{uid} {
+         allow read, write: if request.auth != null && request.auth.uid == uid;
+       }
+     }
+   }
+   ```
+
+5. **Project settings → General → Your apps → Web app toevoegen** (het `</>`-icoon).
+   Je krijgt een blokje `firebaseConfig` te zien. Je hebt er twee dingen uit
+   nodig: `apiKey` en `projectId`.
+6. In de app: **zijlijst → wie solvet er → een account**, plak die twee in, en
+   maak een account met je mailadres en een wachtwoord.
+
+Vanaf dan staat er onderaan "nu gelijkzetten", en zet de app zichzelf ook gelijk
+wanneer je het tabblad wegklikt of je telefoon op slot doet.
+
+### Wat er wel en niet gebeurt
+
+**De API-sleutel is geen geheim.** Hij benoemt het project, en Google zegt dat
+zelf ook. Wat je tijden van jou houdt zijn de regels uit stap 4. Waren die fout,
+dan had het verstoppen van die sleutel je niets geholpen.
+
+**Er wordt nooit iets overschreven.** Gelijkzetten is: halen wat er staat, het
+erin vouwen zoals twee toestellen samengevoegd worden, en het resultaat
+terugzetten. Dat is dezelfde machinerie als "naar een ander toestel", en die
+gooit per ontwerp niets weg — een tijd die op één van de twee kanten staat,
+staat achteraf op allebei.
+
+**Je tijden staan dan op de server van iemand anders**, namelijk die van Google,
+in een project van jou. Dat is een echte verandering ten opzichte van hoe de app
+werkte, en de reden dat het uit staat tot je hem zelf aanzet.
+
+**Groot genoeg om tegenaan te lopen:** Firestore weigert documenten boven een
+megabyte. De app stopt er zelf al bij 900 kB en zegt dan dat je het bestand moet
+gebruiken. Dat zijn wel tienduizenden solves.
+
 ## Naar een ander toestel
 
 **Zijlijst → naar een ander toestel** maakt één bestand met al je sessies, tijden,
@@ -357,23 +449,44 @@ dat doen, want waar mensen op afhaken is dat ze twintig letters uit hun hoofd mo
 zonder te weten waar ze voor dienen. De algoritmes staan achteraan, en waar de app het
 geval zelf al in zijn boek heeft, wijst de stap ernaartoe in plaats van het over te typen.
 
-De stappen: de taal · het kruis · F2L op de makkelijke manier · echte F2L · OLL in twee
-kijkbeurten · PLL in twee kijkbeurten · vlot worden · volledig OLL en PLL. Elke stap heeft
-een knop naar de drill die erbij hoort, en een *dit kan ik* die de weg een stuk verder
-tekent.
+De zeven stappen: de taal · het kruis · de eerste twee lagen · het gele kruis · de gele
+hoeken · de hoeken op hun plaats · de randen op hun plaats. Elke stap heeft een knop naar
+de drill die erbij hoort, en een *dit kan ik* die de weg een stuk verder tekent.
+
+Je kunt niet vooruitspringen: stap vier is dicht tot stap drie afgevinkt is. Dat zou
+onaardig zijn tegen iemand die al kan oplossen, dus *dit kan ik* opent een stap ook zonder
+dat je er een woord van leest.
+
+De kubus ernaast doet de zetten voor. Elke genummerde regel heeft een **doe voor** en een
+**zet voor zet**: bij de tweede wacht de kubus en geef jij hem één zet per tik. Slepen mag,
+en dat is precies waar beginners op vastlopen — ze zien de onderkant nooit.
+
+De demonstratie-solve is niet met de hand geschreven. De vier fases stonden er eerst en de
+scramble is hun omgekeerde, dus de kruiszetten máken het kruis op deze scramble — niet
+omdat iemand het nagekeken heeft, maar omdat het niet anders kan.
+
+Maak je de laatste stap af, dan wordt de dag gestempeld en wordt je eerste solve daarna bij
+naam bewaard. Daar hoort een afdrukbaar **certificaat** bij.
 
 ## Het rad
 
-**Zijlijst → het rad.** Drie rollen, en een kleine, onredelijke uitdaging die je jezelf
-nooit zou geven. Tien opdrachten, tweeëntwintig regels en twaalf inzetten: 2640
-uitkomsten, en de meeste ervan zijn belachelijk.
+**Zijlijst → het rad.** Eén rol en een hendel. De rol is de regel — tweeëntwintig kleine,
+onredelijke dingen die je jezelf nooit zou opleggen — en hoe lang je het volhoudt kies je
+er zelf bij: 5, 10, 20 solves of tot je stopt.
 
-> **10 solves** · *met een sok over je linkerhand* — lukt het niet: 10 extra solves
+> *met een sok over je linkerhand* — 10 solves
 
-De eerste rol is de enige die de app kan zien: hij telt je solves, je gedrilde gevallen of
-je herkenningen en weet wanneer je klaar bent. Of je echt op één been stond is tussen jou
-en het been. Een aangenomen uitdaging blijft staan als je de pagina sluit, en er staat een
-streepje mee bovenaan je sessie zolang hij loopt.
+Neem je er een aan, dan krijgt hij een **eigen sessie**. Je gewone gemiddelden blijven
+schoon en de uitdaging staat achteraf nog in je lijst in plaats van weg te zijn. Solves in
+een andere sessie tellen niet mee. Of je echt op één been stond is tussen jou en het been.
+
+**Uitdaging versturen:** de hele uitdaging is een regel en een getal, dus hij past in het
+stuk van een link achter de `#`, dat een browser nooit naar een server stuurt. Er wordt
+niets geüpload — de link ís de uitdaging.
+
+**Wiens alg is dit?** Een tweede rad ernaast: hij kiest een geval en toont vier algoritmes,
+waarvan er één is die jij gesterd hebt. Een algoritme kennen en weten bij welk geval het
+hoort zijn twee verschillende dingen, en trainen oefent alleen het eerste.
 
 ## Splits
 
@@ -677,7 +790,12 @@ src/diagram.js    het plaatje van een OLL of PLL, uit het net van de puzzel zelf
 src/cases.js      de gevallen om te trainen, en de controle die een fout geval weigert
 src/recall.js     wanneer een geval op het punt staat weg te zakken
 src/course.js     de cursus: acht stappen en de weg ertussen
-src/slot.js       de drie rollen van het rad
+src/slot.js       de regels van het rad
+src/cube3d.js     de kubus die je kunt bekijken, draaien en ronddraaien
+src/lang.js       twee talen, met het Engels als bron
+src/lang-nl.js    het Nederlands
+src/who.js        wie er solvet: profielen op dit toestel
+src/cloud.js      een account op je eigen Firebase-project, over REST
 src/insight.js    de vragen die een lijst tijden zelf niet beantwoordt
 src/stats.js      tijdnotatie, ao5/ao12, mean
 src/practice.js   dagen, reeksen en de oefenmeter

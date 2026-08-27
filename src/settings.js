@@ -1,6 +1,12 @@
 // User preferences, stored next to the session.
 
-const KEY = 'cubetimer.settings.v1';
+import { keyFor } from './who.js';
+
+const BASE = 'cubetimer.settings.v1';
+const KEY = keyFor(BASE);
+
+/** The bare key, for wiping a profile's storage when it is removed. */
+export const SETTINGS_BASE = BASE;
 
 /** Everything the user can recolour, with the shade it starts at. */
 export const COLOR_SLOTS = [
@@ -118,6 +124,12 @@ const DEFAULTS = {
   coursePace: 1,
   // How many cubes a multi-blind attempt goes for.
   mbldCubes: 3,
+  // A Firebase project of your own, if you set one up. The key is not a secret
+  // -- it names the project -- and what keeps your times yours are the rules on
+  // the project, which the README spells out.
+  cloudKey: '',
+  cloudProject: '',
+  cloudAt: 0,
   // Whether a drilled case turns up facing a random way. On while you are
   // learning to recognise it; off while you are learning the algorithm itself.
   caseAuf: true,
@@ -199,6 +211,9 @@ export function loadSettings() {
     if (!['all', 'mine', 'drilled'].includes(settings.sheetOnly)) settings.sheetOnly = DEFAULTS.sheetOnly;
     settings.coursePace = clampNumber(settings.coursePace, 0, 2, DEFAULTS.coursePace);
     settings.mbldCubes = clampNumber(settings.mbldCubes, 2, 30, DEFAULTS.mbldCubes);
+    settings.cloudKey = String(settings.cloudKey || '').trim().slice(0, 80);
+    settings.cloudProject = String(settings.cloudProject || '').trim().slice(0, 80);
+    settings.cloudAt = clampNumber(settings.cloudAt, 0, Number.MAX_SAFE_INTEGER, 0);
 
     settings.aimTime = clampNumber(settings.aimTime, 0, 600000, 0);
     settings.aimBy = /^\d{4}-\d{2}-\d{2}$/.test(settings.aimBy) ? settings.aimBy : '';
