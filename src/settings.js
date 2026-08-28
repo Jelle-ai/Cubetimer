@@ -117,6 +117,8 @@ const DEFAULTS = {
   // Which cases go on your printable sheet, and whether it shows your notes.
   sheetGroups: ['pll'],
   sheetOnly: 'all',
+  // The cases you ticked yourself, per group.
+  sheetCases: {},
   sheetNotes: true,
   // How the case book lays a case out: side by side or one under the other.
   bookWide: true,
@@ -208,7 +210,13 @@ export function loadSettings() {
       ? settings.sheetGroups.filter((id) => typeof id === 'string').slice(0, 8)
       : [...DEFAULTS.sheetGroups];
     if (!settings.sheetGroups.length) settings.sheetGroups = [...DEFAULTS.sheetGroups];
-    if (!['all', 'mine', 'drilled'].includes(settings.sheetOnly)) settings.sheetOnly = DEFAULTS.sheetOnly;
+    if (!['all', 'mine', 'drilled', 'picked'].includes(settings.sheetOnly)) settings.sheetOnly = DEFAULTS.sheetOnly;
+    const ticked = {};
+    for (const [group, ids] of Object.entries(settings.sheetCases || {})) {
+      if (typeof group !== 'string' || !Array.isArray(ids)) continue;
+      ticked[group] = [...new Set(ids.filter((id) => typeof id === 'string').map((id) => id.slice(0, 24)))].slice(0, 120);
+    }
+    settings.sheetCases = ticked;
     settings.coursePace = clampNumber(settings.coursePace, 0, 2, DEFAULTS.coursePace);
     settings.mbldCubes = clampNumber(settings.mbldCubes, 2, 30, DEFAULTS.mbldCubes);
     settings.cloudKey = String(settings.cloudKey || '').trim().slice(0, 80);

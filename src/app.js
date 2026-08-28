@@ -38,7 +38,7 @@ import {
 import * as cloud from './cloud.js';
 import { chord, confetti, flashMiss, together, tone, vibrate } from './feedback.js';
 import { hasPreview, previewOf } from './preview.js';
-import { drawF2L, drawLastLayer, f2lOf, lastLayerOf } from './diagram.js';
+import { drawLastLayer, lastLayerOf } from './diagram.js';
 import {
   dayName, formatDuration, meetsGoal, practiceByDay, progress, streaks, today
 } from './practice.js';
@@ -234,6 +234,7 @@ const el = {
   paperFilter: document.getElementById('paper-filter'),
   paperBody: document.getElementById('paper-body'),
   paperPrint: document.getElementById('paper-print'),
+  paperSave: document.getElementById('paper-save'),
   paperCopy: document.getElementById('paper-copy'),
   slotSheet: document.getElementById('slot-sheet'),
   slotClose: document.getElementById('slot-close'),
@@ -2536,10 +2537,8 @@ function focusName(group, focus = drillFocus) {
 function caseThumb(entry) {
   const slot = document.createElement('span');
   slot.className = 'case-thumb';
-  const drawn = entry.group === 'f2l'
-    ? f2lOf(entry.setup).then((shape) => (shape ? drawF2L(shape) : null))
-    : lastLayerOf(entry.setup).then((shape) =>
-      (shape ? drawLastLayer(shape, entry.group === 'pll' ? 'pll' : 'oll') : null));
+  const drawn = lastLayerOf(entry.setup).then((shape) =>
+    (shape ? drawLastLayer(shape, entry.group === 'pll' ? 'pll' : 'oll') : null));
   drawn.then((svg) => { if (svg) slot.append(svg); }).catch(() => {});
   return slot;
 }
@@ -3189,7 +3188,7 @@ el.casesClose.addEventListener('click', () => el.casesSheet.close());
    only one of them is measured by drilling with a cube in your hands.
 
    The three wrong answers are drawn from the same group, so it is never a
-   guess between a PLL and an F2L. */
+   guess between a PLL and an OLL. */
 
 let spotGroup = 'pll';
 let spotting = null;    // { entry, choices, at }
@@ -3219,7 +3218,10 @@ function nextSpot() {
 function renderSpot() {
   if (!caseSet) return;
 
-  el.spotGroups.replaceChildren(...['f2l', 'oll', 'pll'].map((group) => {
+  // Only groups with four cases in them: the question is one picture and four
+  // names, and the three of the yellow cross cannot make four names.
+  const askable = Object.keys(caseSet.GROUPS).filter((group) => groupCases(group).length >= 4);
+  el.spotGroups.replaceChildren(...askable.map((group) => {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'chip';
@@ -7352,10 +7354,14 @@ function renderSettingsTabs() {
 
    Everything in the case book is yours -- the star you put on an algorithm, the
    one you typed in, the line you wrote to yourself about it -- and none of it
-   was any use away from a screen. This is that, on paper: the picture, the name
-   and the way you do it, in a shape that prints without the app around it. */
+   was any use away from a screen. This is that, on paper.
+
+   One case per line, down the page: the name above, the picture on the left and
+   your algorithm beside it. That is the shape you actually read an alg sheet
+   in, and it is the shape it prints in. */
 
 let paperOnly = settings.sheetOnly || 'all';
+let paperPicking = false;
 
 /** Which groups go on the sheet. Yours to choose, and remembered. */
 function paperGroups() {
@@ -7373,19 +7379,124 @@ function togglePaperGroup(group) {
   renderPaper();
 }
 
+/** The cases you ticked yourself, per group. */
+const pickedIn = (group) => new Set(settings.sheetCases?.[group] || []);
+
+function togglePaperCase(group, id) {
+  const mine = pickedIn(group);
+  if (mine.has(id)) mine.delete(id);
+  else mine.add(id);
+  settings.sheetCases = { ...settings.sheetCases, [group]: [...mine] };
+  storeSettings();
+  renderPaper();
+}
+
 /** The cases that make the sheet, under the choice you made. */
 function paperCases() {
-  const standing = (group) => new Map(caseStanding(play(), group).map((row) => [row.id, row]));
   const out = [];
   for (const group of paperGroups()) {
-    const ranked = standing(group);
+    const ranked = new Map(caseStanding(play(), group).map((row) => [row.id, row]));
+    const ticked = pickedIn(group);
     for (const entry of groupCases(group)) {
+      if (paperOnly === 'picked' && !ticked.has(entry.id)) continue;
       if (paperOnly === 'mine' && !(entry.algs.some((alg) => alg.mine) || settings.pickedAlg?.[algKey(entry)])) continue;
       if (paperOnly === 'drilled' && !ranked.has(entry.id)) continue;
       out.push({ entry, row: ranked.get(entry.id) || null });
     }
   }
   return out;
+}
+
+/** One line of the sheet: the name above, the picture, then the algorithm. */
+function paperRow(entry) {
+  const row = document.createElement('article');
+  row.className = 'paper-row';
+
+  const name = document.createElement('b');
+  name.className = 'paper-name';
+  name.textContent = entry.name && entry.name !== entry.id
+    ? `${entry.id} · ${t(entry.name)}`
+    : entry.id;
+  row.append(name);
+
+  const body = document.createElement('div');
+  body.className = 'paper-body';
+
+  const face = document.createElement('div');
+  face.className = 'paper-face';
+  face.append(caseThumb(entry));
+
+  const side = document.createElement('div');
+  side.className = 'paper-side';
+  const moves = spellAlg(chosenAlg(entry).moves);
+  moves.classList.add('paper-alg');
+  side.append(moves);
+
+  const note = noteOf(play(), algKey(entry));
+  if (note && settings.sheetNotes) {
+    const said = document.createElement('p');
+    said.className = 'paper-note';
+    said.textContent = note;
+    side.append(said);
+  }
+
+  body.append(face, side);
+  row.append(body);
+  return row;
+}
+
+/** The picking grid: every case of a group, tick the ones you want. */
+function paperPicker() {
+  const wrap = document.createElement('div');
+  wrap.className = 'paper-picking';
+
+  for (const group of paperGroups()) {
+    const ticked = pickedIn(group);
+    const head = document.createElement('div');
+    head.className = 'paper-pick-head';
+    const name = document.createElement('b');
+    name.textContent = `${caseSet.GROUPS[group].name} — ${t('{n} chosen', { n: ticked.size })}`;
+    head.append(name);
+
+    const all = document.createElement('button');
+    all.type = 'button';
+    all.className = 'link';
+    all.textContent = t('all');
+    all.addEventListener('click', () => {
+      settings.sheetCases = { ...settings.sheetCases, [group]: groupCases(group).map((one) => one.id) };
+      storeSettings();
+      renderPaper();
+    });
+
+    const none = document.createElement('button');
+    none.type = 'button';
+    none.className = 'link';
+    none.textContent = t('none');
+    none.addEventListener('click', () => {
+      settings.sheetCases = { ...settings.sheetCases, [group]: [] };
+      storeSettings();
+      renderPaper();
+    });
+
+    head.append(all, none);
+    wrap.append(head);
+
+    const grid = document.createElement('div');
+    grid.className = 'case-grid';
+    for (const entry of groupCases(group)) {
+      const tile = document.createElement('button');
+      tile.type = 'button';
+      tile.className = 'case-tile';
+      tile.dataset.on = String(ticked.has(entry.id));
+      const label = document.createElement('b');
+      label.textContent = entry.id;
+      tile.append(caseThumb(entry), label);
+      tile.addEventListener('click', () => togglePaperCase(group, entry.id));
+      grid.append(tile);
+    }
+    wrap.append(grid);
+  }
+  return wrap;
 }
 
 function renderPaper() {
@@ -7402,14 +7513,15 @@ function renderPaper() {
     return chip;
   }));
 
-  el.paperFilter.replaceChildren(...[
-    ['all', t('all cases')], ['mine', t('only what I chose myself')], ['drilled', t('only what I have drilled')]
+  const filters = [
+    ['all', 'every case'], ['picked', 'the ones I ticked'],
+    ['mine', 'only what I chose myself'], ['drilled', 'only what I have drilled']
   ].map(([id, label]) => {
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'link';
     chip.dataset.active = String(id === paperOnly);
-    chip.textContent = label;
+    chip.textContent = t(label);
     chip.addEventListener('click', () => {
       paperOnly = id;
       settings.sheetOnly = id;
@@ -7417,53 +7529,48 @@ function renderPaper() {
       renderPaper();
     });
     return chip;
-  }));
+  });
 
-  const rows = paperCases();
-  el.paperTitle.textContent = `Algblad — ${rows.length}`;
+  const pick = document.createElement('button');
+  pick.type = 'button';
+  pick.className = 'link';
+  pick.dataset.active = String(paperPicking);
+  pick.textContent = paperPicking ? t('done ticking') : t('tick cases');
+  pick.addEventListener('click', () => {
+    paperPicking = !paperPicking;
+    // Ticking cases and then not looking at them would be odd, so choosing to
+    // tick also switches the sheet to showing what you ticked.
+    if (paperPicking) {
+      paperOnly = 'picked';
+      settings.sheetOnly = 'picked';
+      storeSettings();
+    }
+    renderPaper();
+  });
+  filters.push(pick);
+  el.paperFilter.replaceChildren(...filters);
 
-  if (!rows.length) {
-    el.paperBody.replaceChildren(line(t('Nothing chosen. Turn a group on, or pick a wider selection.'), 'import-note'));
+  if (paperPicking) {
+    el.paperTitle.textContent = t('Alg sheet — ticking');
+    el.paperBody.replaceChildren(paperPicker());
     return;
   }
 
-  const grid = document.createElement('div');
-  grid.className = 'paper-grid';
-  for (const { entry } of rows) {
-    const card = document.createElement('article');
-    card.className = 'paper-card';
+  const rows = paperCases();
+  el.paperTitle.textContent = `${t('Alg sheet')} — ${rows.length}`;
 
-    const face = document.createElement('div');
-    face.className = 'paper-face';
-    face.append(caseThumb(entry));
-
-    const about = document.createElement('div');
-    about.className = 'paper-about';
-    const name = document.createElement('b');
-    name.textContent = entry.id;
-    about.append(name);
-    if (entry.name && entry.name !== entry.id) {
-      const said = document.createElement('small');
-      said.textContent = entry.name;
-      about.append(said);
-    }
-
-    const alg = chosenAlg(entry);
-    const moves = spellAlg(alg.moves);
-    moves.classList.add('paper-alg');
-
-    card.append(face, about, moves);
-
-    const note = noteOf(play(), algKey(entry));
-    if (note && settings.sheetNotes) {
-      const said = document.createElement('p');
-      said.className = 'paper-note';
-      said.textContent = note;
-      card.append(said);
-    }
-    grid.append(card);
+  if (!rows.length) {
+    el.paperBody.replaceChildren(line(
+      paperOnly === 'picked'
+        ? t('Nothing ticked yet. Press “tick cases” and choose the ones you want.')
+        : t('Nothing chosen. Turn a group on, or pick a wider selection.'), 'import-note'));
+    return;
   }
-  el.paperBody.replaceChildren(grid);
+
+  const sheet = document.createElement('div');
+  sheet.className = 'paper-sheet';
+  for (const { entry } of rows) sheet.append(paperRow(entry));
+  el.paperBody.replaceChildren(sheet);
 }
 
 /** The same thing as text, for anywhere that is not a printer. */
@@ -7482,6 +7589,141 @@ function paperAsText() {
   return lines.join('\n').trim();
 }
 
+/* --- the sheet as a file ----------
+
+   Printing needs a printer and copying loses the pictures, so the third way out
+   is a picture of the sheet itself. It is drawn rather than screenshotted: the
+   diagrams are the same SVGs the app already makes, turned into images through
+   a data URL, so nothing is fetched and it works offline like everything else.
+   Twice the pixels, because a sheet you zoom into should not go soft. */
+
+const SHEET = {
+  scale: 2,
+  width: 720,
+  pad: 32,
+  row: 78,
+  face: 58,
+  head: 92
+};
+
+/** One SVG, as something a canvas will draw. */
+function asImage(svg) {
+  const copy = svg.cloneNode(true);
+  copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  const text = new XMLSerializer().serializeToString(copy);
+  return new Promise((done, fail) => {
+    const image = new Image();
+    image.onload = () => done(image);
+    image.onerror = fail;
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}`;
+  });
+}
+
+async function drawSheet() {
+  const rows = paperCases();
+  const ink = getComputedStyle(el.body).getPropertyValue('--ink').trim() || '#12303f';
+  const soft = getComputedStyle(el.body).getPropertyValue('--muted').trim() || '#6b8496';
+  const led = settings.colors?.led || '#4fc3f7';
+
+  const height = SHEET.head + rows.length * SHEET.row + SHEET.pad;
+  const canvas = document.createElement('canvas');
+  canvas.width = SHEET.width * SHEET.scale;
+  canvas.height = height * SHEET.scale;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(SHEET.scale, SHEET.scale);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, SHEET.width, height);
+
+  const font = (size, weight = '400') =>
+    `${weight} ${size}px ui-rounded, "SF Pro Rounded", system-ui, -apple-system, sans-serif`;
+
+  ctx.fillStyle = ink;
+  ctx.font = font(26, '700');
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(t('Alg sheet'), SHEET.pad, 46);
+
+  ctx.fillStyle = soft;
+  ctx.font = font(13);
+  ctx.fillText(paperGroups().map((group) => caseSet.GROUPS[group].name).join(' · '), SHEET.pad, 68);
+  const stamp = new Date().toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
+  ctx.textAlign = 'right';
+  ctx.fillText(`${settings.shareName ? `${settings.shareName} · ` : ''}${stamp}`, SHEET.width - SHEET.pad, 68);
+  ctx.textAlign = 'left';
+
+  ctx.strokeStyle = led;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(SHEET.pad, 80);
+  ctx.lineTo(SHEET.width - SHEET.pad, 80);
+  ctx.stroke();
+
+  // The pictures are made the same way the app makes them, then drawn in. Doing
+  // them all at once keeps a hundred cases from taking a hundred round trips.
+  const shapes = await Promise.all(rows.map(({ entry }) =>
+    lastLayerOf(entry.setup)
+      .then((shape) => (shape ? asImage(drawLastLayer(shape, entry.group === 'pll' ? 'pll' : 'oll')) : null))
+      .catch(() => null)));
+
+  rows.forEach(({ entry }, at) => {
+    const top = SHEET.head + at * SHEET.row;
+
+    if (at % 2 === 1) {
+      ctx.fillStyle = '#f4f8fb';
+      ctx.fillRect(SHEET.pad - 8, top - 8, SHEET.width - SHEET.pad * 2 + 16, SHEET.row - 6);
+    }
+
+    ctx.fillStyle = ink;
+    ctx.font = font(15, '700');
+    ctx.fillText(entry.id, SHEET.pad, top + 12);
+
+    const said = entry.name && entry.name !== entry.id ? t(entry.name) : '';
+    if (said) {
+      ctx.fillStyle = soft;
+      ctx.font = font(11);
+      ctx.fillText(said, SHEET.pad + ctx.measureText(entry.id).width + 44, top + 12);
+    }
+
+    const image = shapes[at];
+    if (image) ctx.drawImage(image, SHEET.pad, top + 18, SHEET.face, SHEET.face);
+
+    ctx.fillStyle = ink;
+    ctx.font = font(15, '600');
+    ctx.fillText(chosenAlg(entry).moves, SHEET.pad + SHEET.face + 18, top + 48);
+
+    const note = noteOf(play(), algKey(entry));
+    if (note && settings.sheetNotes) {
+      ctx.fillStyle = soft;
+      ctx.font = font(11);
+      ctx.fillText(note, SHEET.pad + SHEET.face + 18, top + 66);
+    }
+  });
+
+  return canvas;
+}
+
+async function offerSheet() {
+  el.paperSave.disabled = true;
+  try {
+    const canvas = await drawSheet();
+    const blob = await new Promise((done) => canvas.toBlob(done, 'image/png'));
+    if (!blob) throw new Error('no image');
+    const address = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = address;
+    link.download = `cubetimer-algs-${new Date().toISOString().slice(0, 10)}.png`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(address), 20000);
+    toast(t('Sheet saved.'));
+  } catch {
+    toast(t('The sheet could not be drawn here.'));
+  } finally {
+    el.paperSave.disabled = false;
+  }
+}
+
 async function openPaper() {
   try {
     await loadCases();
@@ -7494,6 +7736,7 @@ async function openPaper() {
 }
 
 el.paperClose.addEventListener('click', () => el.paperSheet.close());
+el.paperSave.addEventListener('click', offerSheet);
 
 el.paperPrint.addEventListener('click', () => {
   // Printing a dialog prints the page behind it, so the page is told for one

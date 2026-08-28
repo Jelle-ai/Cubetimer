@@ -9,15 +9,11 @@ import { t } from './lang.js';
 // told -- so nothing here is trusted. Every case is put on a real cube at load
 // and thrown out unless it lands where a case of its kind is supposed to land.
 
-/** Edges 0-3 and corners 0-3 are the top layer; the rest is the F2L. */
+/** Edges 0-3 and corners 0-3 are the top layer; the rest stays put. */
 const TOP_EDGES = [0, 1, 2, 3];
 const TOP_CORNERS = [0, 1, 2, 3];
 
 export const GROUPS = {
-  f2l: {
-    name: 'F2L',
-    get about() { return t('The pair in the front right slot. All 41 cases.'); }
-  },
   oll: {
     name: 'OLL',
     get about() { return t('The last layer made yellow in one go. All 57 cases.'); }
@@ -36,82 +32,8 @@ export const GROUPS = {
   }
 };
 
-/**
- * The pair that belongs in the front-right slot, and everything that has to
- * stay where it is while it is drilled. Read off the puzzle rather than
- * assumed: R moves corners 0,1,4,7 and edges 1,5,8,10; F moves corners 0,3,4,5
- * and edges 0,4,8,9. The corner both turns share that is not in the top layer
- * is 4, and the edge is 8.
- */
-const F2L_PAIR = { corner: 4, edge: 8 };
-const F2L_KEEP = { corners: [5, 6, 7], edges: [4, 5, 6, 7, 9, 10, 11] };
 
 
-/**
- * The forty-one F2L cases, worked out rather than typed in.
- *
- * Writing out forty-one algorithms from memory and hoping is exactly the kind
- * of thing the rest of this file refuses to do, so the set was generated. Three
- * things can be turned without disturbing the cross or the other three slots --
- * the top layer, and pulling the pair out and back with R U^k R' or F' U^k F
- * and their mirrors -- and everything reachable that way is an F2L case, and
- * nothing else is. Walking that outwards from a solved cube found forty-two
- * states: the solved one and forty-one cases, split 24 / 6 / 6 / 5 across pair
- * on top, corner down, edge down and both down, which is exactly the split the
- * arithmetic says there should be.
- *
- * The algorithms are the shortest routes back that the same search found, after
- * cancelling moves and dropping the top-layer turns at either end that only say
- * which way round you are holding it. So the first one is short, and the ones
- * under it are the next shortest that are genuinely different.
- */
-const F2L_SHAPES = [
-  [1, 'Pair on top', ["F' U F", "F' U2 F", "R U' R' F' U F"]],
-  [2, 'Pair on top', ["R U R'", "R U' R' U' R U' R'", "F' U2 F U R U' R'"]],
-  [3, 'Pair on top', ["R U' R'", "R U2 R'", "F' U' F R U' R'"]],
-  [4, 'Pair on top', ["F' U' F", "R U2 R' U' F' U F", "F' U F U F' U F"]],
-  [5, 'Pair on top', ["R U R' F' U' F", "F' U F U2 F' U' F", "F' U' F U' F' U F"]],
-  [6, 'Pair on top', ["F' U' F R U R'", "R U R' U R U' R'", "R U' R' U2 R U R'"]],
-  [7, 'Corner on top, edge in the slot · edge flipped', ["R U2 R' F' U' F", "R U' R' F' U2 F", "F' U2 F R U R'"]],
-  [8, 'Corner in the slot, edge on top · corner twisted', ["F' U2 F R U2 R'", "F' U2 F U' R U' R'", "R U' R' U R U' R'"]],
-  [9, 'Corner in the slot, edge on top · corner twisted', ["R U' R' F' U' F", "F' U' F U F' U' F", "F' U2 F U2 F' U' F"]],
-  [10, 'Corner in the slot, edge on top · corner twisted', ["F' U F R U R'", "R U R' U' R U R'", "R U2 R' U2 R U R'"]],
-  [11, 'Corner in the slot, edge on top · corner twisted', ["R U2 R' F' U2 F", "F' U F U' F' U F", "R U2 R' U F' U F"]],
-  [12, 'Pair on top', ["F' U2 F U F' U' F", "F' U' F U2 R U' R' F' U' F", "R U' R' U2 R U' R' F' U' F"]],
-  [13, 'Pair on top', ["R U2 R' U' R U R'", "F' U F R U' R' U' F' U' F", "F' U F R U R' U' F' U F"]],
-  [14, 'Pair on top', ["R U2 R' U R U' R'", "R U2 R' U2 R U2 R'", "F' U F R U2 R' F' U' F"]],
-  [15, 'Pair on top', ["F' U2 F U' F' U F", "F' U2 F U2 F' U2 F", "F' U' F R U R' F' U' F"]],
-  [16, 'Pair on top', ["F' U2 F U' R U R'", "F' U2 F U' F' U' F R U R'", "F' U' F U F' U F R U R'"]],
-  [17, 'Pair on top', ["R U' R' U R U R'", "F' U F U' R U2 R' F' U' F", "F' U F U2 R U' R' F' U2 F"]],
-  [18, 'Pair on top', ["R U' R' U2 F' U' F", "F' U2 F U' R U R' F' U' F", "R U R' U2 R U R' F' U' F"]],
-  [19, 'Pair on top', ["F' U2 F U2 F' U F", "F' U2 F U F' U2 F", "F' U2 F R U R' F' U2 F"]],
-  [20, 'Pair on top', ["F' U F U' R U R'", "R U' R' U' R U R'", "R U R' U R U R'"]],
-  [21, 'Pair on top', ["F' U' F U2 F' U F", "F' U' F U F' U2 F", "F' U' F R U R' F' U2 F"]],
-  [22, 'Corner on top, edge in the slot', ["F' U F U2 F' U F", "F' U F U F' U2 F", "R U2 R' U R U R'"]],
-  [23, 'Corner on top, edge in the slot · edge flipped', ["F' U' F U R U' R'", "F' U' F U' R U R'", "F' U F U R U R'"]],
-  [24, 'Pair on top', ["F' U F U2 R U R'", "R U2 R' U F' U' F R U R'", "F' U' F U2 F' U' F R U R'"]],
-  [25, 'Pair on top', ["F' U F U' F' U' F", "R U R' U R U' R' F' U' F", "R U' R' U' R U2 R' F' U' F"]],
-  [26, 'Pair on top', ["R U2 R' U F' U' F", "F' U F U' R U' R' F' U' F", "F' U2 F U' R U' R' F' U' F"]],
-  [27, 'Pair on top', ["R U R' U2 R U' R'", "R U R' U' R U2 R'", "R U R' F' U' F R U2 R'"]],
-  [28, 'Pair on top', ["F' U' F U' F' U' F", "F' U F U F' U' F", "R U' R' U F' U' F"]],
-  [29, 'Pair on top', ["R U2 R' U2 R U' R'", "R U2 R' U' R U2 R'", "R U2 R' F' U' F R U2 R'"]],
-  [30, 'Corner on top, edge in the slot', ["F' U2 F U' F' U' F", "F' U' F U2 F' U' F", "R U' R' U2 R U' R'"]],
-  [31, 'Corner on top, edge in the slot · edge flipped', ["R U' R' U' F' U' F", "R U R' U F' U' F", "R U R' U' F' U F"]],
-  [32, 'Corner in the slot, edge on top', ["F' U F U R U' R'", "F' U' F U R U R'", "F' U2 F U2 R U R'"]],
-  [33, 'Corner in the slot, edge on top', ["R U R' U' F' U' F", "R U2 R' U2 F' U' F", "R U' R' U' F' U F"]],
-  [34, 'Pair on top', ["F' U' F R U2 R' F' U' F", "R U R' F' U F R U R'", "F' U' F U' R U' R' F' U2 F"]],
-  [35, 'Pair on top', ["F' U' F R U' R' F' U' F", "R U R' F' U2 F R U R'", "R U' R' U' R U R' F' U' F"]],
-  [36, 'Corner on top, edge in the slot', ["F' U' F U' R U' R' F' U' F", "F' U F U' R U R' F' U' F", "F' U' F U R U R' F' U' F"]],
-  [37, 'Both in the slot · corner twisted and edge flipped', ["F' U F U2 F' U' F R U R'", "F' U F R U' R' U2 R U R'", "R U' R' U F' U' F U' F' U' F"]],
-  [38, 'Both in the slot · corner twisted and edge flipped', ["R U' R' U2 R U R' F' U' F", "R U' R' F' U F U2 F' U' F", "R U R' U' R U' R' U2 F' U' F"]],
-  [39, 'Both in the slot · edge flipped', ["R U2 R' U R U2 R' U F' U' F", "R U R' U2 R U2 R' U F' U' F", "R U' R' U F' U2 F U2 F' U F"]],
-  [40, 'Both in the slot · corner twisted', ["F' U2 F U' F' U F U' F' U' F", "F' U' F U2 F' U F U' F' U' F", "F' U F U' F' U2 F U' F' U F"]],
-  [41, 'Both in the slot · corner twisted', ["F' U' F U F' U2 F U F' U' F", "F' U2 F U2 F' U2 F U F' U' F", "F' U F U F' U' F U2 F' U F"]],
-];
-
-const F2L = F2L_SHAPES.map(([number, name, algs]) => ({
-  id: `F2L ${number}`, group: 'f2l', kind: 'pair', name, algs
-}));
 
 /**
  * The fifty-seven OLL cases, by their usual numbers, with the shape each one
@@ -240,7 +162,6 @@ export const CASES = [
   // which is what makes the set provably complete rather than merely long,
   // because there are exactly fifty-seven of them.
   ...OLL,
-  ...F2L
 ];
 
 /**
@@ -266,29 +187,6 @@ export function caseSignature(pattern, group, Alg = null) {
   const corners = pattern.patternData.CORNERS;
   const edges = pattern.patternData.EDGES;
 
-  // An F2L case is only where the pair is: the top layer around it will be
-  // solved later and says nothing about which case this is. Turning the top
-  // layer is the same case seen from another angle, so the smallest of the four
-  // readings is the name.
-  if (group === 'f2l') {
-    const read = (state) => {
-      const c = state.patternData.CORNERS;
-      const e = state.patternData.EDGES;
-      const at = c.pieces.indexOf(F2L_PAIR.corner);
-      const on = e.pieces.indexOf(F2L_PAIR.edge);
-      return `${at}.${c.orientation?.[at] ?? 0}/${on}.${e.orientation?.[on] ?? 0}`;
-    };
-    if (!Alg) return read(pattern);
-    let smallest = null;
-    let turned = pattern;
-    const quarter = new Alg('U');
-    for (let turn = 0; turn < 4; turn++) {
-      const said = read(turned);
-      if (smallest === null || said < smallest) smallest = said;
-      turned = turned.applyAlg(quarter);
-    }
-    return smallest;
-  }
   const cell = (state, at) => (group === 'oll'
     ? String(state.orientation?.[at] ?? 0)
     : `${state.pieces[at]}.${state.orientation?.[at] ?? 0}`);
@@ -361,29 +259,6 @@ export function checkCase(entry, kpuzzle, Alg, moves = null) {
     return { ok: false, why: 'it leaves the whole cube turned' };
   }
 
-  // An F2L case is judged on a different promise: the cross and the other
-  // three slots stay exactly where they are, the top layer may do what it
-  // likes, and the pair itself must not already be home.
-  if (entry.group === 'f2l') {
-    if (!same(landed, solved, 'CORNERS', F2L_KEEP.corners)
-      || !same(landed, solved, 'EDGES', F2L_KEEP.edges)) {
-      return { ok: false, why: 'it breaks the cross or another slot' };
-    }
-    const corners = landed.patternData.CORNERS;
-    const edges = landed.patternData.EDGES;
-    const cornerHome = corners.pieces[F2L_PAIR.corner] === F2L_PAIR.corner
-      && (corners.orientation?.[F2L_PAIR.corner] ?? 0) === 0;
-    const edgeHome = edges.pieces[F2L_PAIR.edge] === F2L_PAIR.edge
-      && (edges.orientation?.[F2L_PAIR.edge] ?? 0) === 0;
-    if (cornerHome && edgeHome) return { ok: false, why: 'the pair is already home' };
-    // Neither piece may have wandered out of the top layer or the slot.
-    const cornerAt = corners.pieces.indexOf(F2L_PAIR.corner);
-    const edgeAt = edges.pieces.indexOf(F2L_PAIR.edge);
-    if (![0, 1, 2, 3, F2L_PAIR.corner].includes(cornerAt)) return { ok: false, why: 'the corner ends up somewhere else' };
-    if (![0, 1, 2, 3, F2L_PAIR.edge].includes(edgeAt)) return { ok: false, why: 'the edge ends up somewhere else' };
-    return { ok: true, setup, pattern: landed };
-  }
-
   if (!same(landed, solved, 'EDGES', bottomEdges) || !same(landed, solved, 'CORNERS', bottomCorners)) {
     return { ok: false, why: 'it breaks the first two layers' };
   }
@@ -433,8 +308,7 @@ export function usableCases(kpuzzle, Alg, list = CASES) {
     // Two cases that come out as the same thing means one of the two algorithms
     // is not the case its name says. Dropping the second is not the point --
     // the point is that with none dropped, fifty-seven distinct OLLs is every
-    // OLL there is, and forty-one F2Ls is every F2L, so the sets are provably
-    // complete rather than merely long.
+    // OLL there is, so the set is provably complete rather than merely long.
     const mark = `${entry.group}/${caseSignature(verdict.pattern, entry.group, Alg)}`;
     const claimed = seen.get(mark);
     if (claimed) {
@@ -489,9 +363,8 @@ export const AUF = ['', 'U', 'U2', "U'"];
    quarter turn from where the book holds it is still that algorithm.
 
    And "solved" means what it means for that drill: a PLL has to leave the cube
-   finished, an OLL only has to get the top face one colour, and an F2L only has
-   to put its own pair home. Asking more than that would refuse algorithms that
-   do exactly what the drill is for. */
+   finished and an OLL only has to get the top face one colour. Asking more than
+   that would refuse algorithms that do exactly what the drill is for. */
 
 const wholeCube = (end, solved) => same(end, solved, 'EDGES', everyIndex(solved, 'EDGES'))
   && same(end, solved, 'CORNERS', everyIndex(solved, 'CORNERS'));
@@ -511,18 +384,16 @@ const finished = {
   },
   oll: (end) => TOP_CORNERS.every((i) => (end.patternData.CORNERS.orientation?.[i] ?? 0) === 0)
     && TOP_EDGES.every((i) => (end.patternData.EDGES.orientation?.[i] ?? 0) === 0),
-  eo: (end) => TOP_EDGES.every((i) => (end.patternData.EDGES.orientation?.[i] ?? 0) === 0),
-  f2l: (end, solved) => same(end, solved, 'CORNERS', [F2L_PAIR.corner])
-    && same(end, solved, 'EDGES', [F2L_PAIR.edge])
+  eo: (end) => TOP_EDGES.every((i) => (end.patternData.EDGES.orientation?.[i] ?? 0) === 0)
 };
 
 finished.ocll = finished.oll;
 
-/** What must not have moved while the algorithm did its work. */
-const untouched = (end, solved, group) => (group === 'f2l'
-  ? same(end, solved, 'CORNERS', F2L_KEEP.corners) && same(end, solved, 'EDGES', F2L_KEEP.edges)
-  : same(end, solved, 'CORNERS', everyIndex(solved, 'CORNERS').filter((i) => !TOP_CORNERS.includes(i)))
-    && same(end, solved, 'EDGES', everyIndex(solved, 'EDGES').filter((i) => !TOP_EDGES.includes(i))));
+/** What must not have moved while the algorithm did its work: everything below
+    the top layer, which is the whole promise a last-layer algorithm makes. */
+const untouched = (end, solved) =>
+  same(end, solved, 'CORNERS', everyIndex(solved, 'CORNERS').filter((i) => !TOP_CORNERS.includes(i)))
+  && same(end, solved, 'EDGES', everyIndex(solved, 'EDGES').filter((i) => !TOP_EDGES.includes(i)));
 
 /**
  * Put the case up, do the moves, and say whether it came out.
@@ -556,7 +427,7 @@ export function solvesCase(entry, moves, kpuzzle, Alg) {
     }
     if (!same(end, solved, 'CENTERS', everyIndex(solved, 'CENTERS'))) continue;
     sawTheCube = true;
-    if (!untouched(end, solved, entry.group)) continue;
+    if (!untouched(end, solved)) continue;
     if (done(end, solved, Alg)) {
       return { ok: true, setup, turns: moves.split(/\s+/).filter(Boolean).length };
     }

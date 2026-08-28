@@ -316,92 +316,133 @@ export async function makeCube({ size = 200, drag = true, angle = [-24, -32] } =
 
   /* --- turning ---
 
-     One move used to be an ease-in-out of its own with a little slack after it,
-     which meant every quarter turn came to a full stop and the next one started
-     again from nothing. Twelve of those in a row is not an algorithm being
-     shown, it is twelve separate jolts.
+     A run of moves is one movement, not a row of separate ones.
 
-     So a run of moves is treated as one movement: the first turn accelerates,
-     the ones in the middle run at a constant speed, and only the last one slows
-     down. And a turn lands exactly when its transition ends rather than a few
-     milliseconds after it, so there is no dead air between one and the next. */
+     It used to be a CSS transition per move, each landing on transitionend and
+     the next starting after it. That leaves exactly one frame of nothing
+     between every two moves -- measured: eleven to thirty-three milliseconds,
+     usually sixteen -- and fourteen of those in an algorithm is a stutter you
+     can see. Worse, each move had its own ease-in-out, so the cube stopped dead
+     and set off again at every quarter turn.
+
+     So the whole run is driven off one clock instead. Move i owns the stretch
+     from i*pace to (i+1)*pace; every frame works out which move that is, hands
+     over from the last one in the same frame if it has changed, and sets the
+     angle. No gap, because there is nothing to wait for.
+
+     The easing is chosen so the speed never jumps at a handover. The first move
+     starts at nothing and ends at full speed, the ones in between run at
+     exactly that speed, and the last one comes down from it to nothing:
+
+       first   f(p) = p²(2 - p)     f'(0) = 0, f'(1) = 1
+       middle  f(p) = p             f'    = 1
+       last    f(p) = p(1 + p - p²) f'(0) = 1, f'(1) = 0
+
+     A single move on its own gets the symmetric one, f(p) = p²(3 - 2p), because
+     there is nothing on either side of it to match. */
 
   const AXES = ['X', 'Y', 'Z'];
 
-  /** Where in the run a turn sits, and therefore how it should feel. */
   const EASE = {
-    only: 'cubic-bezier(.32,.72,.32,1)',
-    first: 'cubic-bezier(.42,0,.86,.72)',
-    middle: 'linear',
-    last: 'cubic-bezier(.14,.28,.32,1)'
+    only: (p) => p * p * (3 - 2 * p),
+    first: (p) => p * p * (2 - p),
+    middle: (p) => p,
+    last: (p) => p * (1 + p - p * p)
   };
+
+  const easeAt = (at, many) => (many === 1 ? EASE.only
+    : at === 0 ? EASE.first
+      : at === many - 1 ? EASE.last
+        : EASE.middle);
 
   let busy = false;
   let running = null;
 
-  function turn(move, ms, where = 'only') {
+  /** Everything one move needs to be drawn at any angle. */
+  function liftLayer(move) {
     const read = readMove(move);
-    if (!read) return Promise.resolve(false);
+    if (!read) return null;
+    const group = document.createElement('div');
+    group.className = 'cube3d-layer';
+    const moving = [...cells.values()].filter((cell) => read.slices.includes(cell.place[read.axis]));
+    for (const cell of moving) group.append(cell.el);
+    box.append(group);
 
-    return new Promise((done) => {
-      const group = document.createElement('div');
-      group.className = 'cube3d-layer';
-      const moving = [...cells.values()].filter((cell) => read.slices.includes(cell.place[read.axis]));
-      for (const cell of moving) group.append(cell.el);
-      box.append(group);
-
-      // Clockwise seen from the face is the negative way about the axis that
-      // points out of it, and the screen's y runs downwards, which flips the
-      // one about the vertical.
-      const flip = read.axis === 1 ? 1 : -1;
-      const degrees = read.quarters * 90 * read.side * flip;
-
-      const spin = `rotate${AXES[read.axis]}`;
-
-      // The reflow in the middle is the whole thing. A element that has just
-      // been made has no resolved style yet, so setting a transform on it --
-      // even a frame later -- is its *first* value rather than a change to an
-      // old one, and a browser does not transition from nothing. Every turn was
-      // jumping straight to its finished angle and then sitting there until the
-      // timer went off, which is exactly what a stutter looks like.
-      //
-      // Reading offsetHeight forces the start to be resolved, so the second
-      // assignment is a change and does animate. It also saves the frame that
-      // requestAnimationFrame cost, which was a stutter of its own.
-      group.style.transform = `${spin}(0deg)`;
-      group.style.transition = 'none';
-      void group.offsetHeight;
-      group.style.transition = `transform ${ms}ms ${EASE[where] || EASE.only}`;
-      group.style.transform = `${spin}(${degrees}deg)`;
-
-      let landed = false;
-      const land = () => {
-        if (landed) return;
-        landed = true;
-        clearTimeout(guard);
-        try {
-          pattern = pattern.applyAlg(new Alg(move));
-        } catch {
-          // A move the puzzle does not know: the picture goes back as it was.
-        }
-        // Undoing the rotation and repainting happen in the same task, so the
-        // browser never gets a frame showing the layer straight with the old
-        // colours on it. That frame was the flicker at the end of every turn.
-        for (const cell of moving) box.append(cell.el);
-        group.remove();
-        paint();
-        done(true);
-      };
-
-      // transitionend is the exact moment; the timer is only there for the
-      // browsers and tabs where it never arrives at all.
-      group.addEventListener('transitionend', land, { once: true });
-      const guard = setTimeout(land, ms + 90);
-    });
+    // Clockwise seen from the face is the negative way about the axis that
+    // points out of it, and the screen's y runs downwards, which flips the one
+    // about the vertical.
+    const flip = read.axis === 1 ? 1 : -1;
+    return {
+      group,
+      moving,
+      spin: `rotate${AXES[read.axis]}`,
+      degrees: read.quarters * 90 * read.side * flip
+    };
   }
 
-  /** A pause that can be cut short when something else wants the cube. */
-  const wait = (ms) => new Promise((done) => setTimeout(done, ms));
+  /** Put the layer down: state forward, boxes home, colours repainted. */
+  function dropLayer(layer, move) {
+    try {
+      pattern = pattern.applyAlg(new Alg(move));
+    } catch {
+      // A move the puzzle does not know: the picture goes back as it was.
+    }
+    // Undoing the rotation and repainting happen in the same task, so the
+    // browser never gets a frame showing the layer straight with the old
+    // colours still on it.
+    for (const cell of layer.moving) box.append(cell.el);
+    layer.group.remove();
+    paint();
+  }
+
+  /**
+   * Play a run of moves off one clock.
+   * @returns {{stop: () => void, done: Promise<boolean>}}
+   */
+  function runMoves(moves, pace, onMove) {
+    let stopped = false;
+    let layer = null;
+    let at = -1;
+    let began = 0;
+
+    const done = new Promise((finish) => {
+      const frame = (now) => {
+        if (stopped) {
+          if (layer) dropLayer(layer, moves[at]);
+          finish(false);
+          return;
+        }
+        if (!began) began = now;
+
+        const gone = now - began;
+        const wanted = Math.min(Math.floor(gone / pace), moves.length);
+
+        // Hand over as many moves as the clock says have finished, in this same
+        // frame. More than one only happens when the tab was away.
+        while (at < wanted && at < moves.length) {
+          if (layer) dropLayer(layer, moves[at]);
+          at++;
+          if (at >= moves.length) break;
+          layer = liftLayer(moves[at]);
+          if (!layer) { at = moves.length; break; }
+          onMove?.(at, moves[at]);
+        }
+
+        if (at >= moves.length || !layer) {
+          layer = null;
+          finish(true);
+          return;
+        }
+
+        const part = Math.min(1, (gone - at * pace) / pace);
+        layer.group.style.transform = `${layer.spin}(${layer.degrees * easeAt(at, moves.length)(part)}deg)`;
+        requestAnimationFrame(frame);
+      };
+      requestAnimationFrame(frame);
+    });
+
+    return { stop: () => { stopped = true; }, done };
+  }
 
   /* --- what the outside world does with it --- */
 
@@ -423,39 +464,27 @@ export async function makeCube({ size = 200, drag = true, angle = [-24, -32] } =
      * Play an algorithm. Returns a handle so it can be stopped, and so the
      * course can hand the next move over one at a time.
      */
-    play(alg, { pace = 420, from = null, onMove = null, hold = 1100, back = true } = {}) {
+    play(alg, { pace = 420, from = null, onMove = null } = {}) {
       // Only one thing turning at a time: a second play while the first is
       // still going would interleave two sets of moves on one cube.
       running?.stop();
       const moves = String(alg).trim().split(/\s+/).filter(Boolean);
-      let stopped = false;
       busy = true;
 
+      let handle = null;
       const run = (async () => {
         if (from !== null) await api.show(from);
-        for (let at = 0; at < moves.length; at++) {
-          if (stopped) break;
-          onMove?.(at, moves[at]);
-          const where = moves.length === 1 ? 'only'
-            : at === 0 ? 'first'
-              : at === moves.length - 1 ? 'last'
-                : 'middle';
-          await turn(moves[at], pace, where);
-        }
-
-        // The end of the run is worth looking at, so it is held there before
-        // anything else happens. Then the cube goes quietly back to where it
-        // started, which is what makes pressing the button again do the same
-        // thing rather than carry on from wherever the last one stopped.
-        if (!stopped && back && from !== null) {
-          await wait(hold);
-          if (!stopped) await api.rewind(from);
-        }
+        if (!moves.length) { busy = false; return true; }
+        handle = runMoves(moves, pace, onMove);
+        running = handle;
+        // The cube stays where the algorithm leaves it. That is the whole point
+        // of watching one: the end is the thing you came to see.
+        const finished = await handle.done;
         busy = false;
-        return !stopped;
+        return finished;
       })();
 
-      run.stop = () => { stopped = true; };
+      run.stop = () => handle?.stop();
       running = run;
       return run;
     },
@@ -465,13 +494,17 @@ export async function makeCube({ size = 200, drag = true, angle = [-24, -32] } =
 
     /** One move, now. For the slow mode: the cube waits for you. */
     step(move, ms = 320) {
-      return turn(move, ms, 'only');
+      running?.stop();
+      const handle = runMoves([move], ms, null);
+      running = handle;
+      return handle.done;
     },
 
     /**
-     * Back to a state, without it looking like a glitch. A cube that jumps has
-     * gone wrong; a cube that dims for a moment and comes back has been reset,
-     * and you can see the difference without being told.
+     * Back to a state on purpose, without it looking like a glitch. A cube that
+     * jumps has gone wrong; one that dims for a moment and comes back has been
+     * put back, and you can tell which is which without being told. Only ever
+     * called because somebody asked -- never at the end of an algorithm.
      */
     async rewind(alg) {
       scene.dataset.resetting = 'true';

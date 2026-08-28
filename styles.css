@@ -3317,43 +3317,58 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
 
 /* ---------- the algorithm sheet ----------
 
-   Everything you starred, on one page, in a shape that survives a printer.
-   Which is the whole point: the case book is the place you decide, and this is
-   the place you take it away from the screen. */
+   One case per line, down the page: the name above, the picture on the left and
+   your algorithm beside it. That is the shape you read an alg sheet in, and it
+   is the shape it prints in. */
 
-.paper-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
-  gap: .5rem;
-}
+.paper-sheet { display: flex; flex-direction: column; }
 
-.paper-card {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-areas: 'face about' 'alg alg' 'note note';
-  align-items: center;
-  gap: .3rem .6rem;
-  padding: .5rem .6rem;
-  border-radius: 12px;
-  background: var(--sunken);
+.paper-row {
+  padding: .5rem .2rem;
+  border-bottom: 1px solid var(--edge, rgba(0, 0, 0, .08));
   break-inside: avoid;
 }
 
-.paper-face {
-  grid-area: face;
-  display: grid;
-  place-items: center;
-  width: 3.4rem;
-  height: 3.4rem;
+.paper-row:last-child { border-bottom: 0; }
+
+.paper-name {
+  display: block;
+  margin-bottom: .3rem;
+  font-size: .96rem;
+  font-weight: 700;
+  color: var(--ink);
 }
 
-.paper-face .case-thumb { width: 3.4rem; height: 3.4rem; background: none; }
-.paper-about { grid-area: about; display: flex; flex-direction: column; min-width: 0; }
-.paper-about b { font-size: 1rem; font-weight: 700; }
-.paper-about small { font-size: .7rem; color: var(--muted); line-height: 1.25; }
-.paper-alg { grid-area: alg; font-size: .78rem; }
-.paper-alg .alg-chunk { background: var(--card-solid, #fff); }
-.paper-note { grid-area: note; margin: 0; font-size: .72rem; color: var(--muted); }
+.paper-body { display: flex; align-items: center; gap: .8rem; }
+
+.paper-face {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 3.2rem;
+  height: 3.2rem;
+}
+
+.paper-face .case-thumb { width: 3.2rem; height: 3.2rem; background: none; }
+
+.paper-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .2rem; }
+.paper-alg { font-size: .84rem; }
+.paper-alg .alg-chunk { background: var(--sunken); }
+.paper-note { margin: 0; font-size: .74rem; color: var(--muted); }
+
+/* Ticking the cases you want on it. */
+.paper-picking { display: flex; flex-direction: column; gap: .3rem; }
+
+.paper-pick-head {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-top: .5rem;
+}
+
+.paper-pick-head b { font-size: .8rem; font-weight: 600; }
+.paper-pick-head .link { margin-left: auto; }
+.paper-pick-head .link + .link { margin-left: 0; }
 
 /* Printing a dialog prints the page behind it, so for one moment the page is
    nothing but the sheet. */
@@ -3375,8 +3390,7 @@ input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offse
   body[data-printing='paper'] #paper-groups,
   body[data-printing='paper'] #paper-filter,
   body[data-printing='paper'] .detail-actions { display: none !important; }
-  body[data-printing='paper'] .paper-grid { grid-template-columns: repeat(3, 1fr); }
-  body[data-printing='paper'] .paper-card { background: none; border: 1px solid #ddd; }
+  body[data-printing='paper'] .paper-row { border-bottom-color: #ddd; }
   body[data-printing='paper'] .alg-chunk { background: #f1f1f1; }
 }
 

@@ -353,13 +353,13 @@ Tijden uit een oudere versie van de app worden bij het eerste bezoek automatisch
 
 ## Trainen op losse gevallen
 
-**Zijlijst → gevallen trainen.** Kies F2L, OLL, PLL of een van de twee-kijkbeurt-groepen,
+**Zijlijst → gevallen trainen.** Kies OLL, PLL of een van de twee-kijkbeurt-groepen,
 druk op beginnen, en je krijgt een **opzet**: draai die op je opgeloste kubus en het geval
 ligt voor je. Solve alleen dat stukje. Zodra je stopt staat het volgende geval er al, dus
 drillen is één druk per herhaling.
 
-Er zitten **129 gevallen** in — alle 41 F2L, alle 57 OLL, alle 21 PLL, en de tien van de
-twee-kijkbeurt-manier — met samen 228 algoritmes. Je tijden per geval worden apart bewaard,
+Er zitten **88 gevallen** in — alle 57 OLL, alle 21 PLL en de tien van de
+twee-kijkbeurt-manier — met samen 105 algoritmes. Je tijden per geval worden apart bewaard,
 bij het spel en niet bij je sessies: een PLL-drill van anderhalve seconde hoort niet tussen
 je 3x3-gemiddelden.
 
@@ -431,13 +431,18 @@ in het boek en gaat mee op je algblad.
 
 ## Het algblad
 
-**Zijlijst → algblad.** Alles wat je gekozen hebt, op één pagina: het plaatje, de naam en
-jouw manier, in een vorm die een printer overleeft.
+**Zijlijst → algblad.** Eén geval per regel, de pagina af: de naam erboven, het plaatje
+links en jouw algoritme ernaast. Dat is de vorm waarin je een algblad leest, en het is de
+vorm waarin het uit de printer komt.
 
-Je kiest zelf welke groepen erop staan, en of je alles wilt, alleen wat je zelf gekozen
-hebt, of alleen wat je al geoefend hebt. **Afdrukken** zet de rest van de pagina even weg
-zodat er alleen een blad uitkomt; **kopieer als tekst** geeft hetzelfde als platte tekst,
-voor waar geen printer staat.
+Je kiest zelf welke groepen erop staan, en met **gevallen aanvinken** ook welke afzonderlijke
+gevallen — handig als je precies die zeven PLL's op papier wil die je aan het leren bent.
+
+Drie manieren om het mee te nemen. **Downloaden** tekent het blad als een echte afbeelding:
+titel, datum, de plaatjes en de algoritmes, op dubbele resolutie zodat inzoomen niet vervaagt.
+Het is getekend en geen schermafdruk — de plaatjes zijn dezelfde SVG's die de app al maakt,
+dus er wordt niets opgehaald en het werkt offline. **Afdrukken** zet de rest van de pagina
+even weg, en **kopieer als tekst** geeft platte tekst voor waar geen printer staat.
 
 ## Leer oplossen
 
