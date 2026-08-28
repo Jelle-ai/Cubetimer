@@ -1,0 +1,4145 @@
+/* Colours taken from the GAN Halo on its mat: pale blue gradient, white body,
+   a blue LED glow around the pads. */
+:root {
+  --led: #4fc3f7;
+
+  --sky: #bfe3f5;
+  --paper: #ffffff;
+  --ink: #10303f;
+  --ink-soft: #3d6478;
+  --muted: #6b8ea1;
+  --line: #dceaf2;
+
+  --hold: #f4515b;
+  --ready: #21c274;
+  --record: #c8890a;
+
+  --radius: 18px;
+  --shadow: 0 1px 2px rgba(16, 48, 63, .05), 0 12px 32px -16px rgba(16, 48, 63, .3);
+  --shadow-soft: 0 1px 2px rgba(16, 48, 63, .06);
+  /* The thin light line along the top of a card that makes it read as glass. */
+  --edge: inset 0 1px 0 rgba(255, 255, 255, .9);
+
+  --page: radial-gradient(70% 55% at 82% -8%, color-mix(in srgb, var(--led) 30%, transparent), transparent 70%),
+          radial-gradient(55% 45% at 8% 108%, color-mix(in srgb, var(--led) 18%, transparent), transparent 70%),
+          linear-gradient(158deg, var(--sky) 0%, #e4f3fb 45%, #ffffff 100%);
+  --card: rgba(255, 255, 255, .72);
+  --card-solid: #ffffff;
+  --bar: rgba(255, 255, 255, .6);
+  --bar-line: rgba(255, 255, 255, .75);
+  --sunken: #f2f9fd;
+  --hover: #eaf5fc;
+}
+
+[data-theme="dark"] {
+  --record: #f5c451;
+  --ink: #eaf3f8;
+  --ink-soft: #b3c9d6;
+  --muted: #7d97a6;
+  --line: rgba(255, 255, 255, .1);
+
+  --page: radial-gradient(70% 55% at 82% -8%, color-mix(in srgb, var(--led) 20%, transparent), transparent 70%),
+          radial-gradient(55% 45% at 8% 108%, color-mix(in srgb, var(--led) 12%, transparent), transparent 70%),
+          linear-gradient(158deg, #0b1a22 0%, #0e222c 45%, #08131a 100%);
+  --card: rgba(255, 255, 255, .06);
+  --card-solid: #14262f;
+  --bar: rgba(10, 26, 34, .6);
+  --bar-line: rgba(255, 255, 255, .08);
+  --sunken: rgba(255, 255, 255, .05);
+  --hover: rgba(255, 255, 255, .09);
+  --paper: #16292f;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 14px 36px -18px rgba(0, 0, 0, .9);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, .35);
+  --edge: inset 0 1px 0 rgba(255, 255, 255, .07);
+}
+
+/* ---------- the face the digits are set in ----------
+
+   All three ship with the system: a page that works offline cannot go and
+   fetch a font. Rounded is the default because the one it reaches on Apple
+   hardware -- SF Pro Rounded -- is the closest thing to the soft, wide digits
+   on the timer's own display. */
+:root { --digits: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Quicksand, ui-sans-serif, system-ui, sans-serif; }
+
+body[data-font="system"] { --digits: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body[data-font="mono"] { --digits: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+/* Monospace digits are the widest of the three, so the readout gives back a
+   little size rather than pushing against the ring. */
+body[data-font="mono"] .time { font-size: clamp(2rem, 6.6vh, 3.2rem); letter-spacing: -.04em; }
+
+.time, .solve-time, .stat-value, .stat-best, .detail-time {
+  font-family: var(--digits);
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; height: 100%; }
+
+body {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* the page itself never grows; only the session list scrolls */
+  color: var(--ink);
+  font: 400 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+  background: var(--page);
+  background-attachment: fixed;
+}
+
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+[hidden] { display: none !important; }
+
+kbd {
+  font: inherit;
+  font-size: .9em;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: .05em .4em;
+  background: var(--paper);
+}
+
+/* ---------- top bar ---------- */
+
+.bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .8rem 1.25rem;
+  background: var(--bar);
+  border-bottom: 1px solid var(--bar-line);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+/* A small lit ring in front of the name: the timer's halo in miniature. */
+.brand::before {
+  content: "";
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2.5px solid var(--led);
+  box-shadow: 0 0 8px -1px color-mix(in srgb, var(--led) 80%, transparent);
+}
+
+.bar-right { display: flex; align-items: center; gap: .5rem; }
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .32rem .75rem;
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: var(--shadow-soft), var(--edge);
+  border: 1px solid var(--line);
+  font-size: .75rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--led);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--led) 25%, transparent);
+}
+
+.pill {
+  border-radius: 999px;
+  padding: .55rem 1.15rem;
+  font-size: .82rem;
+  font-weight: 600;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  color: #fff;
+  background: linear-gradient(140deg, color-mix(in srgb, var(--led) 88%, #fff), color-mix(in srgb, var(--led) 55%, #1f7fb5));
+  box-shadow:
+    0 6px 16px -8px color-mix(in srgb, var(--led) 90%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, .45);
+  transition: transform .18s, filter .18s, box-shadow .18s;
+}
+
+.pill:hover:not(:disabled) {
+  filter: brightness(1.05);
+  box-shadow:
+    0 10px 22px -10px color-mix(in srgb, var(--led) 95%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, .45);
+}
+.pill:active:not(:disabled) { transform: scale(.97); }
+.pill:disabled { opacity: .6; cursor: default; }
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft), var(--edge);
+  color: var(--ink-soft);
+  transition: transform .18s, color .18s, border-color .18s;
+}
+
+.icon-button:hover { color: var(--led); border-color: color-mix(in srgb, var(--led) 45%, transparent); }
+.icon-button:active { transform: scale(.94); }
+.icon-button svg { width: 20px; height: 20px; }
+
+.link {
+  color: var(--muted);
+  font-size: .78rem;
+  padding: .35rem .6rem;
+  border-radius: 8px;
+  transition: color .18s, background .18s;
+}
+
+.link:hover { color: var(--ink); background: var(--hover); }
+.link.danger:hover { color: var(--hold); }
+
+/* ---------- shell ---------- */
+
+.shell {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 1.5rem;
+  padding: 1.25rem;
+  width: 100%;
+}
+
+.stage {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.panel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+/* ---------- puzzle chips ---------- */
+
+.puzzles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .3rem;
+}
+
+.puzzle {
+  padding: .3rem .8rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  box-shadow: var(--shadow-soft), var(--edge);
+  color: var(--muted);
+  font-size: .74rem;
+  font-weight: 600;
+  transition: color .15s, background .15s, border-color .15s, box-shadow .15s;
+}
+
+.puzzle:hover { color: var(--ink); }
+
+.puzzle[data-active="true"] {
+  color: #fff;
+  background: linear-gradient(140deg, color-mix(in srgb, var(--led) 88%, #fff), color-mix(in srgb, var(--led) 60%, #1f7fb5));
+  border-color: transparent;
+  box-shadow:
+    0 5px 14px -6px color-mix(in srgb, var(--led) 85%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, .4);
+}
+
+/* ---------- scramble ---------- */
+
+/* Stacked on a wide screen, side by side on a phone (see the phone block). */
+.setup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+
+.scramble-block {
+  width: 100%;
+  max-width: 36rem;
+  text-align: center;
+  padding: .5rem .9rem .35rem;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft), var(--edge);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.scramble {
+  display: block;
+  margin: 0 auto;
+  padding: .2rem .4rem;
+  border-radius: 10px;
+  text-align: center;
+  /* A megaminx scramble comes as seven lines and has to stay that way. */
+  white-space: pre-line;
+  max-width: 100%;
+  font-size: clamp(1rem, 2.2vw, 1.22rem);
+  font-weight: 500;
+  letter-spacing: .04em;
+  line-height: 1.7;
+  word-spacing: .3em;
+  color: var(--ink);
+  transition: background .15s;
+}
+
+.scramble[data-long="true"] {
+  font-size: clamp(.72rem, 1.1vw, .84rem);
+  letter-spacing: .02em;
+  word-spacing: .12em;
+  line-height: 1.55;
+}
+
+.scramble-block:has(.scramble[data-long="true"]) { max-width: 44rem; }
+
+.scramble:hover { background: var(--hover); }
+.scramble[data-loading] { opacity: .5; }
+
+/* A scramble the official scrambler could not deliver. */
+.scramble[data-official="false"] { text-decoration: underline dotted var(--muted); text-underline-offset: 5px; }
+
+/* ---------- cube preview ---------- */
+
+.preview {
+  width: clamp(170px, 21vh, 235px);
+  margin: -.2rem auto 0;
+}
+
+.preview svg { display: block; width: 100%; height: auto; }
+
+/* The net comes with its colours already on it; only the seams between the
+   stickers are ours, so they can follow the theme. */
+.preview .sticker {
+  stroke: color-mix(in srgb, var(--ink) 55%, transparent);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+}
+
+[data-theme="dark"] .preview .sticker { stroke: color-mix(in srgb, #000 70%, transparent); }
+
+/* ---------- inspection ring ---------- */
+
+.halo-progress {
+  position: absolute;
+  inset: -7px;
+  width: calc(100% + 14px);
+  height: calc(100% + 14px);
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.halo-progress-arc {
+  fill: none;
+  stroke: var(--led);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0;
+  transition: opacity .2s;
+  vector-effect: non-scaling-stroke;
+}
+
+body[data-phase="inspecting"] .halo-progress-arc,
+body[data-phase="holding"] .halo-progress-arc,
+body[data-phase="ready"] .halo-progress-arc { opacity: .9; }
+
+body[data-inspection="over"] .halo-progress-arc { stroke: var(--hold); }
+
+/* ---------- timer ---------- */
+
+/* The white ring with its glow is the halo of the timer's pads. */
+.halo {
+  --glow: var(--led);
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: clamp(210px, 34vh, 300px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 34%, color-mix(in srgb, var(--glow) 10%, var(--paper)), var(--paper) 72%);
+  border: 7px solid var(--paper);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--glow) 60%, transparent),
+    0 0 0 12px color-mix(in srgb, var(--glow) 12%, transparent),
+    0 0 80px 8px color-mix(in srgb, var(--glow) 40%, transparent),
+    /* the white body catching light from above and shade below */
+    inset 0 2px 3px rgba(255, 255, 255, .9),
+    inset 0 -3px 8px -3px color-mix(in srgb, var(--ink) 18%, transparent),
+    inset 0 0 50px -16px color-mix(in srgb, var(--glow) 55%, transparent),
+    var(--shadow);
+  transition: box-shadow .25s ease, transform .25s ease;
+}
+
+.time {
+  font-size: clamp(2.6rem, 8vh, 4rem);
+  max-width: 92%;
+  font-weight: 300;
+  letter-spacing: -.02em;
+  line-height: 1;
+  transition: color .15s;
+}
+
+.hint {
+  margin: 0;
+  min-height: 1.4em;
+  text-align: center;
+  color: var(--muted);
+  font-size: .8rem;
+}
+
+body[data-phase="holding"] .halo,
+body[data-confirm="delete"] .halo,
+body[data-inspection="over"] .halo { --glow: var(--hold); }
+
+body[data-phase="ready"] .halo { --glow: var(--ready); }
+
+body[data-phase="holding"] .time,
+body[data-inspection="over"] .time,
+body[data-confirm="delete"] .time { color: var(--hold); }
+
+body[data-phase="ready"] .time { color: var(--ready); }
+
+/* A running solve changes one thing and one thing only: three dots in the
+   ring. Everything else on the page stays exactly as it was. */
+body[data-phase="running"] .time { letter-spacing: .1em; }
+
+/* ---------- stats ---------- */
+
+/* One card, four columns, hairlines in between. */
+.stats {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  width: 100%;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft), var(--edge);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow: hidden;
+  transition: border-color .18s ease;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .15rem;
+  padding: .65rem .25rem;
+  border-left: 1px solid var(--line);
+}
+
+.stat:first-child { border-left: 0; }
+
+.stats:hover { border-color: color-mix(in srgb, var(--led) 45%, transparent); }
+
+.stat-label {
+  font-size: .58rem;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stat-value { font-size: .95rem; font-weight: 500; }
+
+/* The record for that column, in its own colour. */
+.stat-best {
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--record);
+}
+
+.stat-best::before {
+  content: "▲";
+  margin-right: .2rem;
+  font-size: .5em;
+  vertical-align: middle;
+  opacity: .8;
+}
+
+/* ---------- session ---------- */
+
+.session {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: .85rem;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow), var(--edge);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.session-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .2rem;
+  margin-bottom: .5rem;
+}
+
+.session-tools .link { padding: .3rem .4rem; }
+
+.session-head h2 {
+  margin: 0;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* This is the only part of the page that scrolls. */
+.solves {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
+}
+
+.solves::-webkit-scrollbar { width: 6px; }
+.solves::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--muted) 40%, transparent);
+}
+.solves::-webkit-scrollbar-track { background: transparent; }
+
+.solve {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  min-height: 42px;
+  padding: .35rem .7rem;
+  border-radius: 12px;
+  background: var(--card-solid);
+  border: 1px solid var(--line);
+  text-align: left;
+  transition: border-color .15s, transform .1s, box-shadow .15s;
+}
+
+.solve {
+  box-shadow: var(--shadow-soft);
+  /* backwards, not both: a finished animation with forwards fill keeps applying
+     its last keyframe, and an animation outranks even an inline style -- which
+     silently pinned every row at transform: none and stopped a swipe from
+     moving anything. */
+  animation: rowIn .22s ease backwards;
+}
+
+.solve:hover {
+  border-color: color-mix(in srgb, var(--led) 55%, transparent);
+  box-shadow: 0 6px 16px -10px color-mix(in srgb, var(--led) 90%, transparent);
+  transform: translateY(-1px);
+}
+
+.solve:active { transform: scale(.995); }
+
+@keyframes rowIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .solve { animation: none; }
+}
+
+.solve-index {
+  min-width: 2.4ch;
+  color: var(--muted);
+  font-size: .68rem;
+  font-weight: 600;
+  text-align: right;
+}
+.solve-time { flex: 1; font-size: 1rem; font-weight: 500; }
+.solve.is-dnf .solve-time { color: var(--muted); text-decoration: line-through; }
+
+.solve-tag {
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  padding: .15rem .4rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--led) 18%, transparent);
+  color: color-mix(in srgb, var(--led) 65%, #14424f);
+}
+
+.solve-chevron { color: var(--muted); opacity: .5; font-size: .9rem; }
+
+/* ---------- solve details ---------- */
+
+.detail-time { margin: .2rem 0 0; font-size: 2.4rem; font-weight: 300; line-height: 1; }
+.detail-meta { margin: .35rem 0 .9rem; color: var(--muted); font-size: .78rem; }
+
+.detail-block { padding: .75rem .85rem; border-radius: 12px; background: var(--sunken); }
+
+.detail-label {
+  display: block;
+  margin-bottom: .3rem;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.detail-scramble { margin: 0; font-size: .95rem; line-height: 1.6; word-spacing: .2em; }
+
+.detail-actions { display: flex; gap: .4rem; margin-top: 1rem; }
+
+.detail-actions button {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 12px;
+  background: var(--sunken);
+  font-size: .85rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  transition: background .15s, color .15s;
+}
+
+.detail-actions button:hover { background: var(--hover); color: var(--ink); }
+.detail-actions button[data-active="true"] { background: var(--led); color: #fff; }
+/* The one action a sheet is actually for. This class was already on half a
+   dozen buttons and had never been given a look, so they all read as equals. */
+.detail-actions button.primary {
+  background: var(--led);
+  color: #fff;
+  font-weight: 600;
+}
+
+.detail-actions button.primary:hover { background: color-mix(in srgb, var(--led) 84%, #000); color: #fff; }
+
+.detail-actions button.danger { color: var(--hold); }
+.detail-actions button.danger:hover { background: #fdecee; }
+
+/* With nothing in it the list claims no room, so the message sits in the
+   middle of the panel instead of sinking to the bottom. */
+.solves:empty { flex: 0 0 auto; }
+
+.empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 1rem 0;
+  color: var(--muted);
+  font-size: .8rem;
+}
+
+/* ---------- settings sheet ---------- */
+
+.sheet {
+  width: min(430px, 92vw);
+  max-height: 88dvh;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 20px;
+  background: var(--card-solid);
+  box-shadow: 0 30px 70px -20px rgba(16, 48, 63, .5);
+  color: var(--ink);
+}
+
+/* Three sheets are reading matter rather than a form: the course, the case
+   book and the algorithm sheet all put a picture beside a paragraph, and at
+   430px there is room for neither. They get the width when the screen has it. */
+.sheet-wide { width: min(760px, 94vw); }
+
+.sheet::backdrop {
+  background: rgba(16, 48, 63, .38);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* The sheet lands rather than appears: down past the mark, and back. */
+.sheet[open] { animation: sheetIn .32s cubic-bezier(.2, 1.25, .35, 1) both; }
+.sheet[open]::backdrop { animation: fadeIn .22s ease both; }
+
+@keyframes sheetIn {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet[open], .sheet[open]::backdrop { animation: none; }
+}
+
+.sheet-inner {
+  max-height: 88dvh;
+  overflow-y: auto;
+  padding: 1.1rem 1.25rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .35rem;
+}
+
+.sheet-head h2 { margin: 0; font-size: 1.05rem; }
+
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .7rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.setting.stacked { flex-direction: column; align-items: stretch; gap: .6rem; }
+
+.setting-label span { display: block; font-size: .9rem; font-weight: 500; }
+.setting-label small { color: var(--muted); font-size: .75rem; }
+
+.segmented {
+  display: flex;
+  gap: .2rem;
+  padding: .2rem;
+  border-radius: 11px;
+  background: var(--sunken);
+}
+
+.segmented button {
+  min-height: 38px;
+  padding: 0 .7rem;
+  border-radius: 9px;
+  font-size: .78rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+
+/* In a stacked row the group has the width to itself, so the choices share it. */
+.setting.stacked .segmented { width: 100%; }
+.setting.stacked .segmented button { flex: 1; }
+
+.segmented button[data-active="true"] {
+  background: var(--led);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--led) 70%, transparent);
+}
+
+.swatches { display: flex; gap: .4rem; }
+
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 2px transparent;
+  transition: transform .15s, box-shadow .15s;
+}
+
+.swatch:hover { transform: scale(1.08); }
+.swatch[data-active="true"] { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--swatch); }
+
+/* The full gesture list, which no longer fits under the ring on a phone. */
+.gestures {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .1rem .8rem;
+  margin: 0;
+  padding: .7rem .85rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  font-size: .76rem;
+}
+
+.gestures dt { color: var(--muted); white-space: nowrap; }
+.gestures dd { margin: 0; color: var(--ink-soft); }
+
+.device-details {
+  padding: .7rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  font-size: .75rem;
+  color: var(--ink-soft);
+}
+
+.device-service { margin-bottom: .4rem; }
+.device-chr { display: flex; justify-content: space-between; gap: 1rem; padding-left: .8rem; color: var(--muted); }
+.device-details code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.device-hint { margin: .6rem 0 0; color: var(--muted); line-height: 1.45; }
+
+/* Stack label and control once the row gets cramped -- but only the rows whose
+   control actually needs the width. Stacking every one of them made a plain
+   on/off setting three rows tall, and a list of twenty of those is most of why
+   the settings were unreadable on a phone. A switch sits beside its label. */
+@media (max-width: 480px) {
+  .setting-label small { display: block; }
+  .setting:has(.segmented),
+  .setting:has(.swatches),
+  .setting:has(select),
+  .setting:has(input[type='text']),
+  .setting:has(input[type='number']),
+  .setting:has(.color-slots),
+  .setting:has(.move-new) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: .55rem;
+  }
+  .segmented, .swatches { align-self: flex-start; }
+}
+
+/* ---------- insight line ---------- */
+
+.insight {
+  flex: none;
+  margin: 0;
+  padding: 0 .2rem;
+  color: var(--muted);
+  font-size: .72rem;
+  text-align: center;
+}
+
+/* ---------- colour pickers ---------- */
+
+.color-slots { display: flex; flex-direction: column; gap: .35rem; }
+
+.color-slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: .8rem;
+  color: var(--ink-soft);
+}
+
+.color-slot input[type="color"] {
+  width: 46px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+}
+
+.solve-note {
+  max-width: 8ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .66rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ---------- session picker ---------- */
+
+.session-select {
+  flex: 1 1 8rem;
+  min-width: 0;
+  max-width: 100%;
+  padding: .3rem .4rem;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.session-select:hover { border-color: var(--line); }
+
+.session-tools { display: flex; align-items: center; gap: .1rem; }
+
+.field { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .6rem; }
+.field span { font-size: .78rem; color: var(--muted); }
+
+.field input, .number-input {
+  padding: .55rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--sunken);
+  color: var(--ink);
+  font: inherit;
+  font-size: .9rem;
+}
+
+.number-input { width: 5.5rem; text-align: right; }
+.setting-control { display: flex; align-items: center; gap: .5rem; }
+
+.detail-actions button:disabled { opacity: .45; cursor: default; }
+
+/* ---------- statistics sheet ---------- */
+
+/* ---------- the statistics sheet ----------
+
+   A flat list of fifteen label-and-number rows put the label at one edge and
+   the number at the other with a hand's width of nothing in between, so
+   reading one meant crossing that gap for every line. The measures are grouped
+   instead, and each shape gets the layout it wants: counts as tiles, averages
+   as a table with the record in a column of its own beside the current value. */
+
+.stats-body { display: flex; flex-direction: column; gap: 1.1rem; }
+
+.stats-group { display: flex; flex-direction: column; gap: .45rem; }
+
+.stats-group-title {
+  margin: 0;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stats-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .4rem;
+}
+
+.stats-tile {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  padding: .55rem .75rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+}
+
+.stats-tile-label {
+  font-size: .62rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stats-tile-value { font-family: var(--digits); font-size: 1.05rem; font-weight: 500; }
+
+.stats-table {
+  display: flex;
+  flex-direction: column;
+  padding: .3rem .75rem .45rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+}
+
+/* Fixed number columns rather than auto ones, so they stay in line from row to
+   row however wide the figures happen to be. */
+.stats-row {
+  display: grid;
+  grid-template-columns: 1fr 6.4ch 6.4ch;
+  align-items: baseline;
+  column-gap: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.stats-row-head {
+  border-top: 0;
+  padding-bottom: .3rem;
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stats-row-head span { text-align: right; }
+.stats-row-head span:first-child { text-align: left; }
+
+.stats-row-label {
+  padding: .35rem 0;
+  font-size: .82rem;
+  color: var(--ink-soft);
+}
+
+.stats-row-value {
+  padding: .35rem 0;
+  font-family: var(--digits);
+  font-size: .92rem;
+  font-weight: 500;
+  text-align: right;
+}
+
+.stats-row-record { color: var(--record); }
+.stats-row-other { color: var(--muted); }
+
+button.stats-tile {
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+
+button.stats-tile:hover {
+  border-color: color-mix(in srgb, var(--led) 50%, transparent);
+  background: color-mix(in srgb, var(--led) 8%, var(--sunken));
+}
+
+/* A row that stands for solves can be pressed, and says so on hover. */
+button.stats-row {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background .15s;
+}
+
+button.stats-row:hover { background: color-mix(in srgb, var(--led) 9%, transparent); }
+button.stats-row:hover .stats-row-label { color: var(--ink); }
+
+.picked-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: .5rem 0 0;
+}
+
+/* Two session names need more room than "nu" and "record" do. */
+.stats-table-compare .stats-row { grid-template-columns: 1fr 8.5ch 8.5ch; column-gap: .7rem; }
+.stats-table-compare .stats-row-head span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.field-inline {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-bottom: .9rem;
+}
+
+.field-inline span { flex: none; }
+.field-inline .field-select { flex: 1; min-width: 0; }
+
+.field-select {
+  padding: .55rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--sunken);
+  color: var(--ink);
+  font: inherit;
+  font-size: .9rem;
+  cursor: pointer;
+}
+
+.paste-input {
+  width: 100%;
+  padding: .7rem .8rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--sunken);
+  color: var(--ink);
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .82rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.detail-meta code {
+  padding: .05em .3em;
+  border-radius: 4px;
+  background: var(--sunken);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .92em;
+}
+
+/* the stats row is a button now */
+.stats { padding: 0; text-align: inherit; }
+.stats:hover .stat { background: color-mix(in srgb, var(--led) 6%, transparent); }
+
+/* a solve that stayed under the target */
+.solve.is-under .solve-index::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: .3rem;
+  border-radius: 50%;
+  background: var(--ready);
+  vertical-align: middle;
+}
+
+/* ---------- selecting several solves ---------- */
+
+/* While selecting, this bar takes the place of the session header. */
+.selection-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .2rem;
+  margin-bottom: .5rem;
+}
+
+body[data-selecting] .session-head { display: none; }
+
+.selection-count { font-size: .74rem; font-weight: 700; color: var(--led); padding-left: .3rem; white-space: nowrap; }
+.selection-actions { display: flex; align-items: center; gap: 0; }
+.selection-actions .link { padding: .3rem .4rem; }
+
+/* A checkbox appears in front of every time while selecting. */
+.solve-check {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  border-radius: 5px;
+  border: 1.5px solid var(--muted);
+  display: grid;
+  place-items: center;
+  font-size: .7rem;
+  color: #fff;
+  line-height: 1;
+}
+
+.solve[aria-pressed="true"] { border-color: var(--led); background: color-mix(in srgb, var(--led) 10%, var(--card-solid)); }
+.solve[aria-pressed="true"] .solve-check { background: var(--led); border-color: var(--led); }
+
+/* ---------- times found on the timer ---------- */
+
+.import-list {
+  list-style: none;
+  margin: .2rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+
+.import-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .5rem .75rem;
+  border-radius: 11px;
+  background: var(--sunken);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.import-list li span { color: var(--muted); font-size: .72rem; font-weight: 400; }
+
+.import-note { margin: .6rem 0 0; color: var(--muted); font-size: .72rem; line-height: 1.5; }
+
+/* ---------- switch ---------- */
+
+.switch {
+  flex: none;
+  position: relative;
+  width: 54px;
+  height: 32px;
+  padding: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 40%, transparent);
+  transition: background .2s;
+}
+
+/* Keeps the tap target at 44px without making the switch itself huge. */
+.switch::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+.switch span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(16, 48, 63, .3);
+  transition: transform .2s cubic-bezier(.3, .8, .4, 1);
+}
+
+.switch[aria-checked="true"] { background: var(--led); }
+.switch[aria-checked="true"] span { transform: translateX(22px); }
+.switch:active span { width: 30px; }
+
+/* ---------- best and worst ---------- */
+
+.solve.is-best { border-color: color-mix(in srgb, var(--ready) 60%, transparent); }
+.solve.is-best .solve-time { color: var(--ready); }
+.solve.is-worst .solve-time { color: color-mix(in srgb, var(--hold) 75%, var(--ink)); }
+
+/* ---------- confetti ---------- */
+
+.confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confetti i {
+  position: absolute;
+  width: var(--size);
+  height: calc(var(--size) * 1.6);
+  border-radius: 2px;
+  opacity: 0;
+}
+
+.confetti .fall {
+  top: -20px;
+  left: var(--x);
+  animation: fall 2.2s var(--delay) cubic-bezier(.25, .6, .4, 1) forwards;
+}
+
+.confetti .launch {
+  bottom: -20px;
+  left: var(--x);
+  animation: launch 3.4s var(--delay) cubic-bezier(.15, .75, .35, 1) forwards;
+}
+
+@keyframes fall {
+  0% { transform: translate3d(0, 0, 0) rotate(0); opacity: 1; }
+  100% { transform: translate3d(var(--drift), 105vh, 0) rotate(var(--spin)); opacity: .15; }
+}
+
+@keyframes launch {
+  0% { transform: translate3d(0, 0, 0) rotate(0); opacity: 1; }
+  35% { transform: translate3d(calc(var(--travel) * .55), calc(var(--rise) * -1), 0) rotate(var(--spin)); opacity: 1; }
+  100% { transform: translate3d(var(--travel), 12vh, 0) rotate(calc(var(--spin) * 2)); opacity: 0; }
+}
+
+/* Going over the target: a short red pulse of the ring instead. */
+body[data-miss] .halo {
+  --glow: var(--hold);
+  animation: nudge .5s ease;
+}
+
+@keyframes nudge {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti { display: none; }
+  body[data-miss] .halo { animation: none; }
+}
+
+/* ---------- focus ---------- */
+
+:focus-visible {
+  outline: 2px solid var(--led);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.text-button {
+  padding: .45rem .9rem;
+  border-radius: 10px;
+  background: var(--sunken);
+  font-size: .8rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+
+.text-button:hover { background: var(--hover); color: var(--ink); }
+
+/* ---------- toast ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  max-width: min(90vw, 30rem);
+  padding: .65rem 1.1rem;
+  border-radius: 999px;
+  background: var(--card-solid);
+  box-shadow: 0 16px 40px -14px rgba(16, 48, 63, .55);
+  font-size: .8rem;
+  text-align: center;
+}
+
+/* ---------- small screens ----------
+
+   Two things go wrong on a phone, and they are not the same thing. Held
+   upright there is too little width, so the session moves underneath. Held
+   sideways there is too little height, so nothing may be tall. A phone in
+   landscape is 844px wide and 390px high: it needs the second treatment and
+   emphatically not the first. */
+
+/* Wherever height is short of it, the cube moves in beside the moves and the
+   two share one pane of glass. Together they cost one block of height instead
+   of two, which is what lets the ring stay big. */
+@media (max-width: 860px), (max-height: 620px) {
+  .setup {
+    flex-direction: row;
+    align-items: center;
+    gap: .6rem;
+    padding: .5rem .7rem;
+    border-radius: 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-soft), var(--edge);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .scramble-block {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .scramble { font-size: .82rem; line-height: 1.5; padding: .1rem .2rem; }
+  .scramble-block .link { font-size: .66rem; padding: .1rem .3rem; }
+
+  .preview {
+    flex: none;
+    align-self: center;
+    width: clamp(96px, 13vh, 124px);
+    margin: 0;
+  }
+
+  .stage { gap: .7rem; justify-content: flex-start; }
+  .puzzles { gap: .25rem; }
+  .puzzle { padding: .25rem .6rem; font-size: .7rem; }
+  .hint { font-size: .72rem; }
+  .stats { border-radius: 14px; }
+  .stat { padding: .4rem .15rem; gap: .05rem; }
+  .stat-label { font-size: .5rem; letter-spacing: .06em; }
+  .stat-value { font-size: .8rem; }
+  .stat-best { font-size: .65rem; }
+  .stat-best::before { margin-right: .15rem; }
+  .session { padding: .6rem; }
+  .solve { padding: .25rem .25rem .25rem .5rem; }
+  .solve-time { font-size: .95rem; }
+}
+
+/* Upright: one column, session underneath. Only when there is height enough to
+   stack two things -- a landscape phone is narrow by this rule too, and there
+   the columns must stay side by side. */
+@media (max-width: 860px) and (min-height: 620px) {
+  .shell {
+    grid-template-columns: 1fr;
+    /* One row: with the times in a sheet of their own, the stage has the
+       screen to itself. */
+    grid-template-rows: minmax(0, 1fr);
+    gap: .7rem;
+    padding: .6rem;
+  }
+
+  .stage { justify-content: center; gap: 1.2rem; }
+  .halo { width: clamp(180px, 27vh, 260px); border-width: 7px; }
+  .time { font-size: clamp(2.5rem, 8.4vh, 3.4rem); }
+  .scramble { font-size: .95rem; }
+  .setup { padding: .7rem .9rem; }
+}
+
+/* ---------- what a phone leaves out ----------
+
+   Two things on the timer screen: the scramble and the ring. The puzzle chips
+   and the whole times panel are moved into sheets of their own by
+   applyLayout(), each behind a button in the top bar. The cube is not drawn
+   there at all. */
+@media (max-width: 860px) {
+  /* Nothing needs saying under the ring -- except the one line that asks a
+     question, which has to be answerable. */
+  body[data-compact="true"] .hint { display: none; }
+  body[data-compact="true"][data-confirm] .hint { display: block; }
+
+  /* With the panel moved into its sheet there is no second column to fill,
+     whichever way the phone is held. */
+  body[data-compact="true"] .shell { grid-template-columns: minmax(0, 1fr); }
+
+  /* The bar goes to the bottom, where a thumb reaches without regripping.
+     column-reverse rather than a second element: the same header, drawn last.
+     Only the header and the shell are in the flow -- sheets are modal and the
+     toast is fixed -- so nothing else is turned upside down by it. */
+  body { flex-direction: column-reverse; }
+
+  .bar {
+    border-bottom: 0;
+    border-top: 1px solid var(--bar-line);
+    padding-bottom: calc(.7rem + env(safe-area-inset-bottom));
+  }
+
+  /* and the toast moves up out of the bar's way */
+  .toast { bottom: calc(5.2rem + env(safe-area-inset-bottom)); }
+
+  /* The averages sit on the timer screen again, lifted out of the panel that
+     went into the sheet. Wider than in the panel, so they read at a glance
+     from across a table. */
+  body[data-compact="true"] .stats { width: 100%; }
+  body[data-compact="true"] .stat { padding: .5rem .2rem; gap: .1rem; }
+  body[data-compact="true"] .stat-label { font-size: .54rem; letter-spacing: .1em; }
+  body[data-compact="true"] .stat-value { font-size: .95rem; }
+  body[data-compact="true"] .stat-best { font-size: .74rem; }
+
+  /* Three buttons and the connect pill: the wordmark gives up its place to
+     them and leaves the lit ring it is drawn from. */
+  .brand { font-size: 0; gap: 0; }
+  .brand::before { width: 13px; height: 13px; }
+  .bar { padding: .7rem .85rem; gap: .5rem; }
+  .bar-right { gap: .4rem; }
+  .pill { padding: .5rem .9rem; font-size: .78rem; }
+  .icon-button { width: 36px; height: 36px; }
+}
+
+
+/* ---------- a phone held sideways ----------
+
+   Barely 340px of height once the bar has its share, and width to spare. So
+   the stage stops being a column: the ring takes the right, and the scramble
+   and the averages stack up the left beside it. */
+@media (max-width: 940px) and (orientation: landscape) {
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "setup halo"
+      "stats halo"
+      "hint  halo";
+    align-items: center;
+    align-content: center;
+    justify-items: stretch;
+    gap: .5rem 1.1rem;
+    /* The ring's glow reaches well past its own box. Nothing here can make the
+       page grow -- the shell is one fixed cell and the body clips -- so the
+       stage can stop cutting it off. */
+    overflow: visible;
+    padding-right: 1.4rem;
+  }
+
+  #setup { grid-area: setup; }
+  .halo { grid-area: halo; align-self: center; }
+  .stats { grid-area: stats; }
+  .hint { grid-area: hint; }
+
+  .halo { width: clamp(120px, 50vh, 195px); border-width: 6px; justify-self: center; }
+  .time { font-size: clamp(1.8rem, 17vh, 2.9rem); }
+  .scramble { font-size: .82rem; line-height: 1.5; }
+  .setup { padding: .45rem .7rem; }
+  .shell { padding: .5rem .7rem; gap: .7rem; }
+
+  /* Nothing here scrolls, so anything that overruns has to be given back. */
+  .stat { padding: .35rem .2rem; }
+  .stat-value { font-size: .88rem; }
+  .stat-best { font-size: .7rem; }
+}
+
+/* The puzzle picker, once it is a sheet of its own rather than a strip. */
+.scramble-slot { display: flex; flex-direction: column; align-items: stretch; gap: .5rem; }
+.scramble-slot .puzzles { flex-direction: column; }
+.scramble-slot .puzzle { padding: .7rem 1rem; font-size: .9rem; border-radius: 12px; }
+
+/* Sideways, or any window too short for a full-size ring. */
+@media (max-height: 620px) {
+  .shell { gap: .8rem; padding: .6rem; }
+  .stage { gap: .45rem; justify-content: center; }
+  .halo { width: clamp(110px, 46vh, 240px); border-width: 5px; }
+  .time { font-size: clamp(1.6rem, 13vh, 3rem); }
+  .preview { width: clamp(70px, 20vh, 110px); }
+  .insight { display: none; }
+}
+
+/* ---------- the times, in a sheet of their own on a phone ----------
+
+   Taller than the other sheets, and it does not scroll as a whole: the session
+   header stays put while the list scrolls under it, the way it does beside the
+   timer on a wide screen. */
+.sheet-tall .sheet-inner {
+  height: 84dvh;
+  overflow: hidden;
+}
+
+/**
+ * The one part of a tall sheet that scrolls.
+ *
+ * The sheet itself is a fixed height with its overflow hidden so the heading
+ * can stay put -- which means anything past the fold was simply gone, with no
+ * way to reach it. On a phone that took most of the games sheet and nearly all
+ * of the look-back sheet with it. Whatever carries this class is the scroller.
+ */
+.sheet-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* A flick that runs out of list must not carry on and scroll the page behind. */
+  overscroll-behavior: contain;
+  /* Room for the last row to clear the rounded corner and the home bar. */
+  padding-bottom: .4rem;
+}
+
+/* A scroller that is also a flex column keeps its own spacing -- and its
+   children must not be allowed to shrink to fit, which is what a flex column
+   does by default and which quietly squashed every block in the look-back sheet
+   instead of letting the list run past the fold and scroll. */
+.sheet-scroll.records-body { gap: 1.1rem; }
+.sheet-scroll > * { flex-shrink: 0; }
+
+.solves-slot {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.solves-slot .panel { flex: 1; min-height: 0; }
+
+/* Inside the sheet there is no page behind it to sit on, so the panel's own
+   card drops its frame and lets the sheet be the surface. */
+.solves-slot .session {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.solves-slot .solve { min-height: 46px; padding: .4rem .35rem .4rem .6rem; }
+.solves-slot .solve-time { font-size: 1.05rem; }
+.solves-slot .solve-index { font-size: .72rem; }
+
+/* ---------- day headings in the list ---------- */
+
+.day-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: .5rem 0 .1rem;
+  padding: .2rem .1rem .3rem;
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  /* the rows scroll under it, so it needs something to hide them behind */
+  background: linear-gradient(var(--card-solid) 70%, transparent);
+}
+
+.day-head:first-child { margin-top: 0; }
+
+/* ---------- swiping a row ---------- */
+
+/* flex: none is not decoration here. A flex item's automatic minimum size is
+   what normally stops it being squashed below its content -- and setting any
+   overflow other than visible, which the swipe reveal below needs, throws that
+   protection away. Without this the rows in a list taller than its box are free
+   to shrink to nothing, which is exactly what they did: a full list of times
+   rendering at zero height. */
+.solves > li { flex: none; }
+
+.solve-row {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+/* What shows up behind a row on its way out. Dragging left uncovers the right
+   edge and the bin waiting there; dragging right uncovers the left edge and the
+   penalty, which turns from +2 into DNF once the row is dragged far enough. */
+.swipe-mark {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  padding: 0 1.1rem;
+  border-radius: 12px;
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+.swipe-mark-bin { justify-content: flex-end; background: color-mix(in srgb, var(--hold) 55%, transparent); }
+.swipe-mark-bin svg { width: 20px; height: 20px; }
+
+.swipe-mark-penalty { justify-content: flex-start; background: color-mix(in srgb, var(--record) 55%, transparent); }
+
+.solve-row[data-swipe] .solve { position: relative; z-index: 1; }
+.solve-row[data-swipe="delete"] .swipe-mark-bin { display: flex; }
+.solve-row[data-swipe="plus2"] .swipe-mark-penalty,
+.solve-row[data-swipe="dnf"] .swipe-mark-penalty { display: flex; }
+
+/* Past the point of no return it goes solid, so you can feel it commit. */
+.solve-row[data-armed="true"] .swipe-mark-bin { background: var(--hold); }
+.solve-row[data-armed="true"][data-swipe="plus2"] .swipe-mark-penalty { background: var(--record); }
+.solve-row[data-swipe="dnf"] .swipe-mark-penalty { background: var(--hold); }
+
+/* ---------- quick actions ---------- */
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .4rem;
+  margin-top: .6rem;
+}
+
+.quick-actions button {
+  min-height: 52px;
+  border-radius: 12px;
+  background: var(--sunken);
+  font-size: .9rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  transition: background .15s, color .15s;
+}
+
+.quick-actions button:hover { background: var(--hover); color: var(--ink); }
+.quick-actions button[data-active="true"] { background: var(--led); color: #fff; }
+.quick-actions button.danger { color: var(--hold); }
+.quick-actions button.danger:hover { background: color-mix(in srgb, var(--hold) 12%, transparent); }
+
+/* ---------- an offer to take it back ---------- */
+
+.toast-action {
+  margin-left: .7rem;
+  padding: .15rem .5rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--led) 16%, transparent);
+  color: var(--led);
+  font-size: .78rem;
+  font-weight: 600;
+}
+
+.toast-action:hover { background: color-mix(in srgb, var(--led) 26%, transparent); }
+
+/* ---------- practice: how much cubing, and how many days on the trot ---------- */
+
+.practice {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  padding: .5rem .75rem;
+  border-radius: 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft), var(--edge);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  text-align: left;
+  transition: border-color .18s ease;
+}
+
+.practice:hover { border-color: color-mix(in srgb, var(--led) 45%, transparent); }
+
+/* The count belongs against the flame: it is the flame's number. */
+.practice-run { flex: none; display: flex; align-items: center; gap: .25rem; }
+
+.practice-flame { width: 1.35rem; height: 1.35rem; flex: 0 0 auto; transform: rotate(-90deg); }
+.practice-ring-back, .practice-ring {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.practice-ring-back { stroke: var(--sunken); }
+.practice-ring {
+  stroke: var(--led);
+  /* 2 * pi * 9, so the dash can be set as a share of the way round. */
+  stroke-dasharray: 56.5;
+  stroke-dashoffset: calc(56.5 * (1 - var(--filled, 0)));
+  transition: stroke-dashoffset .4s ease;
+}
+
+.practice-days-count {
+  font-family: var(--digits);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--muted);
+  min-width: 1ch;
+  transition: color .3s;
+}
+
+.practice[data-done="true"] .practice-days-count { color: var(--record); }
+
+/* The flame only lights once the day is actually earned. */
+.practice[data-done="true"] .practice-ring { stroke: var(--ready); }
+
+.practice-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .3rem; }
+
+.practice-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .5rem;
+  font-size: .76rem;
+  color: var(--ink-soft);
+}
+
+.practice-goal {
+  flex: none;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+
+.practice[data-done="true"] .practice-goal { color: var(--record); }
+
+.practice-track {
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 25%, transparent);
+  overflow: hidden;
+}
+
+.practice-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--led) 70%, #fff), var(--led));
+  transition: width .35s ease;
+}
+
+.practice[data-done="true"] .practice-fill {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--record) 70%, #fff), var(--record));
+}
+
+/* ---------- the practice sheet ---------- */
+
+.practice-totals {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--sunken);
+  overflow: hidden;
+  margin-bottom: .6rem;
+}
+
+.practice-total {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .15rem;
+  padding: .6rem .2rem;
+  border-left: 1px solid var(--line);
+}
+
+.practice-total:first-child { border-left: 0; }
+
+/* The sheet grows to what is in it and scrolls as a whole, so the list does
+   not need a scroller of its own. */
+.practice-days {
+  flex: none;
+  list-style: none;
+  margin: .4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+
+.practice-days > li { flex: none; }
+
+.practice-day {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: .8rem;
+  padding: .5rem .75rem;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--card-solid);
+  box-shadow: var(--shadow-soft);
+  font-size: .84rem;
+}
+
+/* A day that cleared the bar is marked down the side, not shouted about. */
+.practice-day[data-done="true"] {
+  border-left: 3px solid var(--record);
+  padding-left: calc(.75rem - 2px);
+}
+
+.practice-day-name { color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.practice-day-time { font-family: var(--digits); font-weight: 500; }
+.practice-day-count { color: var(--muted); font-size: .74rem; min-width: 3.5ch; text-align: right; }
+
+.practice-empty { padding: 1rem; text-align: center; color: var(--muted); font-size: .82rem; }
+
+/* The statistics carry a three-column table, which wants a little more width
+   than a sheet of settings rows does. */
+#stats-sheet { width: min(500px, 94vw); }
+
+/* ---------- carrying it all to another device ---------- */
+
+/* A file input styled by the browser and impossible to style back, so the
+   button beside it does the talking and this one is only reachable by it. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.transfer-head {
+  margin: 1rem 0 .3rem;
+  font-size: .82rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.transfer-head:first-of-type { margin-top: .6rem; }
+
+/* ---------- splits ----------
+
+   Under the ring rather than on it: reaching for it must never be reaching for
+   the thing that stops the clock. */
+
+.split {
+  position: absolute;
+  left: 50%;
+  bottom: -1.6rem;
+  transform: translateX(-50%);
+  min-height: 40px;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  background: var(--card-solid);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--edge);
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  z-index: 3;
+}
+
+.split:disabled { opacity: .45; }
+.detail-splits { margin: .5rem 0 .2rem; }
+
+/* ---------- the big display ----------
+
+   For a table across a room: the scramble and the time, and nothing else at
+   all. That was the intention before; what it actually left on screen was the
+   side list eating a third of a laptop, and on a phone the whole statistics
+   grid and the practice meter -- because in a narrow layout those two are moved
+   out of the panel and into the stage, so hiding the panel missed them. They
+   are hidden by what they are here rather than by where they happen to sit.
+
+   The white disc goes too. Across a room a big white circle is the thing you
+   see and the digits are the thing you cannot; without it the digits have the
+   whole screen, and the ring that counts inspection down is still there as a
+   thin line around them. Which phase you are in is in the colour of the digits,
+   which reads from further away than a rim ever did. */
+
+body[data-big="true"] .bar,
+body[data-big="true"] .rail,
+body[data-big="true"] .rail-shade,
+body[data-big="true"] #panel,
+body[data-big="true"] .stats,
+body[data-big="true"] .practice,
+body[data-big="true"] .puzzles,
+body[data-big="true"] .preview,
+body[data-big="true"] .insight,
+body[data-big="true"] .mode-strip,
+body[data-big="true"] .dare-strip,
+body[data-big="true"] .scramble-again,
+body[data-big="true"] .scramble-taste,
+body[data-big="true"] .scramble-tools,
+body[data-big="true"] .hint { display: none !important; }
+
+/* The bar is gone, so the page no longer needs to be drawn bottom-up. */
+body[data-big="true"] { flex-direction: column; }
+body[data-big="true"] .shell { grid-template-columns: 1fr; padding: 0; gap: 0; }
+
+body[data-big="true"] .stage {
+  justify-content: center;
+  gap: clamp(1rem, 5vh, 3rem);
+  padding: clamp(1rem, 4vh, 2.5rem);
+  overflow: visible;
+}
+
+/* On a narrow or short screen the card is not the scramble block but the setup
+   around it -- there the moves and the little cube share one pane of glass.
+   Both have to lose it, or the card comes back on exactly the screens where
+   this mode is most likely to be used. */
+body[data-big="true"] .setup {
+  width: 100%;
+  flex-direction: column;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* The scramble without its card: from a distance the panel is the thing you
+   see and the moves are the thing you are trying to read. */
+body[data-big="true"] .scramble-block {
+  width: 100%;
+  max-width: min(52rem, 92vw);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+body[data-big="true"] .scramble {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  font-size: clamp(1.15rem, 3.2vw, 2.4rem);
+  line-height: 1.35;
+  letter-spacing: .05em;
+}
+
+body[data-big="true"] .scramble[data-long="true"] { font-size: clamp(.95rem, 2.2vw, 1.6rem); }
+
+/* The ring keeps only the line that counts inspection down. Sized by width
+   rather than max-width -- raising the cap alone left it at its everyday 300px
+   while the digits grew past it. */
+body[data-big="true"] .halo {
+  /* Only wide enough to clear the digits: the ring is no longer a face, it is
+     the line that counts inspection down, and a circle far bigger than what it
+     encloses leaves the whole composition sitting oddly low. */
+  width: min(80vw, 62vh);
+  max-width: none;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+
+body[data-big="true"] .halo-progress-arc { stroke-width: 4; }
+
+body[data-big="true"] .time {
+  font-size: min(28vw, 23vh);
+  max-width: 100%;
+  font-weight: 400;
+}
+
+/* Held sideways the stage is already two columns -- the ring on the right, the
+   scramble and the averages up the left. With the averages gone that column is
+   only the moves, so the row of it is dropped and both halves use the whole
+   height: a wide screen that is barely 390 tall has width to spend and none to
+   spare. */
+@media (max-width: 940px) and (orientation: landscape) {
+  body[data-big="true"] .stage {
+    grid-template-areas: "setup halo";
+    grid-template-rows: auto;
+    gap: 0 1.4rem;
+  }
+
+  body[data-big="true"] .halo { width: min(46vw, 84vh); }
+  body[data-big="true"] .time { font-size: min(17vw, 32vh); }
+  body[data-big="true"] .scramble { font-size: clamp(1.05rem, 2.6vw, 2rem); }
+}
+
+/* A way back that is on the screen rather than in a message that fades. */
+.big-exit { display: none; }
+
+body[data-big="true"] .big-exit {
+  position: fixed;
+  top: max(.8rem, env(safe-area-inset-top));
+  right: max(.8rem, env(safe-area-inset-right));
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 40px;
+  padding: 0 .9rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 72%, transparent);
+  border: 1px solid var(--line);
+  font-size: .8rem;
+  color: var(--muted);
+  opacity: .55;
+  transition: opacity .2s, color .2s;
+}
+
+body[data-big="true"] .big-exit:hover { opacity: 1; color: var(--ink); }
+
+/* While the clock runs there is nothing to press it for, and a button in the
+   corner of a timer is a thing to knock. */
+body[data-big="true"][data-phase="running"] .big-exit,
+body[data-big="true"][data-phase="ready"] .big-exit { opacity: 0; pointer-events: none; }
+
+.keys-body { display: flex; flex-direction: column; gap: 1rem; }
+.keys-body .round-lines div { align-items: baseline; }
+.keys-body .round-lines b { flex: 0 0 auto; }
+.keys-body .round-lines span { text-align: right; color: var(--muted); font-size: .82rem; }
+
+#metro-toggle[data-active="true"] { background: color-mix(in srgb, var(--led) 20%, transparent); color: var(--ink); }
+
+/* ---------- skins ---------- */
+
+.skins { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .4rem; }
+
+.skin {
+  --chip: var(--led);
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 36px;
+  padding: 0 .75rem;
+  border-radius: 999px;
+  background: var(--sunken);
+  font-size: .82rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.skin::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--chip);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .18);
+}
+
+.skin[data-active="true"] { background: var(--hover); color: var(--ink); font-weight: 600; }
+
+/* ---------- the ring that keeps up ----------
+
+   A feeling rather than a reading: how the glow leans says whether you are
+   ahead of your usual pace, and you never have to look straight at it. */
+
+body[data-pace="ahead"] .halo { --glow: var(--ready); }
+body[data-pace="behind"] .halo { --glow: var(--hold); }
+body[data-phase="running"] .halo { transition: box-shadow .45s ease, background .45s ease; }
+
+/* ---------- sharing ---------- */
+
+.share-preview {
+  margin: .3rem 0 .6rem;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--sunken);
+}
+
+.share-preview img { display: block; width: 100%; height: auto; }
+
+/* ---------- your cubes ---------- */
+
+.cube-list { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .4rem; }
+
+.cube-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  min-height: 34px;
+  padding: 0 .5rem 0 .7rem;
+  border-radius: 999px;
+  background: var(--sunken);
+  font-size: .82rem;
+  color: var(--ink-soft);
+}
+
+.cube-chip[data-active="true"] { background: var(--led); color: #fff; }
+.cube-drop { opacity: .6; font-size: 1rem; line-height: 1; }
+.cube-drop:hover { opacity: 1; }
+
+/* ---------- the cabinet ---------- */
+
+.badge-wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: .35rem;
+}
+
+.badge {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  padding: .5rem .55rem;
+  border-radius: 11px;
+  background: var(--sunken);
+  text-align: center;
+}
+
+.badge b { font-size: .78rem; font-weight: 600; line-height: 1.2; }
+.badge small { font-size: .66rem; color: var(--muted); }
+.badge[data-won="true"] { background: color-mix(in srgb, var(--record) 16%, var(--sunken)); }
+.badge[data-won="false"] { opacity: .5; }
+
+/* ---------- a year of days ----------
+
+   Squares on a wall, not a line on a graph: a year is meant to be looked at,
+   not read off an axis. */
+
+.year-wrap { overflow-x: auto; padding-bottom: .2rem; }
+
+.year-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 10px);
+  gap: 2px;
+  width: max-content;
+}
+
+.year-grid i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--sunken);
+}
+
+.year-grid i[data-level="1"] { background: color-mix(in srgb, var(--led) 30%, var(--sunken)); }
+.year-grid i[data-level="2"] { background: color-mix(in srgb, var(--led) 52%, var(--sunken)); }
+.year-grid i[data-level="3"] { background: color-mix(in srgb, var(--led) 74%, var(--sunken)); }
+.year-grid i[data-level="4"] { background: var(--led); }
+
+/* ---------- the games hub ---------- */
+
+.daily-card {
+  padding: .8rem .9rem;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--led) 10%, var(--sunken));
+  margin-bottom: .3rem;
+}
+
+.daily-head { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }
+.daily-head b { font-size: 1rem; }
+.daily-head small { font-size: .78rem; color: var(--muted); }
+
+.daily-go {
+  width: 100%;
+  min-height: 44px;
+  margin: .5rem 0 .4rem;
+  border-radius: 12px;
+  background: var(--led);
+  font-size: .9rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.daily-go:disabled { background: var(--sunken); color: var(--muted); }
+
+.mode-records:not(:empty) { margin-bottom: .4rem; }
+
+.mode-strip[data-kind="duel"] { color: var(--record); }
+.mode-strip[data-kind="daily"] { color: var(--led); }
+.mode-strip[data-kind="drill"] { color: var(--ready); }
+
+/* ---------- modes ---------- */
+
+.mode-strip {
+  margin: 0 0 .4rem;
+  font-size: .84rem;
+  font-weight: 500;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.mode-strip[data-kind="marathon"] { color: var(--led); }
+.mode-strip[data-kind="sprint"] { color: var(--record); }
+
+#mode-open[data-active="true"] { color: var(--led); }
+
+.mode-list { display: flex; flex-direction: column; gap: .35rem; margin-bottom: .6rem; }
+
+.mode-list button {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  width: 100%;
+  padding: .55rem .8rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  text-align: left;
+  color: var(--ink);
+}
+
+.mode-list button:hover { background: var(--hover); }
+.mode-list button[data-active="true"] { background: color-mix(in srgb, var(--led) 16%, var(--sunken)); }
+.mode-list button b { font-size: .95rem; font-weight: 600; }
+.mode-list button small { font-size: .78rem; color: var(--muted); }
+.mode-list button[disabled] { opacity: .5; }
+
+/* A second row of choices under the first one is a decision about the same
+   thing, so it sits closer than a new section would. */
+.mode-list.tight button { padding: .45rem .8rem; }
+.mode-list.tight button b { font-size: .88rem; }
+
+.round-headline {
+  margin: 0 0 .6rem;
+  font-size: 2.2rem;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.round-lines { display: flex; flex-direction: column; gap: .25rem; }
+
+.round-lines div {
+  display: flex;
+  justify-content: space-between;
+  gap: .8rem;
+  padding: .4rem .7rem;
+  border-radius: 10px;
+  background: var(--sunken);
+  font-size: .88rem;
+}
+
+.round-lines b { font-variant-numeric: tabular-nums; }
+
+/* A scramble you have had before says so, and nothing more. */
+.scramble-again {
+  margin: .15rem 0 0;
+  font-size: .74rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.scramble-tools { display: flex; gap: .7rem; justify-content: center; align-items: baseline; }
+#repeat-scramble[data-active="true"] { color: var(--led); font-weight: 600; }
+
+/* ---------- records and looking back ---------- */
+
+.records-body { display: flex; flex-direction: column; gap: 1.1rem; }
+
+.records-block h3 {
+  margin: 0 0 .5rem;
+  font-size: .82rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.records-line { margin: 0 0 .3rem; font-size: .88rem; color: var(--ink-soft); }
+.records-lead { margin: 0 0 .5rem; font-size: .92rem; font-weight: 500; color: var(--ink); }
+.records-aside { margin: .4rem 0 0; font-size: .8rem; color: var(--muted); }
+
+/* The three fastest, on an actual podium: gold first and tallest. */
+.podium {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: end;
+  gap: .4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.podium li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .1rem;
+  padding: .6rem .3rem .5rem;
+  border-radius: 12px 12px 4px 4px;
+  background: var(--sunken);
+  text-align: center;
+}
+
+.podium li[data-place="1"] { order: 2; padding-top: 1.3rem; background: color-mix(in srgb, var(--record) 16%, var(--sunken)); }
+.podium li[data-place="2"] { order: 1; padding-top: .95rem; }
+.podium li[data-place="3"] { order: 3; }
+
+.podium-medal { font-size: 1.25rem; line-height: 1; }
+.podium b { font-size: 1rem; font-variant-numeric: tabular-nums; }
+.podium small { font-size: .68rem; color: var(--muted); }
+
+.record-run { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .25rem; }
+
+.record-run li,
+.record-run li button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .6rem;
+  width: 100%;
+  padding: .45rem .7rem;
+  border-radius: 10px;
+  background: var(--sunken);
+  text-align: left;
+  color: var(--ink);
+}
+
+.record-run li button { padding: 0; background: none; }
+.record-run li:has(button) { padding: 0; }
+.record-run li button:hover { background: var(--hover); border-radius: 10px; }
+.record-run li button { padding: .45rem .7rem; }
+
+.record-run b { font-size: .95rem; font-variant-numeric: tabular-nums; }
+.record-run small { font-size: .74rem; color: var(--muted); }
+.record-run li[data-standing="true"] { background: color-mix(in srgb, var(--ready) 18%, var(--sunken)); }
+
+.counter-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; }
+
+.counter-strip div {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  padding: .6rem .4rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  text-align: center;
+}
+
+.counter-strip b { font-size: 1rem; font-variant-numeric: tabular-nums; }
+.counter-strip small { font-size: .68rem; color: var(--muted); }
+
+/* ---------- searching the list ---------- */
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  margin-bottom: .5rem;
+}
+
+.filter-bar input[type="search"] {
+  flex: 1 1 10rem;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 .7rem;
+  border-radius: 10px;
+  border: 1px solid var(--edge);
+  background: var(--sunken);
+  color: var(--ink);
+  font: inherit;
+  font-size: .85rem;
+}
+
+.filter-chips { display: flex; gap: .25rem; }
+
+.filter-chips button {
+  min-height: 32px;
+  padding: 0 .55rem;
+  border-radius: 9px;
+  background: var(--sunken);
+  font-size: .78rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.filter-chips button[data-active="true"] { background: var(--led); color: #fff; }
+
+#filter-open[data-active="true"] { color: var(--led); font-weight: 600; }
+
+/* ---------- marks on a solve ---------- */
+
+.solve-star { margin-left: .3rem; color: var(--record); font-size: .82rem; }
+
+/* Still there, still readable, plainly not part of the numbers. */
+.solve.is-skipped .solve-time { opacity: .55; text-decoration: line-through; text-decoration-thickness: 1px; }
+.solve-tag.is-quiet { background: transparent; color: var(--muted); border: 1px solid var(--edge); }
+
+/* ---------- moving times to another session ---------- */
+
+.move-list { display: flex; flex-direction: column; gap: .35rem; }
+
+.move-list button {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  width: 100%;
+  min-height: 46px;
+  padding: .5rem .8rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  text-align: left;
+  color: var(--ink);
+  transition: background .15s;
+}
+
+.move-list button:hover { background: var(--hover); }
+.move-list button b { font-weight: 600; font-size: .95rem; }
+.move-list button small { color: var(--muted); font-size: .8rem; }
+.move-list button b.other { color: var(--record); }
+.move-list button .grow { flex: 1; }
+
+.move-new { display: flex; gap: .4rem; margin-bottom: .1rem; }
+
+.move-new input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 .7rem;
+  border-radius: 12px;
+  border: 1px solid var(--edge);
+  background: var(--sunken);
+  color: var(--ink);
+  font: inherit;
+  font-size: .9rem;
+}
+
+.move-new select {
+  min-height: 44px;
+  padding: 0 .5rem;
+  border-radius: 12px;
+  border: 1px solid var(--edge);
+  background: var(--sunken);
+  color: var(--ink);
+  font: inherit;
+  font-size: .88rem;
+}
+
+/* ---------- this cube's own colours ---------- */
+
+/* A dark rim rather than a light one: white is one of the six, and a white
+   swatch on a white sheet with a pale outline is nothing at all. */
+#learn-colours.wide {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 12px;
+  background: var(--sunken);
+  font-size: .85rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+#learn-colours.wide:hover { background: var(--hover); color: var(--ink); }
+#learn-colours.wide[data-done="true"] { background: color-mix(in srgb, var(--ready) 18%, transparent); color: var(--ink); }
+
+/* A row that is a shape as well as a number: the bar says at a glance which
+   stretch is out of step, which the figures beside it only say if you read
+   them all and do the arithmetic. */
+.bar-lines { display: flex; flex-direction: column; gap: .3rem; }
+
+.bar-line {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, auto) 1fr minmax(4rem, auto);
+  align-items: center;
+  gap: .6rem;
+  font-size: .84rem;
+}
+
+.bar-line span { color: var(--ink-soft, var(--muted)); }
+
+.bar-line i {
+  display: block;
+  height: .5rem;
+  border-radius: 999px;
+  background: var(--sunken);
+  overflow: hidden;
+  position: relative;
+}
+
+.bar-line i::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--fill, 10%);
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--led) 55%, transparent);
+}
+
+.bar-line i[data-mark='good']::after { background: color-mix(in srgb, var(--ready, #21c274) 70%, transparent); }
+.bar-line i[data-mark='bad']::after { background: color-mix(in srgb, var(--hold, #f4515b) 62%, transparent); }
+
+.bar-line b {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  font-weight: 600;
+  font-size: .8rem;
+}
+
+/* A solve that hurt, with the way to have another go at it on the same row. */
+.worst-row { align-items: center; }
+.worst-row .tiny {
+  padding: .15rem .5rem;
+  font-size: .72rem;
+  border-radius: 8px;
+}
+
+/* ---------- last-layer pictures ---------- */
+
+/* A case is recognised by its shape long before its name, so every list that
+   names one shows it too. */
+.ll-diagram { display: block; width: 100%; height: 100%; }
+
+.case-thumb {
+  display: block;
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  padding: 2px;
+}
+
+/* Choosing which cases go in a set: everything in the group at once, so you can
+   see what you are picking from rather than read a list of names. */
+.case-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr));
+  gap: .4rem;
+  margin: .2rem 0 .8rem;
+}
+
+.case-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .15rem;
+  padding: .4rem .25rem .3rem;
+  border-radius: 10px;
+  background: var(--sunken);
+  border: 2px solid transparent;
+  text-align: center;
+  color: var(--ink);
+}
+
+.case-tile:hover { background: var(--hover); }
+.case-tile[data-on='true'] {
+  border-color: var(--led);
+  background: color-mix(in srgb, var(--led) 14%, var(--sunken));
+}
+
+.case-tile .case-thumb { width: 2.9rem; height: 2.9rem; background: none; }
+.case-tile b { font-size: .74rem; font-weight: 600; }
+.case-tile small {
+  font-size: .62rem;
+  line-height: 1.15;
+  color: var(--muted);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.set-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .7rem;
+  margin: .2rem 0 .1rem;
+}
+
+.set-count { margin-left: auto; font-size: .78rem; color: var(--muted); }
+
+/* A chip row picks one of a few things without taking a whole block to do it. */
+.chip-row { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .5rem; }
+
+.chip {
+  min-height: 32px;
+  padding: 0 .7rem;
+  border-radius: 999px;
+  background: var(--sunken);
+  font-size: .8rem;
+  color: var(--ink-soft);
+}
+
+.chip:hover { background: var(--hover); }
+.chip[data-active='true'] { background: var(--led); color: #fff; }
+
+/* "wijzig" hangs on the right of a set's own row. */
+.mode-list button { position: relative; }
+.set-edit {
+  position: absolute;
+  top: .5rem;
+  right: .7rem;
+  font-size: .72rem;
+  color: var(--muted);
+  text-decoration: underline;
+}
+.set-edit:hover { color: var(--led); }
+
+.make-set {
+  border: 1px dashed var(--edge, rgba(0, 0, 0, .16)) !important;
+  background: none !important;
+  color: var(--ink-soft) !important;
+  font-size: .84rem;
+  align-items: center !important;
+}
+.make-set:hover { background: var(--sunken) !important; }
+
+/* ---------- times per case ---------- */
+
+.case-rows { display: flex; flex-direction: column; gap: .3rem; }
+
+.case-row { border-radius: 12px; background: var(--sunken); overflow: hidden; }
+
+.case-head {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  padding: .45rem .6rem;
+  text-align: left;
+  color: var(--ink);
+}
+
+.case-head:hover { background: var(--hover); }
+/* The picture, then the name and its description stacked, then the figures.
+   This used to select by position and so styled the picture instead. */
+.case-name { display: flex; flex-direction: column; min-width: 0; }
+.case-head b { font-size: .9rem; font-weight: 600; }
+.case-head small { font-size: .72rem; line-height: 1.25; color: var(--muted); }
+
+.case-figure {
+  margin-left: auto;
+  font-size: .78rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.case-times {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem;
+  padding: .1rem .6rem .5rem;
+}
+
+.case-times span {
+  padding: .1rem .4rem;
+  border-radius: 6px;
+  background: var(--card-solid, #fff);
+  font-size: .74rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+.case-times span[data-best='true'] { color: var(--record); font-weight: 600; }
+
+.case-row .detail-actions { padding: 0 .6rem .5rem; margin: 0; }
+
+/* ---------- the rail ----------
+
+   One list of everything the app can do. Beside the timer when the screen is
+   wide enough to spare the room, a drawer over it when it is not -- the same
+   markup either way, so there is nothing to keep in step.
+
+   Four groups, each one a <details>: the browser already knows how to open and
+   close one of those, so there is no state to write down and nothing to go
+   wrong with the keyboard or a screen reader. Which ones you leave open is
+   remembered. */
+
+.rail {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 16.5rem;
+  max-width: 86vw;
+  z-index: 40;
+  background: var(--card-solid, #fff);
+  border-right: 1px solid var(--edge, rgba(0, 0, 0, .08));
+  transform: translateX(-100%);
+  transition: transform .22s ease;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.rail[data-open='true'] { transform: none; }
+
+.rail-inner {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  padding: .8rem .6rem 2rem;
+  padding-top: max(.8rem, env(safe-area-inset-top));
+}
+
+.rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .1rem .3rem .4rem;
+}
+
+.rail-head b { font-size: 1rem; letter-spacing: .01em; }
+
+/* The heading of a group, and the thing you press to fold it away. */
+.rail-group > summary {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  margin-top: .5rem;
+  padding: .35rem .45rem;
+  border-radius: 8px;
+  list-style: none;
+  cursor: pointer;
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rail-group > summary::-webkit-details-marker { display: none; }
+.rail-group > summary:hover { background: var(--sunken); color: var(--ink-soft, var(--ink)); }
+
+/* The arrow, drawn rather than typed, turning as the group opens. */
+.rail-group > summary::before {
+  content: '';
+  width: .42rem;
+  height: .42rem;
+  border-right: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform .18s ease;
+}
+
+.rail-group[open] > summary::before { transform: rotate(45deg) translate(-1px, -1px); }
+
+.rail [data-go] {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  padding: .5rem .55rem;
+  border-radius: 9px;
+  text-align: left;
+  font-size: .88rem;
+  color: var(--ink);
+}
+
+.rail [data-go]:hover { background: var(--sunken); }
+
+.rail [data-go] svg {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: var(--ink-soft, var(--muted));
+}
+
+.rail [data-go]:hover svg { color: var(--led); }
+
+/* The marks live in one hidden sprite at the top of the page. */
+.rail-marks { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.rail-shade {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: rgba(6, 20, 28, .38);
+}
+
+/* Wide: the rail stands there and the page moves over to make room, so nothing
+   ever sits underneath it. */
+@media (min-width: 1180px) {
+  body[data-rail='beside'] .bar,
+  body[data-rail='beside'] .shell { padding-left: 17.2rem; }
+  body[data-rail='beside'] .rail-toggle,
+  body[data-rail='beside'] #rail-close { display: none; }
+  .rail { top: 0; }
+}
+
+@media (max-width: 1179px) {
+  .rail { box-shadow: 0 0 40px -8px rgba(0, 0, 0, .35); }
+
+  /* On a phone the bar sits along the bottom, and the drawer runs the full
+     height behind it -- so the last item or two could never be scrolled clear
+     of it, whichever way you flicked. The list ends a bar's height early. */
+  .rail-inner { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+}
+
+@media (pointer: coarse) {
+  .rail [data-go] { min-height: 44px; }
+  .rail-group > summary { min-height: 40px; }
+}
+
+/* ---------- settings in groups ----------
+
+   The tabs stay put while the group under them scrolls, so you can always see
+   which handful of settings you are looking at and step sideways to another. */
+.settings-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -1.25rem .2rem;
+  padding: .1rem 1.25rem .5rem;
+  background: linear-gradient(var(--card-solid) 76%, transparent);
+  /* One line that slides sideways rather than three lines of chips: the tabs
+     are meant to cost a strip of the sheet, not a third of it. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.settings-tabs::-webkit-scrollbar { display: none; }
+.settings-tabs .chip { flex: 0 0 auto; }
+
+/* The sheet is a flex column, so without this the strip is the thing that gives
+   way when the settings under it are tall -- and it was being squashed to a row
+   of chip-tops. */
+.settings-tabs { flex: 0 0 auto; }
+
+.settings-about {
+  margin: .1rem 0 0;
+  font-size: .76rem;
+  color: var(--muted);
+}
+
+/* The first setting of a group has nothing above it to be divided from. */
+.settings-group > .setting:first-of-type { border-top: 0; }
+
+/* With every group shown at once they need telling apart again. */
+.settings-groups[data-all='true'] .settings-group + .settings-group {
+  margin-top: 1.1rem;
+  padding-top: .5rem;
+  border-top: 2px solid var(--line);
+}
+
+.settings-groups[data-all='true'] .settings-about {
+  font-weight: 600;
+  color: var(--ink-soft, var(--muted));
+}
+
+/* The metronome's speed: a label, the slider across the full width, and the
+   unit beside it. It used to borrow a class name from the camera's crop row,
+   which had no rules of its own, so it was laid out by luck. */
+.slider-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: .6rem;
+  margin: .2rem 0 .4rem;
+  font-size: .84rem;
+  color: var(--ink-soft, var(--muted));
+}
+
+.slider-row output { font-variant-numeric: tabular-nums; }
+
+/* ---------- a slider you can actually drag ----------
+
+   The metronome's speed was a bare native range: sixteen pixels tall and half
+   the width of the sheet, which is a fiddle with a mouse and close to
+   impossible with a thumb. */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2.2rem;
+  background: none;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: .45rem;
+  border-radius: 999px;
+  background: var(--sunken);
+}
+
+input[type='range']::-moz-range-track {
+  height: .45rem;
+  border-radius: 999px;
+  background: var(--sunken);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: -.53rem;
+  border-radius: 50%;
+  background: var(--led);
+  border: 3px solid var(--card-solid, #fff);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, .28);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--led);
+  border: 3px solid var(--card-solid, #fff);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, .28);
+}
+
+input[type='range']:focus-visible { outline: 2px solid var(--led); outline-offset: 4px; }
+
+/* ---------- room for a thumb ----------
+
+   Measured rather than guessed: everything interactive was swept on an
+   emulated phone and anything under forty pixels either way is grown here.
+   Only on a touch screen -- with a mouse the same controls are fine small, and
+   growing them everywhere would push the desktop layout about for nothing. */
+@media (pointer: coarse) {
+  .icon-button { width: 44px; min-width: 44px; height: 44px; }
+  .pill { min-height: 42px; }
+
+  /* The metronome slider is dragged rather than tapped, so it gets more room
+     than a tap target would need. */
+  input[type='range'] { height: 2.75rem; }
+
+  /* Rows of small choosers: theme, font, skin, and the colour wells beside
+     them. */
+  .choice button,
+  .segmented button { min-height: 42px; }
+  .colour-field input[type='color'],
+  input[type='color'] { min-height: 40px; }
+  .swatch { width: 40px; height: 40px; }
+
+  /* Full-width rows are easy to hit sideways, but still want a thumb's height. */
+  .make-set,
+  .record-run button,
+  .records-block .stats-row,
+  .stats-row { min-height: 42px; }
+
+  /* The little word-buttons: under the scramble, over the times list, and in
+     the set builder's tools. Padding rather than height, so they stay words. */
+  .scramble-tools .link,
+  .session-tools .link,
+  .selection-actions .link,
+  .filter-chips button,
+  .set-tools .link,
+  .text-button {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    padding: .3rem .55rem;
+  }
+
+  .session-tools, .selection-actions { gap: .1rem; }
+
+  .field-select,
+  select { min-height: 42px; }
+
+  .chip, .cube-chip { min-height: 40px; }
+
+  /* Buttons that sit inside a list row, like "nog eens" on a bad solve. */
+  .worst-row .tiny { min-height: 36px; padding: .3rem .6rem; }
+
+  /* A row of the times list is a tap target in its own right. */
+  .solves-slot .solve { min-height: 52px; }
+}
+
+/* ---------- the bar on a narrow phone ----------
+
+   Six round buttons at forty-four pixels and a pill beside them come to more
+   than a 390-pixel screen has, and the pill was the part hanging off the end.
+   Everything gives a little rather than one thing being dropped: the gaps
+   close up, the buttons come down to forty-two -- still a thumb's worth -- and
+   the pill loses some of its padding. Measured to fit at 360. */
+@media (max-width: 480px) and (pointer: coarse) {
+  .bar { gap: .35rem; padding-inline: .6rem; }
+  .bar-right { gap: .25rem; }
+  .icon-button { width: 42px; min-width: 42px; height: 42px; }
+  .pill { padding: .55rem .8rem; }
+}
+
+/* Narrower still -- a 360-wide phone is common -- and the name of the app is
+   the one thing on the bar nobody needs while solving. */
+@media (max-width: 380px) and (pointer: coarse) {
+  .brand { display: none; }
+  .bar-right { gap: .15rem; }
+  .icon-button { width: 40px; min-width: 40px; height: 40px; }
+  .pill { padding: .5rem .7rem; }
+}
+
+/* ---------- the algorithms of a case ----------
+
+   One line each: the star that says which is yours, the moves, how many turns
+   they are, and a way to copy them. The starred one is the algorithm the drill
+   sets the case up for, so the star is a choice and not a bookmark. */
+.alg-list {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  padding: .1rem .6rem .35rem;
+}
+
+.alg-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: .5rem;
+  padding: .4rem .5rem;
+  border-radius: 10px;
+  background: var(--card-solid, #fff);
+  border: 1px solid transparent;
+}
+
+.alg-row[data-mine='true'] {
+  background: color-mix(in srgb, var(--record) 12%, var(--card-solid, #fff));
+  border-color: color-mix(in srgb, var(--record) 40%, transparent);
+}
+
+.alg-row[data-own='true'] .alg-under small { color: var(--led); }
+
+.alg-star {
+  font-size: 1.05rem;
+  line-height: 1;
+  padding-top: .1rem;
+  color: var(--muted);
+  opacity: .45;
+  transition: opacity .15s, color .15s, transform .2s cubic-bezier(.2, 1.7, .5, 1);
+}
+
+.alg-row[data-mine='true'] .alg-star { color: var(--record); opacity: 1; transform: scale(1.12); }
+.alg-star:hover { opacity: 1; color: var(--record); }
+
+.alg-body { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
+
+/* The moves, cut at the joints. Each group is a chip of its own, so the eye
+   lands on "R U R' U'" as one thing instead of on eight separate letters. */
+.alg-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .82rem;
+  letter-spacing: .01em;
+  color: var(--ink);
+}
+
+.alg-chunk {
+  padding: .12rem .38rem;
+  border-radius: 6px;
+  background: var(--sunken);
+  white-space: nowrap;
+}
+
+.alg-row[data-mine='true'] .alg-chunk { background: color-mix(in srgb, var(--record) 18%, var(--sunken)); }
+
+.alg-under { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
+
+.alg-under small {
+  font-size: .68rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.alg-under .link { font-size: .7rem; }
+
+.alg-heading {
+  margin: .1rem 0 .1rem;
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.alg-add { margin-top: .15rem; }
+.alg-add .move-new { gap: .35rem; }
+.alg-add input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem; }
+.alg-add .import-note { margin: .3rem 0 0; font-size: .74rem; }
+.alg-add .import-note[data-bad='true'] { color: var(--hold); }
+
+/* The filter over the case list reuses the little word-buttons. One line that
+   slides sideways: five of them wrapped onto two lines and broke words in half
+   on a phone. */
+#cases-filter,
+#paper-filter {
+  margin: -.2rem 0 .4rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+#cases-filter::-webkit-scrollbar,
+#paper-filter::-webkit-scrollbar { display: none; }
+#cases-filter .link,
+#paper-filter .link { flex: 0 0 auto; white-space: nowrap; }
+#cases-filter .link[data-active='true'],
+#paper-filter .link[data-active='true'] { color: var(--ink); background: var(--sunken); }
+
+@media (pointer: coarse) {
+  .alg-star { min-width: 34px; min-height: 34px; }
+  .alg-row .tiny { min-height: 32px; }
+}
+
+/* ---------- recognising a case ----------
+
+   One picture, big enough to read the way you would read it off a cube, and
+   four names under it. Nothing else on the screen: the whole point is the
+   fraction of a second between seeing and knowing. */
+.spot-card {
+  display: grid;
+  place-items: center;
+  padding: .8rem 0 1rem;
+}
+
+.spot-card .case-thumb {
+  width: min(11rem, 52vw);
+  height: min(11rem, 52vw);
+  background: none;
+}
+
+.spot-answers {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: .45rem;
+  margin-bottom: .7rem;
+}
+
+.spot-answer {
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  min-height: 54px;
+  padding: .5rem .7rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  border: 2px solid transparent;
+  text-align: left;
+  color: var(--ink);
+  transition: background .12s, border-color .12s;
+}
+
+.spot-answer:hover { background: var(--hover); }
+.spot-answer b { font-size: .95rem; font-weight: 600; }
+.spot-answer small { font-size: .7rem; line-height: 1.2; color: var(--muted); }
+
+/* Once you have answered, the right one lights up and the one you picked, if it
+   was not that one, says so. */
+.spot-answer[data-said='true'] { pointer-events: none; }
+.spot-answer[data-right='true'] {
+  border-color: var(--ready);
+  background: color-mix(in srgb, var(--ready) 16%, var(--sunken));
+}
+.spot-answer[data-wrong='true'] {
+  border-color: var(--hold);
+  background: color-mix(in srgb, var(--hold) 14%, var(--sunken));
+}
+
+/* ---------- the card of the week ----------
+
+   Nine squares that are meant to be just out of reach. A filled one is not
+   ticked off in a list somewhere -- it is worked out from the week's solves
+   every time the card is drawn -- so what it shows is always true. */
+.bingo {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .3rem;
+}
+
+.bingo-cell {
+  display: grid;
+  place-items: center;
+  min-height: 4.6rem;
+  padding: .4rem;
+  border-radius: 10px;
+  background: var(--sunken);
+  border: 2px solid transparent;
+  font-size: .7rem;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--ink-soft, var(--muted));
+}
+
+.bingo-cell[data-done='true'] {
+  border-color: color-mix(in srgb, var(--ready) 60%, transparent);
+  background: color-mix(in srgb, var(--ready) 14%, var(--sunken));
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* A tick in the corner rather than over the words, which have to stay readable. */
+.bingo-cell[data-done='true']::after {
+  content: '✓';
+  position: absolute;
+  transform: translate(2.2rem, -1.4rem);
+  font-size: .7rem;
+  color: var(--ready);
+}
+
+.bingo-cell { position: relative; }
+
+/* ---------- an opened case: the picture first ----------
+
+   You look at a case to find out what it is, and only then at what to do about
+   it. So the card at the top is the name and the picture, big enough to know
+   from across the table, and the algorithms come under it. */
+
+.case-body {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding: .1rem .6rem .55rem;
+  animation: case-open .42s cubic-bezier(.28, .78, .3, 1) both;
+}
+
+/* Falls open, overshoots, and settles -- twice, smaller the second time. A
+   panel that simply appears gives your eye nothing to follow. */
+@keyframes case-open {
+  0% { opacity: 0; transform: translateY(-10px) scaleY(.96); }
+  50% { opacity: 1; transform: translateY(5px) scaleY(1.015); }
+  72% { transform: translateY(-3px); }
+  86% { transform: translateY(2px); }
+  95% { transform: translateY(-1px); }
+  100% { transform: none; }
+}
+
+.case-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: .8rem;
+  padding: .55rem .6rem;
+  border-radius: 12px;
+  background: var(--card-solid, #fff);
+}
+
+.case-face {
+  display: grid;
+  place-items: center;
+  width: 5.6rem;
+  height: 5.6rem;
+  border-radius: 10px;
+  background: var(--sunken);
+}
+
+.case-face .case-thumb { width: 4.8rem; height: 4.8rem; background: none; }
+.case-face svg { width: 100%; height: 100%; }
+
+.case-about { min-width: 0; }
+.case-about h3 { margin: 0; font-size: 1.35rem; font-weight: 700; line-height: 1.1; }
+.case-said { margin: .15rem 0 0; font-size: .8rem; color: var(--muted); line-height: 1.3; }
+
+.case-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem 1.2rem;
+  margin: .5rem 0 0;
+}
+
+.case-fact { min-width: 4.4rem; }
+
+.case-facts dt {
+  font-size: .64rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.case-facts dd {
+  margin: 0;
+  font-size: .84rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.case-due {
+  margin: 0;
+  font-size: .76rem;
+  color: var(--muted);
+}
+
+.case-due[data-now='true'] { color: var(--record); font-weight: 600; }
+
+/* A case that has gone long enough to wobble gets a mark down its edge, so you
+   can see it in the list without opening anything. */
+.case-row[data-due='true'] { box-shadow: inset 3px 0 0 var(--record); }
+
+.case-note { margin: 0; }
+.case-note > span {
+  font-size: .64rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.case-body .case-times,
+.case-body .detail-actions { padding: 0; }
+
+@media (max-width: 460px) {
+  .case-card { grid-template-columns: 1fr; justify-items: start; }
+  .case-face { width: 6.6rem; height: 6.6rem; }
+  .case-face .case-thumb { width: 5.6rem; height: 5.6rem; }
+}
+
+/* ---------- the algorithm sheet ----------
+
+   Everything you starred, on one page, in a shape that survives a printer.
+   Which is the whole point: the case book is the place you decide, and this is
+   the place you take it away from the screen. */
+
+.paper-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: .5rem;
+}
+
+.paper-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'face about' 'alg alg' 'note note';
+  align-items: center;
+  gap: .3rem .6rem;
+  padding: .5rem .6rem;
+  border-radius: 12px;
+  background: var(--sunken);
+  break-inside: avoid;
+}
+
+.paper-face {
+  grid-area: face;
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+}
+
+.paper-face .case-thumb { width: 3.4rem; height: 3.4rem; background: none; }
+.paper-about { grid-area: about; display: flex; flex-direction: column; min-width: 0; }
+.paper-about b { font-size: 1rem; font-weight: 700; }
+.paper-about small { font-size: .7rem; color: var(--muted); line-height: 1.25; }
+.paper-alg { grid-area: alg; font-size: .78rem; }
+.paper-alg .alg-chunk { background: var(--card-solid, #fff); }
+.paper-note { grid-area: note; margin: 0; font-size: .72rem; color: var(--muted); }
+
+/* Printing a dialog prints the page behind it, so for one moment the page is
+   nothing but the sheet. */
+@media print {
+  body[data-printing='paper'] > *:not(#paper-sheet) { display: none !important; }
+  body[data-printing='paper'] #paper-sheet {
+    position: static;
+    display: block;
+    max-width: none;
+    max-height: none;
+    border: 0;
+    background: #fff;
+    color: #000;
+  }
+  body[data-printing='paper'] #paper-sheet::backdrop { display: none; }
+  body[data-printing='paper'] .sheet-inner { height: auto; overflow: visible; padding: 0; }
+  body[data-printing='paper'] .sheet-scroll { overflow: visible; height: auto; }
+  body[data-printing='paper'] .sheet-head button,
+  body[data-printing='paper'] #paper-groups,
+  body[data-printing='paper'] #paper-filter,
+  body[data-printing='paper'] .detail-actions { display: none !important; }
+  body[data-printing='paper'] .paper-grid { grid-template-columns: repeat(3, 1fr); }
+  body[data-printing='paper'] .paper-card { background: none; border: 1px solid #ddd; }
+  body[data-printing='paper'] .alg-chunk { background: #f1f1f1; }
+}
+
+/* ---------- the wheel ----------
+
+   Three reels behind a window. They are ordinary elements moved with a
+   transform, which is the only way this could be smooth on a phone, and each
+   one is given a little longer than the one before it -- the reel that has not
+   stopped yet is the entire pleasure of a slot machine. */
+
+.slot {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  padding: .7rem;
+  border-radius: 16px;
+  background: linear-gradient(170deg,
+    color-mix(in srgb, var(--led) 18%, var(--sunken)),
+    var(--sunken) 70%);
+}
+
+.slot-window { position: relative; }
+
+/* The pay line, as two ticks at the edges rather than a stripe across the
+   middle: the window shows exactly one face, so a line through it would be a
+   line through the answer. */
+.slot-window::before,
+.slot-window::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform: translateY(-50%);
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  pointer-events: none;
+}
+
+.slot-window::before { left: -.45rem; border-left: 9px solid var(--record); }
+.slot-window::after { right: -.45rem; border-right: 9px solid var(--record); }
+
+.slot-reel { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
+
+.slot-name {
+  font-size: .62rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+
+.slot-port {
+  position: relative;
+  height: 84px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--card-solid, #fff);
+  box-shadow: inset 0 8px 12px -8px rgba(0, 0, 0, .35), inset 0 -8px 12px -8px rgba(0, 0, 0, .35);
+}
+
+.slot-strip { will-change: transform; }
+
+.slot-face {
+  display: grid;
+  place-items: center;
+  height: 84px;
+  padding: .2rem .35rem;
+  text-align: center;
+}
+
+.slot-face b {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* The clunk when a reel drops in: it overshoots and settles, the way a real
+   one does when the brake bites. */
+.slot-window[data-landed='true'] .slot-port { animation: slot-clunk .46s cubic-bezier(.2, 1.6, .4, 1); }
+
+@keyframes slot-clunk {
+  0% { transform: translateY(-3px); }
+  40% { transform: translateY(2px); }
+  70% { transform: translateY(-1px); }
+  100% { transform: none; }
+}
+
+.slot-lever { display: flex; justify-content: center; }
+
+.slot-arm {
+  padding: .55rem 2rem;
+  border-radius: 999px;
+  background: var(--led);
+  color: #fff;
+  font-size: .95rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--led) 70%, transparent);
+  transition: transform .12s cubic-bezier(.2, 1.6, .4, 1), box-shadow .2s;
+}
+
+.slot-arm:active { transform: translateY(3px) scale(.97); box-shadow: none; }
+.slot-arm[disabled] { opacity: .55; }
+
+.slot-body { display: flex; flex-direction: column; gap: .5rem; }
+
+.dare-card {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  padding: .7rem .8rem;
+  border-radius: 14px;
+  background: var(--sunken);
+  animation: dare-in .35s cubic-bezier(.2, .9, .3, 1.15) both;
+}
+
+@keyframes dare-in {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.dare-card[data-on='true'] { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--led) 45%, transparent); }
+.dare-card h3 { margin: 0; font-size: 1.1rem; font-weight: 700; }
+.dare-rule { margin: 0; font-size: .92rem; color: var(--ink); }
+.dare-stake { margin: 0; font-size: .8rem; color: var(--muted); font-style: italic; }
+
+.dare-card .segmented { flex-wrap: wrap; }
+
+.dare-bit { display: flex; flex-direction: column; padding: .25rem 0; }
+.dare-bit + .dare-bit { border-top: 1px solid var(--edge, rgba(0, 0, 0, .1)); }
+.dare-bit b { font-size: .98rem; font-weight: 600; }
+.dare-bit small { font-size: .76rem; color: var(--muted); line-height: 1.3; }
+
+.dare-track {
+  height: 6px;
+  margin-top: .3rem;
+  border-radius: 999px;
+  background: var(--card-solid, #fff);
+  overflow: hidden;
+}
+
+.dare-track span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--led);
+  transition: width .45s cubic-bezier(.2, .9, .3, 1.1);
+}
+
+.dare-count { margin: 0; font-size: .74rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* The reminder on the main screen that something is riding on this session. */
+.dare-strip {
+  display: block;
+  width: 100%;
+  padding: .35rem .6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--led) 14%, var(--sunken));
+  color: var(--ink-soft, var(--ink));
+  font-size: .76rem;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dare-strip:hover { background: color-mix(in srgb, var(--led) 22%, var(--sunken)); }
+
+/* ---------- the course ----------
+
+   A road with stops on it, and the road is stitched through the stops rather
+   than drawn beside them: move a stop and the road moves with it, so the two
+   cannot end up disagreeing. */
+
+.course-layout { display: grid; grid-template-columns: 150px 1fr; gap: 1rem; min-height: 0; }
+
+.course-side {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .45rem;
+  max-height: 76dvh;
+}
+
+.course-cube {
+  display: grid;
+  place-items: center;
+  min-height: 124px;
+  padding: .2rem 0;
+}
+
+.cube-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: .3rem;
+}
+
+.cube-tools .link { font-size: .68rem; }
+.cube-tools .text-button { font-size: .72rem; padding: .25rem .5rem; }
+
+.segmented.tiny button { padding: .2rem .4rem; font-size: .66rem; }
+
+.course-map { flex: 1; min-height: 0; overflow: hidden; width: 100%; }
+.course-map svg { width: 100%; height: auto; overflow: visible; }
+
+.road-back {
+  fill: none;
+  stroke: var(--sunken);
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+
+.road-done {
+  fill: none;
+  stroke: var(--led);
+  stroke-width: 7;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s cubic-bezier(.3, .8, .3, 1);
+}
+
+.road-stop { cursor: pointer; }
+.road-stop[data-shut='true'] { cursor: default; }
+.road-halo { fill: none; stroke: transparent; stroke-width: 2; }
+.road-dot { fill: var(--card-solid, #fff); stroke: var(--sunken); stroke-width: 3; }
+.road-number { font-size: 10px; font-weight: 700; fill: var(--muted); }
+
+.road-stop[data-done='true'] .road-dot { fill: var(--led); stroke: var(--led); }
+.road-stop[data-done='true'] .road-number { fill: #fff; }
+
+.road-stop[data-here='true'] .road-dot { stroke: var(--led); }
+.road-stop[data-here='true'] .road-number { fill: var(--led); }
+.road-stop[data-here='true'] .road-halo {
+  stroke: color-mix(in srgb, var(--led) 55%, transparent);
+  animation: road-pulse 2.2s ease-in-out infinite;
+}
+
+/* A stop you have not reached is drawn faintly and does nothing when pressed. */
+.road-stop[data-shut='true'] { opacity: .45; }
+
+@keyframes road-pulse {
+  0%, 100% { transform: scale(1); opacity: .8; }
+  50% { transform: scale(1.35); opacity: 0; }
+}
+
+.course-body { display: flex; flex-direction: column; gap: .4rem; }
+
+.course-top { margin-bottom: .2rem; }
+.course-said { margin: 0 0 .35rem; font-size: .82rem; color: var(--ink-soft, var(--ink)); }
+
+.course-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--sunken);
+  overflow: hidden;
+}
+
+.course-track span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--led);
+  transition: width .7s cubic-bezier(.2, .9, .3, 1.1);
+}
+
+.step-card { border-radius: 12px; background: var(--sunken); overflow: hidden; }
+.step-card[data-done='true'] { background: color-mix(in srgb, var(--led) 8%, var(--sunken)); }
+
+/* A step you cannot reach yet: still there, still readable as a name, and
+   plainly not a door you can open. */
+.step-card[data-shut='true'] { opacity: .5; }
+.step-card[data-shut='true'] .step-head { cursor: default; }
+.step-card[data-shut='true'] .step-head:hover { background: none; }
+
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  padding: .5rem .6rem;
+  text-align: left;
+  color: var(--ink);
+}
+
+.step-head:hover { background: var(--hover); }
+
+.step-number {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  background: var(--card-solid, #fff);
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.step-card[data-done='true'] .step-number { background: var(--led); color: #fff; }
+
+.step-label { display: flex; flex-direction: column; min-width: 0; }
+.step-label b { font-size: .92rem; font-weight: 600; }
+.step-label small { font-size: .74rem; color: var(--muted); line-height: 1.25; }
+
+.step-long {
+  margin-left: auto;
+  font-size: .72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.step-body {
+  padding: 0 .7rem .6rem;
+  animation: case-open .42s cubic-bezier(.28, .78, .3, 1) both;
+}
+
+.step-body p { margin: .5rem 0; font-size: .86rem; line-height: 1.55; color: var(--ink-soft, var(--ink)); }
+.step-body strong { color: var(--ink); font-weight: 600; }
+
+/* The one sentence that says what this step is for. */
+.step-goal {
+  padding: .4rem .6rem;
+  border-radius: 8px;
+  background: var(--card-solid, #fff);
+  font-size: .84rem !important;
+  font-weight: 600;
+}
+
+.step-does { margin: .7rem 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .7rem; }
+.step-does li { font-size: .86rem; line-height: 1.55; color: var(--ink-soft, var(--ink)); }
+.step-does > li::marker { color: var(--led); font-weight: 700; }
+
+.step-alg {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem;
+  margin: .35rem 0 .2rem;
+  padding: .35rem .45rem;
+  border-radius: 9px;
+  background: var(--card-solid, #fff);
+}
+
+.step-alg .alg-moves { flex: 1 1 auto; }
+.step-alg .alg-chunk { background: var(--sunken); }
+
+.step-why-line { display: block; font-size: .76rem; color: var(--muted); line-height: 1.35; }
+
+.step-wrong {
+  padding: .4rem .6rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--hold) 10%, transparent);
+  font-size: .82rem !important;
+}
+
+.step-check {
+  padding: .4rem .6rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--led) 10%, transparent);
+  font-size: .82rem !important;
+  font-weight: 500;
+}
+
+.step-body .detail-actions { margin: .6rem 0 0; }
+
+@media (max-width: 720px) {
+  .course-layout { grid-template-columns: 1fr; gap: .6rem; }
+  /* On a phone the cube and the road go across the top rather than beside the
+     words: a 150px column out of 360 leaves nothing to read in. */
+  .course-side {
+    position: static;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+    max-height: none;
+    gap: .8rem;
+  }
+  /* The road lies on its side here and gets the full width under the cube. */
+  .course-side { flex-wrap: wrap; }
+  .course-map { max-width: none; flex: 1 0 100%; }
+  .course-side .cube-tools { flex: 1; justify-content: flex-start; }
+}
+
+/* ---------- things that fall ----------
+
+   A panel that appears out of nowhere is a panel you have to go and find with
+   your eyes. One that drops in and settles tells you where it came from, and
+   costs nothing but a curve. The bounce is a real overshoot -- past the mark,
+   back, past it again, smaller -- because that is what a thing that fell does. */
+
+@keyframes drop-in {
+  0% { opacity: 0; transform: translateY(-14px) scaleY(.94); }
+  55% { opacity: 1; transform: translateY(4px) scaleY(1.02); }
+  75% { transform: translateY(-2px) scaleY(.995); }
+  90% { transform: translateY(1px); }
+  100% { transform: none; }
+}
+
+.rail-group[open] > button,
+.rail-group[open] > a { animation: drop-in .34s cubic-bezier(.25, .9, .3, 1) both; }
+
+/* Each row a fraction behind the one above it, so the group pours out rather
+   than arriving in one block. */
+.rail-group[open] > button:nth-of-type(1) { animation-delay: 0ms; }
+.rail-group[open] > button:nth-of-type(2) { animation-delay: 26ms; }
+.rail-group[open] > button:nth-of-type(3) { animation-delay: 52ms; }
+.rail-group[open] > button:nth-of-type(4) { animation-delay: 78ms; }
+.rail-group[open] > button:nth-of-type(5) { animation-delay: 104ms; }
+.rail-group[open] > button:nth-of-type(6) { animation-delay: 130ms; }
+.rail-group[open] > button:nth-of-type(7) { animation-delay: 156ms; }
+
+.rail-group > summary::before { transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+
+/* The same fall for a settings group when you switch tab, and for the panels
+   that swap inside the look-back sheet. */
+.settings-group:not([hidden]) { animation: drop-in .3s cubic-bezier(.25, .9, .3, 1) both; }
+
+.chip, .link { transition: background .16s, color .16s, transform .12s cubic-bezier(.2, 1.7, .5, 1); }
+.chip:active, .link:active { transform: scale(.94); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-group[open] > button,
+  .settings-group:not([hidden]),
+  .case-body,
+  .step-body,
+  .slot-body { display: flex; flex-direction: column; gap: .5rem; }
+
+.dare-card { animation: none !important; }
+  .slot-reel[data-landed='true'] .slot-port { animation: none !important; }
+  .road-stop[data-here='true'] .road-halo { animation: none !important; }
+  .chip:active, .link:active { transform: none; }
+}
+
+/* ---------- the cube you can watch and turn ----------
+
+   Twenty-six little boxes at fixed places; only their sticker colours change.
+   A turn is a temporary group of nine of them rotating a quarter, and when it
+   lands the group is dissolved and everything is repainted from the real state.
+   So there is nothing to keep in step and nothing to drift. */
+
+.cube3d {
+  width: var(--cube-size, 200px);
+  height: var(--cube-size, 200px);
+  perspective: calc(var(--cube-size, 200px) * 4);
+  perspective-origin: 50% 50%;
+  flex: none;
+  touch-action: none;
+}
+
+/* Going back to the start. A cube that jumps has gone wrong; one that dims for
+   a moment and comes back has been reset, and you can tell which is which
+   without being told. */
+.cube3d { transition: opacity .24s ease, filter .24s ease; }
+.cube3d[data-resetting='true'] { opacity: .18; filter: blur(1px); }
+
+.cube3d[data-drag='true'] { cursor: grab; }
+.cube3d[data-drag='true']:active { cursor: grabbing; }
+
+.cube3d-box {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* One little box is one em, so the whole cube scales with the one number. */
+  font-size: calc(var(--cube-size, 200px) / 3.9);
+  transform-style: preserve-3d;
+  transition: transform .4s cubic-bezier(.2, .9, .3, 1);
+}
+
+.cube3d-layer {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.cube3d-cubie {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1em;
+  height: 1em;
+  margin: -.5em 0 0 -.5em;
+  transform-style: preserve-3d;
+}
+
+.cube3d-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 14%;
+  border: .055em solid rgba(0, 0, 0, .55);
+  background: #222;
+  box-shadow: inset 0 0 .18em rgba(0, 0, 0, .35);
+}
+
+/* Where a cube sits in a lesson: it holds its place while the words scroll. */
+.cube-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .5rem;
+}
+
+.cube-tools {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.cube-hint {
+  margin: 0;
+  font-size: .72rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cube3d-box { transition: none; }
+  .cube3d { transition: none; }
+}
+
+
+/* ---------- whose alg is this? ----------
+
+   The second wheel: a case, four algorithms, and only one of them is the one
+   you starred for it. Knowing an algorithm and knowing which case it belongs to
+   are two different skills, and drilling only ever practises the first. */
+
+.alg-quiz {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  padding: .6rem;
+  border-radius: 12px;
+  background: var(--sunken);
+}
+
+.alg-quiz .case-face { width: 4.6rem; height: 4.6rem; }
+.alg-quiz .case-face .case-thumb { width: 4rem; height: 4rem; }
+.alg-quiz-ask { display: flex; flex-direction: column; min-width: 0; }
+.alg-quiz-ask b { font-size: 1.25rem; font-weight: 700; }
+.alg-quiz-ask small { font-size: .78rem; color: var(--muted); line-height: 1.3; }
+
+.alg-choices { display: flex; flex-direction: column; gap: .35rem; }
+
+.alg-choice {
+  padding: .45rem .55rem;
+  border-radius: 10px;
+  background: var(--card-solid, #fff);
+  border: 1px solid var(--edge, rgba(0, 0, 0, .1));
+  text-align: left;
+  transition: background .15s, border-color .15s, transform .12s cubic-bezier(.2, 1.7, .5, 1);
+}
+
+.alg-choice:hover { background: var(--hover); }
+.alg-choice:active { transform: scale(.985); }
+.alg-choice[data-said='true'] { pointer-events: none; }
+.alg-choice[data-right='true'] {
+  border-color: var(--ready);
+  background: color-mix(in srgb, var(--ready) 14%, var(--card-solid, #fff));
+}
+.alg-choice[data-wrong='true'] {
+  border-color: var(--hold);
+  background: color-mix(in srgb, var(--hold) 12%, var(--card-solid, #fff));
+}
+
+@media (max-width: 460px) {
+  .alg-quiz { flex-direction: column; align-items: flex-start; }
+}
+
+
+/* ---------- seventeen events ----------
+
+   A row of chips was fine for six puzzles and is unusable for seventeen, so the
+   picker is a real select with real optgroups: the system picker on a phone,
+   proper grouping on a desktop, and nothing home-made to get wrong. */
+
+.puzzle-pick {
+  appearance: none;
+  padding: .3rem 1.7rem .3rem .75rem;
+  border: 1px solid var(--edge, rgba(0, 0, 0, .12));
+  border-radius: 999px;
+  background: var(--card-solid, #fff);
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: right .85rem center, right .6rem center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  color: var(--ink);
+  font: inherit;
+  font-size: .82rem;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.puzzle-pick:hover { background-color: var(--hover); }
+
+/* Which average this event is actually scored on. The bar keeps its four
+   numbers whatever you are doing; only the mark moves. */
+.stat[data-lead='true'] .stat-label { color: var(--led); font-weight: 700; }
+.stat[data-lead='true'] .stat-value { color: var(--ink); }
+
+/* Fewest moves, and multi-blind, both end with a question rather than a time. */
+.after-attempt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .4rem;
+  margin-top: .5rem;
+  padding: .5rem .6rem;
+  border-radius: 12px;
+  background: var(--sunken);
+}
+
+.after-attempt label { display: flex; align-items: center; gap: .35rem; font-size: .78rem; color: var(--muted); }
+.after-attempt input[type='text'] {
+  flex: 1 1 12rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .82rem;
+}
+.after-attempt input[type='number'] { width: 4rem; }
+.after-attempt .import-note { flex: 1 0 100%; margin: 0; font-size: .74rem; }
+.after-attempt .import-note[data-bad='true'] { color: var(--hold); }
+
+
+/* ---------- the cube in the case book ---------- */
+
+.case-cube {
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  padding: .4rem 0 .1rem;
+}
+
+/* ---------- the piece of paper ----------
+
+   Learning to solve one happens once. This is deliberately over the top: a
+   certificate that looked tasteful would not be funny, and it is meant to be
+   both a joke and a thing you actually pin up. */
+
+.cert {
+  padding: 1.6rem 1.2rem;
+  border: 3px double var(--led);
+  border-radius: 10px;
+  background: var(--card-solid, #fff);
+  text-align: center;
+}
+
+.cert-head {
+  margin: 0;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cert-who {
+  margin: .6rem 0 .2rem;
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.cert-said { margin: .2rem 0; font-size: .84rem; color: var(--ink-soft, var(--ink)); }
+
+.cert-time {
+  margin: .7rem 0 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--record);
+}
+
+.cert-mark {
+  margin: 1rem 0 0;
+  font-size: .66rem;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+@media print {
+  body[data-printing='cert'] > *:not(#cert-sheet) { display: none !important; }
+  body[data-printing='cert'] #cert-sheet {
+    position: static;
+    display: block;
+    max-width: none;
+    max-height: none;
+    border: 0;
+    background: #fff;
+    color: #000;
+  }
+  body[data-printing='cert'] #cert-sheet::backdrop { display: none; }
+  body[data-printing='cert'] .sheet-inner { height: auto; overflow: visible; padding: 0; }
+  body[data-printing='cert'] .sheet-head,
+  body[data-printing='cert'] .field,
+  body[data-printing='cert'] .detail-actions { display: none !important; }
+  body[data-printing='cert'] .cert { border-color: #333; }
+}
+
+
+/* ---------- who is solving ----------
+
+   A profile's face is a little cube in their own colour, drawn rather than
+   photographed: the middle square is theirs and the rest is quiet, so eight
+   profiles are still eight faces at a glance. */
+
+.who-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .2rem .6rem .2rem .3rem;
+  border-radius: 999px;
+  background: var(--sunken);
+  color: var(--ink-soft, var(--ink));
+  font-size: .76rem;
+  font-weight: 600;
+  max-width: 9rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.who-chip:hover { background: var(--hover); }
+.who-mark { flex: none; color: var(--ink); }
+
+.who-list { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .5rem; }
+
+.who-row {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .3rem .4rem;
+  border-radius: 10px;
+  background: var(--sunken);
+}
+
+.who-row[data-me='true'] { background: color-mix(in srgb, var(--led) 12%, var(--sunken)); }
+
+.who-go {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex: 1;
+  min-width: 0;
+  padding: .2rem;
+  text-align: left;
+  color: var(--ink);
+}
+
+.who-go b { font-size: .9rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.who-go small { font-size: .7rem; color: var(--muted); }
+
+.who-cloud { margin-top: .8rem; }
+.who-cloud .move-new { flex-wrap: wrap; }
+.who-cloud input { flex: 1 1 9rem; }

@@ -1,0 +1,16 @@
+{
+  "name": "Cubetimer",
+  "short_name": "Cubetimer",
+  "description": "Speedcube timer voor 3x3, 2x2, 4x4, Pyraminx en Skewb, met ondersteuning voor de GAN Smart Timer.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eaf6fd",
+  "theme_color": "#bfe3f5",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
